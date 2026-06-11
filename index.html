@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>앤서수학 학생 포털</title>
+<style>
+  :root{--bg:#f4f5f7;--card:#fff;--line:#e4e6ea;--text:#1c1e21;--muted:#6b7280;--brand:#2f6df0;--brand-soft:#e8f0fe;
+    --green:#16a34a;--green-soft:#e7f6ec;--red:#dc2626;--red-soft:#fdeaea;--amber:#d97706;--amber-soft:#fdf1e0;--star:#f5a623;--kakao:#FEE500;}
+  *{box-sizing:border-box;}
+  body{margin:0;font-family:'Apple SD Gothic Neo','Malgun Gothic',sans-serif;background:var(--bg);color:var(--text);}
+  #bar{background:var(--card);border-bottom:1px solid var(--line);padding:11px 18px;display:flex;align-items:center;gap:12px;flex-wrap:wrap;position:sticky;top:0;z-index:5;}
+  .logo{font-weight:800;font-size:18px;color:var(--brand);line-height:1.1;}
+  .logo small{display:block;font-size:11px;color:var(--muted);font-weight:500;}
+  .spacer{flex:1;}
+  .who{font-size:13px;color:var(--muted);} .who b{color:var(--text);}
+  .ghostbtn{border:1px solid var(--line);background:var(--card);border-radius:8px;padding:7px 12px;font-size:13px;cursor:pointer;color:var(--muted);}
+  select{padding:8px 10px;border:1px solid var(--line);border-radius:8px;font-size:13px;background:var(--card);}
+  main{max-width:880px;margin:18px auto;padding:0 16px 70px;}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:18px;margin-bottom:16px;}
+  .card h2{margin:0 0 4px;font-size:16px;} .sub{color:var(--muted);font-size:13px;margin:0 0 14px;}
+  .badge{display:inline-block;font-size:11px;font-weight:700;padding:3px 9px;border-radius:20px;}
+  .b-teacher{background:#efe9fb;color:#6b3fd1;} .b-stu{background:var(--brand-soft);color:var(--brand);} .b-parent{background:var(--green-soft);color:var(--green);}
+  .hero{text-align:center;padding:34px 0 8px;} .hero .lg{font-size:32px;font-weight:800;color:var(--brand);} .hero p{color:var(--muted);margin:8px 0 0;font-size:14px;}
+  .kbtn{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;background:var(--kakao);color:#191600;border:0;border-radius:12px;padding:14px;font-size:15px;font-weight:700;cursor:pointer;margin-top:8px;}
+  .demobtn{display:block;width:100%;background:var(--card);color:var(--text);border:1px solid var(--line);border-radius:12px;padding:13px;font-size:14px;font-weight:600;cursor:pointer;margin-top:10px;}
+  .loginwrap{max-width:360px;margin:0 auto;}
+  .note{font-size:12px;color:var(--muted);text-align:center;margin-top:16px;line-height:1.6;}
+  .seg{display:flex;gap:8px;} .seg.small{max-width:200px;margin-bottom:4px;}
+  .seg button{flex:1;padding:9px;border:1px solid var(--line);background:var(--card);border-radius:8px;font-size:13px;font-weight:600;color:var(--muted);cursor:pointer;}
+  .seg button.active{border-color:var(--brand);color:var(--brand);background:var(--brand-soft);}
+  .calhdr{display:grid;grid-template-columns:repeat(7,1fr);gap:7px;margin-top:8px;} .calhdr span{text-align:center;font-size:11px;color:var(--muted);font-weight:700;}
+  .mgrid,.week{display:grid;grid-template-columns:repeat(7,1fr);gap:7px;margin-top:7px;}
+  .day,.mcell{background:var(--card);border:1px solid var(--line);border-radius:10px;text-align:center;cursor:pointer;}
+  .day{padding:9px 4px;} .mcell{min-height:56px;padding:5px 3px 7px;display:flex;flex-direction:column;align-items:center;gap:2px;}
+  .day:hover,.mcell:hover{border-color:var(--brand);} .day.today,.mcell.today{background:var(--brand-soft);border:2px solid var(--brand);}
+  .day .dnum,.mcell .mn{font-size:11px;color:var(--muted);} .mcell .mn{align-self:flex-start;margin-left:4px;} .mcell.today .mn,.day.today .dnum{color:var(--brand);font-weight:700;}
+  .ic{font-size:20px;line-height:1.3;} .ic-done{color:var(--green);} .ic-miss{color:var(--red);} .ic-todo{color:var(--brand);} .ic-none{color:#cbd2dc;}
+  .hwitem{display:flex;align-items:center;gap:11px;padding:11px 2px;border-top:1px solid var(--line);} .hwitem:first-of-type{border-top:0;}
+  .chk{font-size:22px;cursor:pointer;color:#cbd2dc;user-select:none;} .chk.on{color:var(--green);}
+  .hwitem .txt{font-size:14px;flex:1;} .hwitem.done .txt{text-decoration:line-through;color:var(--muted);} .readonly .chk{cursor:default;}
+  .tag{font-size:10px;font-weight:600;padding:2px 7px;border-radius:20px;background:#eef1f4;color:#6b7280;} .tag.stu{background:var(--brand-soft);color:var(--brand);} .tag.video{background:var(--amber-soft);color:var(--amber);}
+  label{font-size:12px;color:var(--muted);display:block;margin:10px 0 4px;font-weight:600;}
+  input[type=text],input[type=number],input[type=date]{width:100%;padding:9px 10px;border:1px solid var(--line);border-radius:8px;font-size:13px;}
+  .row{display:flex;gap:10px;flex-wrap:wrap;} .row>div{flex:1;min-width:120px;}
+  .btn{background:var(--brand);color:#fff;border:0;border-radius:9px;padding:11px 16px;font-size:14px;font-weight:700;cursor:pointer;margin-top:14px;} .btn.ghost{background:var(--bg);color:var(--text);border:1px solid var(--line);}
+  .stat{display:flex;gap:10px;margin-top:8px;} .stat .box{flex:1;background:var(--bg);border-radius:10px;padding:11px;text-align:center;} .stat .box b{display:block;font-size:22px;} .stat .box span{font-size:11px;color:var(--muted);}
+  .hint{font-size:12px;color:var(--muted);margin-top:8px;} .empty{color:var(--muted);font-size:13px;padding:14px 0;text-align:center;}
+  .vid{border:1px solid var(--line);border-radius:12px;padding:13px 14px;margin-bottom:10px;} .vid .vh{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:6px;} .vid .vt{font-weight:600;font-size:14px;}
+  .stars{color:var(--star);font-size:14px;letter-spacing:1px;} .vid .fb{font-size:13px;color:#374151;line-height:1.55;margin:4px 0 0;} .vid .err{font-size:12px;background:var(--red-soft);color:#a3261f;border-radius:8px;padding:7px 10px;margin-top:7px;}
+  .preview{display:flex;gap:10px;background:var(--brand-soft);border-radius:12px;padding:13px;align-items:flex-start;} .preview .ttl{font-size:13px;font-weight:700;color:#1d4ed8;margin:0 0 4px;} .preview p{margin:0;font-size:13px;color:#1d4ed8;line-height:1.55;}
+  .lock{font-size:12px;color:var(--muted);background:var(--bg);border-radius:8px;padding:8px 11px;margin-top:6px;}
+  .banner{background:var(--amber-soft);color:#7a4d06;font-size:12px;padding:8px 14px;text-align:center;}
+</style>
+</head>
+<body>
+<div id="bar"></div>
+<div id="banner"></div>
+<main id="app"><div class="card"><div class="empty">불러오는 중…</div></div></main>
+
+<script type="module">
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+
+const SUPABASE_URL = 'https://hddsyoaymvpfcloqthyv.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_cJHc-U-rvFrHVogusPcJ7A_x6uV1E4-';
+const sb = createClient(SUPABASE_URL, SUPABASE_KEY);
+
+const DOW=['월','화','수','목','금','일'.replace('일','토'),'일'];
+const DOWK=['월','화','수','목','금','토','일'];
+const ICON={done:'✓',miss:'✕',todo:'✎',none:'·'};
+const ICLASS={done:'ic-done',miss:'ic-miss',todo:'ic-todo',none:'ic-none'};
+const pad=n=>String(n).padStart(2,'0');
+const todayISO=()=>{const d=new Date();return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate());};
+
+let mode='loading';      // loading | login | demo | real
+let session=null, profile=null;
+let realStudents=[], curStudentId=null, homework=[], videos=[];
+let calView='month', focusDate=todayISO();
+
+/* ---------------- DEMO DATA (둘러보기) ---------------- */
+const TODAY='2026-06-11';
+const WEEK=['2026-06-08','2026-06-09','2026-06-10','2026-06-11','2026-06-12','2026-06-13','2026-06-14'];
+const dStudents=[{id:'s1',name:'김윤하',grade:'고1',subject:'경우의 수',parent:'윤하 어머니'},
+  {id:'s2',name:'조세빈',grade:'고2',subject:'수열',parent:'세빈 어머니'},{id:'s3',name:'정혜교',grade:'중3',subject:'이차함수',parent:'혜교 어머니'}];
+let dItems=[{id:'h1',sid:'s1',date:'2026-06-08',text:'경우의 수 1~8번',done:true,by:'teacher'},
+  {id:'h2',sid:'s1',date:'2026-06-09',text:'경우의 수 9~16번',done:true,by:'teacher'},
+  {id:'h3',sid:'s1',date:'2026-06-10',text:'경우의 수 17~24번',done:false,by:'teacher'},
+  {id:'h4',sid:'s1',date:'2026-06-11',text:'곱법칙 프린트 1~6번',done:true,by:'teacher'},
+  {id:'h5',sid:'s1',date:'2026-06-11',text:'곱법칙 프린트 7~12번',done:false,by:'teacher'},
+  {id:'h6',sid:'s1',date:'2026-06-11',text:'복습영상 제출 (경우의 수)',done:false,by:'teacher',video:true},
+  {id:'h7',sid:'s1',date:'2026-06-12',text:'경우의 수 25~30번',done:false,by:'teacher'},
+  {id:'h8',sid:'s2',date:'2026-06-09',text:'등차수열의 합 1~10번',done:true,by:'teacher'},
+  {id:'h9',sid:'s3',date:'2026-06-10',text:'이차함수 완전제곱식 RPM',done:false,by:'teacher'}];
+let dVideos=[{id:'v1',sid:'s1',date:'2026-06-09',title:'경우의 수 길찾기 12번',status:'done',stars:4,
+  fb:'합의 법칙과 곱의 법칙 구분이 정확하고 길찾기 경로를 빠짐없이 세었어요.',err:'마지막 대각선 경로 1가지를 빼서 답이 1 작게 나왔어요.'},
+  {id:'v2',sid:'s3',date:'2026-06-11',title:'이차함수 완전제곱식 만들기',status:'done',stars:3,
+  fb:'일반형에서 꼭짓점 형태로 바꾸는 과정을 단계별로 잘 설명했어요.',err:'상수항 부호를 한 번 반대로 처리했어요.'}];
+let dRole='teacher', dSel='s1', dFocus=TODAY, dCal='month', dSplit='auto';
+
+/* ---------------- INIT ---------------- */
+async function init(){
+  try{
+    const { data } = await sb.auth.getSession();
+    session = data.session;
+    if(session){ await enterReal(); }
+    else { mode='login'; render(); }
+  }catch(e){ mode='login'; render(); }
+}
+sb.auth.onAuthStateChange((_e, s)=>{ if(s && mode!=='real'){ session=s; enterReal(); } });
+
+async function enterReal(){
+  mode='real';
+  render();
+  const { data: prof } = await sb.from('profiles').select('*').eq('id', session.user.id).maybeSingle();
+  profile = prof || { role:'student', name:(session.user.user_metadata.name||'사용자') };
+  if(profile.role==='teacher'){
+    const { data: st } = await sb.from('students').select('*').order('name');
+    realStudents = st||[];
+    curStudentId = realStudents[0]?.id || null;
+    await loadStudentData();
+  } else {
+    const { data: st } = await sb.from('students').select('*');
+    realStudents = st||[];
+    curStudentId = realStudents[0]?.id || null;
+    await loadStudentData();
+  }
+  render();
+}
+async function loadStudentData(){
+  if(!curStudentId){ homework=[]; videos=[]; return; }
+  const { data: hw } = await sb.from('homework').select('*').eq('student_id', curStudentId);
+  const { data: vd } = await sb.from('videos').select('*').eq('student_id', curStudentId);
+  homework = hw||[]; videos = vd||[];
+}
+
+async function loginKakao(){
+  await sb.auth.signInWithOAuth({ provider:'kakao', options:{ redirectTo: window.location.origin + window.location.pathname } });
+}
+async function logout(){ await sb.auth.signOut(); session=null; profile=null; mode='login'; render(); }
+
+window.__app = { loginKakao, logout, startDemo:()=>{mode='demo';render();},
+  setCal:v=>{calView=v;render();}, setFocus:d=>{focusDate=d;render();},
+  pickStudent:async v=>{curStudentId=v;await loadStudentData();render();},
+  addHwReal:addHwReal, toggleReal:toggleReal,
+  dSetRole:r=>{dRole=r;dFocus=TODAY;render();}, dSetCal:v=>{dCal=v;render();}, dFocusSet:d=>{dFocus=d;render();},
+  dPick:v=>{dSel=v;render();}, dToggle:dToggle, dSplitSet:v=>{dSplit=v;render();}, dAuto:dAuto, dManual:dManual, dStuAdd:dStuAdd, dSubmitVid:dSubmitVid, dUploadOpen:()=>{dUp=true;render();}, dUploadCancel:()=>{dUp=false;render();} };
+
+/* ---------------- shared calendar helpers ---------------- */
+function monthDays(refISO){ const [y,m]=refISO.split('-').map(Number); const n=new Date(y,m,0).getDate(); const arr=[]; for(let d=1;d<=n;d++) arr.push(y+'-'+pad(m)+'-'+pad(d)); return arr; }
+function dowOf(iso){ const [y,m,d]=iso.split('-').map(Number); return (new Date(y,m-1,d).getDay()+6)%7; } // 0=Mon
+function statusOf(items,date,today){ const l=items.filter(i=>i.date===date); if(!l.length)return'none'; if(l.every(i=>i.done))return'done'; if(date<today)return'miss'; return'todo'; }
+
+function weekStrip(items,today,onClick){
+  // week containing today
+  const base=monthDays(today); // ensures same month for demo; for real, compute around today
+  let h='<div class="week">';
+  const start=new Date(today); const off=(start.getDay()+6)%7; start.setDate(start.getDate()-off);
+  for(let i=0;i<7;i++){ const d=new Date(start); d.setDate(start.getDate()+i); const iso=d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate());
+    const st=statusOf(items,iso,today);
+    h+=`<div class="day ${iso===today?'today':''}" onclick="${onClick}('${iso}')"><div class="dnum">${DOWK[i]} ${+iso.slice(-2)}</div><div class="ic ${ICLASS[st]}">${ICON[st]}</div></div>`; }
+  return h+'</div>';
+}
+function monthGrid(items,today,onClick){
+  const days=monthDays(today); let h='<div class="calhdr">'+DOWK.map(x=>`<span>${x}</span>`).join('')+'</div><div class="mgrid">';
+  const lead=dowOf(days[0]); for(let i=0;i<lead;i++) h+='<div></div>';
+  days.forEach(iso=>{ const st=statusOf(items,iso,today); h+=`<div class="mcell ${iso===today?'today':''}" onclick="${onClick}('${iso}')"><span class="mn">${+iso.slice(-2)}</span><div class="ic ${ICLASS[st]}">${st==='none'?'':ICON[st]}</div></div>`; });
+  return h+'</div>';
+}
+
+/* ---------------- REAL actions ---------------- */
+async function addHwReal(){
+  const c=document.getElementById('rhwText').value.trim(); const d=document.getElementById('rhwDate').value||todayISO();
+  if(!c){alert('숙제 내용을 입력하세요');return;}
+  await sb.from('homework').insert({student_id:curStudentId, due_date:d, content:c, created_by:'teacher'});
+  await loadStudentData(); render();
+}
+async function toggleReal(id){
+  if(profile.role==='parent')return;
+  const it=homework.find(h=>h.id===id); if(!it)return;
+  await sb.from('homework').update({done:!it.done, done_at: it.done?null:new Date().toISOString()}).eq('id',id);
+  await loadStudentData(); render();
+}
+
+/* ---------------- DEMO actions ---------------- */
+let dUp=false;
+function dItemsFor(sid,date){return dItems.filter(i=>i.sid===sid&&i.date===date);}
+function dVideosFor(sid){return dVideos.filter(v=>v.sid===sid).sort((a,b)=>b.date.localeCompare(a.date));}
+function dStatus(sid,date){const l=dItemsFor(sid,date);if(!l.length)return'none';if(l.every(i=>i.done))return'done';if(date<TODAY)return'miss';return'todo';}
+function dToggle(id){if(dRole==='parent')return;const it=dItems.find(i=>i.id===id);if(it){it.done=!it.done;render();}}
+let dUid=100;
+function dAuto(){const t=document.getElementById('dTitle').value.trim()||'숙제';const tot=parseInt(document.getElementById('dTotal').value)||0;const s=document.getElementById('dStart').value||TODAY;const e=document.getElementById('dEnd').value||s;if(tot<=0){alert('총 문항 수');return;}const days=WEEK.filter(d=>d>=s&&d<=e);if(!days.length){alert('기간 확인');return;}const per=Math.ceil(tot/days.length);let n=1;days.forEach(d=>{const f=n,to=Math.min(n+per-1,tot);if(f>tot)return;dItems.push({id:'h'+(dUid++),sid:dSel,date:d,text:`${t} ${f}~${to}번`,done:false,by:'teacher'});n=to+1;});render();}
+function dManual(){const d=document.getElementById('dmDate').value,t=document.getElementById('dmText').value.trim();if(!d||!t){alert('날짜·내용');return;}dItems.push({id:'h'+(dUid++),sid:dSel,date:d,text:t,done:false,by:'teacher'});render();}
+function dStuAdd(){const t=document.getElementById('dsText').value.trim();if(!t)return;dItems.push({id:'h'+(dUid++),sid:dSel,date:TODAY,text:t,done:false,by:'student'});render();}
+function dSubmitVid(){const sub=document.getElementById('dvSub').value.trim()||dInfo(dSel).subject;const unit=document.getElementById('dvUnit').value.trim()||'단원';const v={id:'v'+(dUid++),sid:dSel,date:TODAY,title:sub+' '+unit,status:'ing',stars:0,fb:'',err:''};dVideos.unshift(v);dUp=false;const hw=dItems.find(i=>i.sid===dSel&&i.date===TODAY&&i.video);if(hw)hw.done=true;render();setTimeout(()=>{v.status='done';v.stars=4;v.fb='풀이 단계마다 근거를 또박또박 설명했어요. 논리 비약 없이 잘 풀었습니다.';v.err='마지막 검산 한 줄만 추가하면 완벽해요.';render();},1500);}
+function dInfo(sid){return dStudents.find(s=>s.id===sid);}
+
+/* ---------------- RENDER ---------------- */
+function render(){
+  renderBar();
+  const app=document.getElementById('app');
+  if(mode==='loading'){ app.innerHTML='<div class="card"><div class="empty">불러오는 중…</div></div>'; return; }
+  if(mode==='login'){ app.innerHTML=loginHtml(); return; }
+  if(mode==='demo'){ app.innerHTML=demoHtml(); return; }
+  if(mode==='real'){ app.innerHTML=realHtml(); return; }
+}
+function renderBar(){
+  let h='<div class="logo">앤서수학<small>학생 포털</small></div><div class="spacer"></div>';
+  document.getElementById('banner').innerHTML='';
+  if(mode==='demo'){ document.getElementById('banner').innerHTML='<div class="banner">둘러보기(데모) — 가짜 데이터예요. 실제 로그인은 상단 로그아웃 후 카카오로.</div>'; h+='<button class="ghostbtn" onclick="__app.logout()">로그인 화면</button>'; }
+  if(mode==='real'&&profile){ const rb=profile.role==='teacher'?'b-teacher':profile.role==='parent'?'b-parent':'b-stu'; const rn=profile.role==='teacher'?'선생님':profile.role==='parent'?'학부모':'학생';
+    if(profile.role==='teacher'&&realStudents.length){ h+=`<select onchange="__app.pickStudent(this.value)">`+realStudents.map(s=>`<option value="${s.id}" ${s.id===curStudentId?'selected':''}>${s.name}</option>`).join('')+`</select>`; }
+    h+=`<span class="badge ${rb}">${rn}</span><span class="who"><b>${profile.name||''}</b></span><button class="ghostbtn" onclick="__app.logout()">로그아웃</button>`; }
+  document.getElementById('bar').innerHTML=h;
+}
+function loginHtml(){
+  return `<div class="hero"><div class="lg">앤서수학</div><p>매일 숙제 · 복습영상 · 학습 알림을 한 곳에서</p></div>
+  <div class="loginwrap"><div class="card">
+    <button class="kbtn" onclick="__app.loginKakao()"><span style="font-size:17px">💬</span> 카카오로 로그인</button>
+    <button class="demobtn" onclick="__app.startDemo()">먼저 둘러보기 (데모)</button>
+    <p class="note">학생·학부모는 카카오로 로그인하면 본인(자녀) 화면만 보여요.<br>선생님(가람)이 가장 먼저 로그인하면 관리자(전체)로 설정됩니다.</p>
+  </div></div>`;
+}
+
+/* ---- REAL view ---- */
+function realHtml(){
+  if(!profile) return '<div class="card"><div class="empty">프로필 확인 중…</div></div>';
+  const today=todayISO();
+  const s=realStudents.find(x=>x.id===curStudentId);
+  const itemsMapped=homework.map(h=>({id:h.id,date:h.due_date,text:h.content,done:h.done,by:h.created_by,video:h.is_video}));
+  let h='';
+  if(profile.role==='teacher'){
+    if(!realStudents.length) return '<div class="card"><h2>환영합니다, '+(profile.name||'선생님')+'님</h2><p class="sub">아직 학생 데이터가 없어요.</p></div>';
+    h+=`<div class="card"><h2>${s?s.name:''} <span style="color:var(--muted);font-weight:400">${s&&s.grade?'· '+s.grade:''} ${s&&s.subject?'· '+s.subject:''}</span></h2>
+      <p class="sub">실데이터 연결됨 · 상단에서 학생 변경 · 날짜를 누르면 그 날 숙제</p>${calBlockReal(itemsMapped,today)}</div>`;
+    h+=`<div class="card"><h2>숙제 추가</h2><p class="sub">추가하면 수파베이스에 바로 저장돼요</p>
+      <div class="row"><div style="flex:2"><label>날짜</label><input id="rhwDate" type="date" value="${today}"></div>
+      <div style="flex:3"><label>내용</label><input id="rhwText" type="text" placeholder="예: 경우의 수 1~8번"></div></div>
+      <button class="btn" onclick="__app.addHwReal()">저장</button></div>`;
+    h+=dayCardReal(itemsMapped,focusDate,false);
+    h+=`<div class="card"><h2>복습영상</h2><p class="sub">학생이 올린 영상 분석</p>${videoList(videos.map(mapVid))}</div>`;
+  } else {
+    const name = s?s.name:(profile.name||'');
+    if(!realStudents.length) return `<div class="card"><h2>안녕하세요, ${profile.name||''}님</h2><p class="sub">아직 연결된 학생 정보가 없어요. 선생님이 계정을 연결하면 여기에서 숙제와 피드백을 볼 수 있어요.</p></div>`;
+    h+=`<div class="card"><h2>${name} 학습 현황 <span class="badge ${profile.role==='parent'?'b-parent':'b-stu'}">${profile.role==='parent'?'학부모':'학생'}</span></h2>
+      <p class="sub">실데이터 연결됨 · 본인(자녀) 것만 보여요</p>${calBlockReal(itemsMapped,today)}
+      <div class="lock">🔒 다른 학생 정보는 서버에서 차단돼 보이지 않아요.</div></div>`;
+    h+=dayCardReal(itemsMapped,today,profile.role==='parent');
+    h+=`<div class="card"><h2>복습영상 피드백</h2>${videoList(videos.map(mapVid))}</div>`;
+  }
+  return h;
+}
+function mapVid(v){return {title:v.title,status:v.status,stars:v.stars,fb:v.feedback,err:v.error_note,date:v.submit_date};}
+function calBlockReal(items,today){
+  return `<div class="seg small"><button class="${calView==='week'?'active':''}" onclick="__app.setCal('week')">주간</button><button class="${calView==='month'?'active':''}" onclick="__app.setCal('month')">월간</button></div>`+
+    (calView==='week'?weekStrip(items,today,'__app.setFocus'):monthGrid(items,today,'__app.setFocus'));
+}
+function dayCardReal(items,date,ro){
+  const l=items.filter(i=>i.date===date);
+  const list = l.length? l.map(i=>`<div class="hwitem ${i.done?'done':''} ${ro?'readonly':''}"><span class="chk ${i.done?'on':''}" onclick="${ro?'':'__app.toggleReal(\''+i.id+'\')'}">${i.done?'☑':'☐'}</span><span class="txt">${i.text}</span>${i.video?'<span class="tag video">영상</span>':(i.by==='student'?'<span class="tag stu">학생</span>':'<span class="tag">선생님</span>')}</div>`).join('') : '<div class="empty">이 날은 등록된 숙제가 없어요.</div>';
+  return `<div class="card"><h2>${+date.slice(-2)}일 숙제</h2><p class="sub">체크하면 저장됩니다</p>${list}</div>`;
+}
+function videoList(vs){ if(!vs.length)return '<div class="empty">아직 제출된 복습영상이 없어요.</div>';
+  return vs.map(v=> v.status==='ing'
+    ? `<div class="vid"><div class="vh"><span class="vt">${v.title}</span><span style="color:var(--amber);font-weight:600">분석 중…</span></div><p class="fb">구글드라이브에 저장하고 분석 중이에요.</p></div>`
+    : `<div class="vid"><div class="vh"><span class="vt">${v.title}</span><span class="stars">${'★'.repeat(v.stars||0)}${'☆'.repeat(5-(v.stars||0))}</span></div><p class="fb">${v.fb||''}</p>${v.err?`<div class="err">보완: ${v.err}</div>`:''}</div>`).join('');
+}
+
+/* ---- DEMO view (tested) ---- */
+function dCalBlock(sid){const items=dItems.filter(i=>i.sid===sid).map(i=>({date:i.date,done:i.done}));
+  const mk=(onClick)=> dCal==='week'?weekStrip(dItems.filter(i=>i.sid===sid).map(i=>({date:i.date,done:i.done})),TODAY,onClick):monthGrid(dItems.filter(i=>i.sid===sid).map(i=>({date:i.date,done:i.done})),TODAY,onClick);
+  return `<div class="seg small"><button class="${dCal==='week'?'active':''}" onclick="__app.dSetCal('week')">주간</button><button class="${dCal==='month'?'active':''}" onclick="__app.dSetCal('month')">월간</button></div>`+mk('__app.dFocusSet');
+}
+function dChecklist(sid,date,ro){const l=dItemsFor(sid,date);if(!l.length)return'<div class="empty">이 날은 등록된 숙제가 없어요.</div>';return l.map(i=>`<div class="hwitem ${i.done?'done':''} ${ro?'readonly':''}"><span class="chk ${i.done?'on':''}" onclick="${ro?'':'__app.dToggle(\''+i.id+'\')'}">${i.done?'☑':'☐'}</span><span class="txt">${i.text}</span>${i.video?'<span class="tag video">영상</span>':(i.by==='student'?'<span class="tag stu">학생 추가</span>':'<span class="tag">선생님</span>')}</div>`).join('');}
+function dVideoList(sid){const vs=dVideosFor(sid);if(!vs.length)return'<div class="empty">아직 제출된 복습영상이 없어요.</div>';return vs.map(v=>v.status==='ing'?`<div class="vid"><div class="vh"><span class="vt">${v.title}</span><span style="color:var(--amber);font-weight:600">분석 중…</span></div><p class="fb">구글드라이브에 저장하고 분석 중이에요.</p></div>`:`<div class="vid"><div class="vh"><span class="vt">${v.title}</span><span class="stars">${'★'.repeat(v.stars)}${'☆'.repeat(5-v.stars)}</span></div><p class="fb">${v.fb}</p>${v.err?`<div class="err">보완: ${v.err}</div>`:''}</div>`).join('');}
+function demoHtml(){
+  const sid=dSel,s=dInfo(sid);let h='';
+  h+=`<div class="card"><div class="seg" style="max-width:330px"><button class="${dRole==='teacher'?'active':''}" onclick="__app.dSetRole('teacher')">선생님</button><button class="${dRole==='student'?'active':''}" onclick="__app.dSetRole('student')">학생</button><button class="${dRole==='parent'?'active':''}" onclick="__app.dSetRole('parent')">학부모</button></div>
+    <div style="margin-top:10px"><select onchange="__app.dPick(this.value)">`+dStudents.map(x=>`<option value="${x.id}" ${x.id===dSel?'selected':''}>${x.name}</option>`).join('')+`</select></div></div>`;
+  if(dRole==='teacher'){
+    const tot=dItems.filter(i=>i.sid===sid).length,dn=dItems.filter(i=>i.sid===sid&&i.done).length;
+    h+=`<div class="card"><h2>${s.name} · ${s.grade} · ${s.subject}</h2><p class="sub">날짜를 누르면 그 날 숙제</p>${dCalBlock(sid)}
+      <div class="stat"><div class="box"><b>${tot}</b><span>이번 주</span></div><div class="box"><b style="color:var(--green)">${dn}</b><span>완료</span></div><div class="box"><b style="color:var(--red)">${tot-dn}</b><span>미완료</span></div></div></div>`;
+    h+=`<div class="card"><h2>숙제 등록</h2><div class="seg small" style="max-width:240px"><button class="${dSplit==='auto'?'active':''}" onclick="__app.dSplitSet('auto')">자동 분배</button><button class="${dSplit==='manual'?'active':''}" onclick="__app.dSplitSet('manual')">직접 입력</button></div>`;
+    if(dSplit==='auto') h+=`<label>숙제 이름</label><input id="dTitle" type="text" placeholder="예: 경우의 수 프린트"><div class="row"><div><label>총 문항</label><input id="dTotal" type="number" placeholder="30"></div><div><label>시작일</label><input id="dStart" type="date" value="2026-06-11"></div><div><label>마감</label><input id="dEnd" type="date" value="2026-06-14"></div></div><button class="btn" onclick="__app.dAuto()">자동 분배 등록</button>`;
+    else h+=`<label>날짜</label><input id="dmDate" type="date" value="2026-06-11"><label>내용</label><input id="dmText" type="text" placeholder="예: 오답노트 2문제"><button class="btn" onclick="__app.dManual()">추가</button>`;
+    h+=`</div><div class="card"><h2>${+dFocus.slice(-2)}일 숙제</h2>${dChecklist(sid,dFocus,false)}</div>`;
+    h+=`<div class="card"><h2>${s.name} 복습영상</h2>${dVideoList(sid)}</div>`;
+  }
+  if(dRole==='student'){
+    h+=`<div class="card"><h2>안녕, ${s.name}! <span class="badge b-stu">학생</span></h2>${dCalBlock(sid)}<div class="lock">🔒 내 것만 보여요.</div></div>`;
+    h+=`<div class="card"><h2>오늘 (6/11) 숙제</h2>${dChecklist(sid,TODAY,false)}<label style="margin-top:14px">나도 숙제 추가</label><div class="row"><div style="flex:3"><input id="dsText" type="text" placeholder="예: 틀린 문제 다시"></div><div><button class="btn ghost" style="margin-top:0" onclick="__app.dStuAdd()">추가</button></div></div></div>`;
+    h+=`<div class="card"><h2>복습영상</h2>${dUp?`<div class="row"><div><label>과목</label><input id="dvSub" type="text" placeholder="경우의 수"></div><div><label>단원</label><input id="dvUnit" type="text" placeholder="곱법칙 12번"></div></div><label>파일</label><input type="text" value="📹 review_0611.mp4" readonly style="color:var(--muted)"><div style="display:flex;gap:8px"><button class="btn" onclick="__app.dSubmitVid()">제출하고 분석 요청</button><button class="btn ghost" onclick="__app.dUploadCancel()">취소</button></div>`:`<button class="btn" onclick="__app.dUploadOpen()">＋ 복습영상 올리기</button>`}<div style="margin-top:14px">${dVideoList(sid)}</div></div>`;
+  }
+  if(dRole==='parent'){
+    const td=dItemsFor(sid,TODAY),done=td.filter(i=>i.done).length;const yest=WEEK[WEEK.indexOf(TODAY)-1],yMiss=dItemsFor(sid,yest).filter(i=>!i.done).length;
+    h+=`<div class="card readonly"><h2>${s.name} 학습 현황 <span class="badge b-parent">학부모</span></h2>${dCalBlock(sid)}</div>`;
+    h+=`<div class="card readonly"><h2>오늘 (6/11)</h2><p class="sub">${td.length}개 중 ${done}개 완료</p>${dChecklist(sid,TODAY,true)}</div>`;
+    let msg=`${s.parent}, 오늘 6/11 ${s.name} 숙제 ${td.length}개 중 ${done}개 완료했어요.`+(yMiss>0?` 어제 숙제 ${yMiss}개는 미완료입니다.`:` 어제까지 모두 완료했어요!`);
+    h+=`<div class="card"><h2>학부모 알림 미리보기</h2><p class="sub">매일 저녁 9시 카카오 알림톡(셋업 후)</p><div class="preview"><span style="font-size:18px">🔔</span><div><p class="ttl">[앤서수학] 오늘의 학습 알림</p><p>${msg}</p></div></div></div>`;
+    h+=`<div class="card readonly"><h2>복습영상 피드백</h2>${dVideoList(sid)}</div>`;
+  }
+  return h;
+}
+
+init();
+</script>
+</body>
+</html>

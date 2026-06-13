@@ -220,6 +220,7 @@ function realHtml(){
     h+=`</div>`;
   }
   h+=`<div class="card"><h2>복습영상</h2><p class="sub">풀이를 직접 설명하며 녹화 → 본인 폴더에 올리면 선생님이 확인해요</p>
+    <a class="btn ghost full" href="recording-guide.pdf" target="_blank" rel="noopener" style="text-decoration:none;display:block;text-align:center;box-sizing:border-box;margin-bottom:10px">📖 녹화 방법 보기</a>
     <button class="btn amber full" onclick="A.openFolder('${s.name}')">＋ 복습영상 올리기 (내 드라이브 폴더 열기)</button>
     <p class="hint">파일명 예시: 0612_수1_삼각함수_개념설명.mp4 · 3~7분 권장</p>${videoList(videos)}</div>`;
   return h;
@@ -279,7 +280,8 @@ function demoHtml(){const sid=D.sel,s=dInfo(sid);let h=`<div class="card"><div c
     if(D.split==='auto')h+=`<label>숙제 이름</label><input id="dTitle" type="text" placeholder="예: 프린트"><div class="row"><div><label>총 문항</label><input id="dTotal" type="number" placeholder="30"></div></div><button class="btn" onclick="A.dAuto()">자동 분배</button>`;
     else h+=`<label>날짜</label><input id="dmDate" type="date" value="2026-06-11"><label>내용</label><input id="dmText" type="text"><button class="btn" onclick="A.dMan()">추가</button>`;
     h+=`</div><div class="card"><h2>${+D.focus.slice(-2)}일 숙제</h2>${dChk(sid,D.focus,false)}</div><div class="card"><h2>복습영상</h2>${dVids(sid)}</div>`;}
-  if(D.role==='student'){h+=`<div class="card"><h2>안녕, ${s.name}! <span class="badge b-stu">학생</span></h2>${dCalBlock(sid)}</div><div class="card"><h2>오늘 숙제</h2>${dChk(sid,D.TODAY,false)}<label style="margin-top:14px">나도 숙제 추가</label><div class="row"><div style="flex:3"><input id="dsText" type="text"></div><div><button class="btn ghost" style="margin-top:0" onclick="A.dStu()">추가</button></div></div></div><div class="card"><h2>복습영상</h2>${D.up?`<button class="btn amber" onclick="A.dVid()">제출(데모)</button> <button class="btn ghost" onclick="A.dUpC()">취소</button>`:`<button class="btn amber full" onclick="A.dUp()">＋ 복습영상 올리기</button>`}<div style="margin-top:12px">${dVids(sid)}</div></div>`;}
+  if(D.role==='student'){h+=`<div class="card"><h2>안녕, ${s.name}! <span class="badge b-stu">학생</span></h2>${dCalBlock(sid)}</div><div class="card"><h2>오늘 숙제</h2>${dChk(sid,D.TODAY,false)}<label style="margin-top:14px">나도 숙제 추가</label><div class="row"><div style="flex:3"><input id="dsText" type="text"></div><div><button class="btn ghost" style="margin-top:0" onclick="A.dStu()">추가</button></div></div></div><div class="card"><h2>복습영상</h2><a class="btn ghost full" href="recording-guide.pdf" target="_blank" rel="noopener" style="text-decoration:none;display:block;text-align:center;box-sizing:border-box;margin-bottom:10px">📖 녹화 방법 보기</a>
+    ${D.up?`<button class="btn amber" onclick="A.dVid()">제출(데모)</button> <button class="btn ghost" onclick="A.dUpC()">취소</button>`:`<button class="btn amber full" onclick="A.dUp()">＋ 복습영상 올리기</button>`}<div style="margin-top:12px">${dVids(sid)}</div></div>`;}
   if(D.role==='parent'){const td=dItems(sid,D.TODAY),done=td.filter(i=>i.done).length;h+=`<div class="card readonly"><h2>${s.name} 학습 현황 <span class="badge b-parent">학부모</span></h2>${dCalBlock(sid)}</div><div class="card readonly"><h2>오늘</h2><p class="sub">${td.length}개 중 ${done}개 완료</p>${dChk(sid,D.TODAY,true)}</div><div class="card"><h2>학부모 알림 미리보기</h2><div class="preview"><span style="font-size:18px">🔔</span><div><p class="ttl">[앤서수학교습소] 오늘의 학습 알림</p><p>${s.name} 학생 학부모님, 오늘 숙제 ${td.length}개 중 ${done}개 완료했어요.</p></div></div></div>`;}
   return h;}
 

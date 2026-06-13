@@ -113,7 +113,7 @@ window.A={ loginKakao, logout, startDemo:()=>{mode='demo';render();},
   pick:async v=>{curId=v;view='student';await loadStudent();render();},
   setCal:v=>{calView=v;render();}, setFocus:d=>{focusDate=d;render();}, setSplit:v=>{splitMode=v;render();},
   autoSplit, manualAdd, toggle, linkStudent, studentAdd, openFolder,
-  stuSplit, stuAddDate, setStuMode:v=>{stuMode=v;render();},
+  stuSplit, stuAddDate, stuRebalance, setStuMode:v=>{stuMode=v;render();},
   dRole:r=>{D.role=r;D.focus=D.TODAY;render();}, dCal:v=>{D.cal=v;render();}, dFocus:d=>{D.focus=d;render();}, dPick:v=>{D.sel=v;render();}, dToggle, dSplit:v=>{D.split=v;render();}, dAuto, dMan, dStu, dVid, dUp:()=>{D.up=true;render();}, dUpC:()=>{D.up=false;render();} };
 
 function openFolder(name){ const u=folderUrl(name); if(u) window.open(u,'_blank'); else alert('이 학생의 영상 폴더가 아직 연결되지 않았어요.'); }
@@ -152,6 +152,19 @@ async function stuSplit(){
   await sb.from('homework').insert(rows); await loadStudent(); render();
 }
 async function stuAddDate(){const c=document.getElementById('sdText').value.trim(),d=document.getElementById('sdDate').value||todayISO();if(!c){alert('내용을 입력하세요');return;}await sb.from('homework').insert({student_id:curId,due_date:d,content:c,created_by:'student'});await loadStudent();render();}
+async function stuRebalance(){
+  const today=todayISO();
+  const overdue=homework.filter(h=>!h.done && h.due_date<today);
+  if(!overdue.length){alert('밀린 숙제가 없어요! 잘하고 있어요 👍');return;}
+  if(!confirm(`밀린 숙제 ${overdue.length}개를 오늘부터 3일에 나눠 다시 깔까요?`))return;
+  const span=3, per=Math.ceil(overdue.length/span); let i=0;
+  for(const it of overdue){
+    const off=Math.floor(i/per); const d=new Date(); d.setDate(d.getDate()+off);
+    const iso=d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate());
+    await sb.from('homework').update({due_date:iso}).eq('id',it.id); i++;
+  }
+  await loadStudent(); render();
+}
 async function toggle(id){if(profile.role==='parent')return;const it=homework.find(h=>h.id===id);if(!it)return;await sb.from('homework').update({done:!it.done,done_at:it.done?null:new Date().toISOString()}).eq('id',id);await loadStudent();render();}
 async function linkStudent(sid,profileId){if(!profileId)return;await sb.from('students').update({user_id:profileId}).eq('id',sid);const {data:st}=await sb.from('students').select('*').order('name');students=st||[];await loadUnlinked();render();}
 
@@ -184,6 +197,19 @@ function realHtml(){
   const items=homework.map(h=>({id:h.id,date:h.due_date,text:h.content,done:h.done,by:h.created_by}));
   const ro=profile.role==='parent';
   let h=`<div class="card"><h2>${s.name} <span class="badge ${ro?'b-parent':'b-stu'}">${ro?'학부모':'학생'}</span></h2><p class="sub">${ro?'자녀':'내'} 숙제·복습영상 · 본인 것만 보여요</p>${calBlock(items,today,'A.setFocus')}<div class="lock">🔒 다른 학생 정보는 서버에서 차단됩니다.</div></div>`;
+  if(!ro){
+    const todays=items.filter(i=>i.date===today);
+    const todoToday=todays.filter(i=>!i.done).length;
+    const overdue=items.filter(i=>i.date<today&&!i.done).length;
+    const weekDone=items.filter(i=>i.done).length;
+    let msg = overdue>0 ? `밀린 숙제가 <b>${overdue}개</b> 있어요. 아래 버튼으로 남은 날에 다시 나눠보세요.`
+            : todoToday>0 ? `오늘 할 숙제 <b>${todoToday}개</b>! 하나씩 체크해 나가요.`
+            : `오늘 할 숙제를 다 했어요. 멋져요! 🎉`;
+    h+=`<div class="card"><h2>오늘의 학습</h2>
+      <div class="stat"><div class="box"><b style="color:var(--brand)">${todoToday}</b><span>오늘 할 일</span></div><div class="box"><b style="color:var(--red)">${overdue}</b><span>밀린 것</span></div><div class="box"><b style="color:var(--green)">${weekDone}</b><span>완료</span></div></div>
+      <p class="hint">${msg}</p>
+      ${overdue>0?`<button class="btn full" onclick="A.stuRebalance()">밀린 숙제 ${overdue}개 다시 나누기</button>`:''}</div>`;
+  }
   h+=dayCard(items,today,ro);
   if(!ro){
     const future=items.filter(i=>!i.done && i.date>=today).length;

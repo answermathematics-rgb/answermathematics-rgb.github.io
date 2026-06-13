@@ -77,7 +77,7 @@ const folderUrl=name=>{const st=students.find(s=>s.name===name);return (st&&st.d
 
 let mode='loading', session=null, profile=null;
 let students=[], curId=null, homework=[], videos=[], unlinked=[];
-let view='student', calView='month', focusDate=todayISO(), splitMode='auto';
+let view='student', calView='month', focusDate=todayISO(), splitMode='auto', stuMode='auto';
 
 async function init(){
   try{ const {data}=await sb.auth.getSession(); session=data.session;
@@ -113,6 +113,7 @@ window.A={ loginKakao, logout, startDemo:()=>{mode='demo';render();},
   pick:async v=>{curId=v;view='student';await loadStudent();render();},
   setCal:v=>{calView=v;render();}, setFocus:d=>{focusDate=d;render();}, setSplit:v=>{splitMode=v;render();},
   autoSplit, manualAdd, toggle, linkStudent, studentAdd, openFolder,
+  stuSplit, stuAddDate, setStuMode:v=>{stuMode=v;render();},
   dRole:r=>{D.role=r;D.focus=D.TODAY;render();}, dCal:v=>{D.cal=v;render();}, dFocus:d=>{D.focus=d;render();}, dPick:v=>{D.sel=v;render();}, dToggle, dSplit:v=>{D.split=v;render();}, dAuto, dMan, dStu, dVid, dUp:()=>{D.up=true;render();}, dUpC:()=>{D.up=false;render();} };
 
 function openFolder(name){ const u=folderUrl(name); if(u) window.open(u,'_blank'); else alert('이 학생의 영상 폴더가 아직 연결되지 않았어요.'); }
@@ -137,6 +138,20 @@ async function autoSplit(){
 }
 async function manualAdd(){const c=document.getElementById('mText').value.trim(),d=document.getElementById('mDate').value||todayISO();if(!c){alert('내용을 입력하세요');return;}await sb.from('homework').insert({student_id:curId,due_date:d,content:c,created_by:'teacher'});await loadStudent();render();}
 async function studentAdd(){const c=document.getElementById('sText').value.trim();if(!c)return;await sb.from('homework').insert({student_id:curId,due_date:todayISO(),content:c,created_by:'student'});await loadStudent();render();}
+async function stuSplit(){
+  const title=document.getElementById('sTitle').value.trim()||'내 숙제';
+  const total=parseInt(document.getElementById('sTotal').value)||0;
+  const start=document.getElementById('sStart').value||todayISO();
+  const end=document.getElementById('sEnd').value||start;
+  if(total<=0){alert('총 분량(문항 수)을 입력하세요');return;}
+  const days=[];let d=new Date(start),e=new Date(end);
+  while(d<=e){days.push(d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate()));d.setDate(d.getDate()+1);}
+  if(!days.length){alert('기간을 확인하세요');return;}
+  const per=Math.ceil(total/days.length);let n=1;const rows=[];
+  for(const dd of days){const f=n,t=Math.min(n+per-1,total);if(f>total)break;rows.push({student_id:curId,due_date:dd,content:`${title} ${f}~${t}번`,created_by:'student'});n=t+1;}
+  await sb.from('homework').insert(rows); await loadStudent(); render();
+}
+async function stuAddDate(){const c=document.getElementById('sdText').value.trim(),d=document.getElementById('sdDate').value||todayISO();if(!c){alert('내용을 입력하세요');return;}await sb.from('homework').insert({student_id:curId,due_date:d,content:c,created_by:'student'});await loadStudent();render();}
 async function toggle(id){if(profile.role==='parent')return;const it=homework.find(h=>h.id===id);if(!it)return;await sb.from('homework').update({done:!it.done,done_at:it.done?null:new Date().toISOString()}).eq('id',id);await loadStudent();render();}
 async function linkStudent(sid,profileId){if(!profileId)return;await sb.from('students').update({user_id:profileId}).eq('id',sid);const {data:st}=await sb.from('students').select('*').order('name');students=st||[];await loadUnlinked();render();}
 
@@ -170,6 +185,14 @@ function realHtml(){
   const ro=profile.role==='parent';
   let h=`<div class="card"><h2>${s.name} <span class="badge ${ro?'b-parent':'b-stu'}">${ro?'학부모':'학생'}</span></h2><p class="sub">${ro?'자녀':'내'} 숙제·복습영상 · 본인 것만 보여요</p>${calBlock(items,today,'A.setFocus')}<div class="lock">🔒 다른 학생 정보는 서버에서 차단됩니다.</div></div>`;
   h+=dayCard(items,today,ro);
+  if(!ro){
+    const future=items.filter(i=>!i.done && i.date>=today).length;
+    h+=`<div class="card"><h2>내 숙제 계획 세우기</h2><p class="sub">스스로 기간에 나눠 계획하면 매일 부담이 줄어요${future?` · 앞으로 할 숙제 <b>${future}</b>개`:''}</p>
+      <div class="seg small" style="max-width:260px"><button class="${stuMode==='auto'?'active':''}" onclick="A.setStuMode('auto')">기간에 나누기</button><button class="${stuMode==='manual'?'active':''}" onclick="A.setStuMode('manual')">직접 추가</button></div>`;
+    if(stuMode==='auto') h+=`<label>숙제 이름</label><input id="sTitle" type="text" placeholder="예: 쎈 3단원"><div class="row"><div><label>총 문항</label><input id="sTotal" type="number" placeholder="40"></div><div><label>오늘부터</label><input id="sStart" type="date" value="${today}"></div><div><label>마감일</label><input id="sEnd" type="date" value="${today}"></div></div><button class="btn" onclick="A.stuSplit()">나눠서 계획표 만들기</button><p class="hint">남은 날에 맞춰 하루치씩 자동으로 캘린더에 깔려요.</p>`;
+    else h+=`<label>날짜</label><input id="sdDate" type="date" value="${today}"><label>내용</label><input id="sdText" type="text" placeholder="예: 오답노트 5문제"><button class="btn" onclick="A.stuAddDate()">내 계획에 추가</button>`;
+    h+=`</div>`;
+  }
   h+=`<div class="card"><h2>복습영상</h2><p class="sub">풀이를 직접 설명하며 녹화 → 본인 폴더에 올리면 선생님이 확인해요</p>
     <button class="btn amber full" onclick="A.openFolder('${s.name}')">＋ 복습영상 올리기 (내 드라이브 폴더 열기)</button>
     <p class="hint">파일명 예시: 0612_수1_삼각함수_개념설명.mp4 · 3~7분 권장</p>${videoList(videos)}</div>`;

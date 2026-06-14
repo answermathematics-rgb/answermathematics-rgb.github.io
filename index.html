@@ -246,7 +246,7 @@ function teacherStudent(today){
   else h+=`<label>날짜</label><input id="mDate" type="date" value="${today}"><label>내용</label><input id="mText" type="text" placeholder="예: 오답노트 2문제"><button class="btn" onclick="A.manualAdd()">저장</button>`;
   h+=`</div>`;
   h+=dayCard(items,focusDate,false);
-  h+=`<div class="card"><h2>${s?s.name:''} 복습영상</h2>${videoList(videos)}<button class="btn ghost full" onclick="A.openFolder('${s?s.name:''}')">학생 영상 폴더 열기</button></div>`;
+  h+=`<div class="card"><h2>${s?s.name:''} 복습영상</h2>${videoList(videos)}<a class="btn ghost full" href="recording-guide.pdf" target="_blank" rel="noopener" style="text-decoration:none">📖 녹화 방법 보기</a><button class="btn ghost full" onclick="A.openFolder('${s?s.name:''}')">학생 영상 폴더 열기</button></div>`;
   return h;
 }
 function teacherAll(today){

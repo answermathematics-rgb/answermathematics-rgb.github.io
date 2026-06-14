@@ -3,7 +3,15 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>앤서수학 학생 포털</title>
+<title>앤서수학교습소 | 청량리 1:1 관리 수학 교습소</title>
+<meta name="description" content="복습영상으로 '설명할 수 있는 수학'을 가르치는 청량리 수학 교습소. 중·고등부 1:1 진도 관리, 학부모 알림톡, 자체 학습 포털.">
+<meta name="keywords" content="청량리 수학학원, 동대문구 수학교습소, 가람수학, 앤서수학, 중등수학, 고등수학, 1:1 수학, 복습영상">
+<meta property="og:title" content="앤서수학교습소 | 청량리 1:1 관리 수학 교습소">
+<meta property="og:description" content="복습영상으로 '설명할 수 있는 수학'을 만들어요. 중·고등부 1:1 진도 관리 · 학부모 알림톡.">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://answermathematics-rgb.github.io/">
+<meta name="twitter:card" content="summary">
+<style id="mk">.mk-hero{max-width:680px;margin:0 auto;padding:6px 16px 0}.mk-slogan{font-size:25px;font-weight:800;line-height:1.32;margin:14px 0 6px;color:#3b2e6e}.mk-sub{color:#6b6b80;font-size:14.5px;margin-bottom:16px}.mk-cards{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:16px 0}.mk-card{background:#fff;border:1px solid #ece9f6;border-radius:14px;padding:13px;text-align:left;display:flex;flex-direction:column;gap:5px;box-shadow:0 2px 10px rgba(80,60,150,.05)}.mk-ico{font-size:21px}.mk-card b{font-size:14.5px;color:#3b2e6e}.mk-card span{font-size:12.5px;color:#666;line-height:1.5}.mk-loc{background:#f6f4fc;border-radius:14px;padding:13px;margin:4px 0 14px;display:flex;flex-direction:column;gap:3px;text-align:left}.mk-loc b{color:#3b2e6e}.mk-loc span{font-size:13.5px;color:#555}.mk-cta{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;margin-bottom:14px}.mk-btn{flex:1;min-width:120px;padding:13px 12px;border-radius:12px;background:#fff;border:1px solid #d9d4ec;color:#3b2e6e;font-weight:700;font-size:13.5px;text-decoration:none;text-align:center}.mk-primary{background:#5b3df5;border-color:#5b3df5;color:#fff}.mk-login-label{font-size:12.5px;color:#999;margin:6px 0 2px}@media(max-width:640px){.mk-cards{grid-template-columns:1fr}.mk-slogan{font-size:21px}}</style>
 <style>
   :root{--bg:#f4f5f7;--card:#fff;--line:#e4e6ea;--text:#1c1e21;--muted:#6b7280;--brand:#2f6df0;--brand-soft:#e8f0fe;
     --green:#16a34a;--green-soft:#e7f6ec;--red:#dc2626;--red-soft:#fdeaea;--amber:#d97706;--amber-soft:#fdf1e0;--star:#f5a623;--kakao:#FEE500;}
@@ -178,7 +186,7 @@ function renderBar(){let h='<div class="logo">앤서수학<small>학생 포털</
   if(mode==='real'&&profile){const rb=profile.role==='teacher'?'b-teacher':profile.role==='parent'?'b-parent':'b-stu';const rn=profile.role==='teacher'?'선생님':profile.role==='parent'?'학부모':'학생';
     h+=`<span class="badge ${rb}">${rn}</span><span class="who"><b>${profile.name||''}</b></span><button class="ghostbtn" onclick="A.logout()">로그아웃</button>`;}
   document.getElementById('bar').innerHTML=h;}
-function loginHtml(){return `<div class="hero"><div class="lg">앤서수학</div><p>매일 숙제 · 복습영상 · 학습 알림을 한 곳에서</p></div>
+function loginHtml(){return `<div class="hero mk-hero"><div class="lg">앤서수학</div><h1 class="mk-slogan">수학을 '설명할 수 있는 힘'으로.</h1><div class="mk-sub">복습영상으로 다지는 1:1 관리 수학 교습소 · 청량리</div><div class="mk-cards"><div class="mk-card"><div class="mk-ico">📹</div><b>복습영상 시스템</b><span>풀이를 직접 영상으로 설명·제출. 단순 채점 학원과 다른 가장 큰 차이예요.</span></div><div class="mk-card"><div class="mk-ico">👥</div><b>1:1 진도 관리</b><span>학생마다 단원·속도·시험일정에 맞춘 개별 진도. 같은 숙제를 받지 않아요.</span></div><div class="mk-card"><div class="mk-ico">📱</div><b>학부모 알림·포털</b><span>매주 출결·숙제를 카톡으로. 자체 포털에서 자녀 학습 현황을 확인해요.</span></div></div><div class="mk-loc"><b>📍 오시는 길</b><span>서울 동대문구 왕산로 186 (청량리역 우남SL타워) 409호</span><span>중·고등부 · 1:1 관리 수학 교습소 · ☎ 010-7419-3664</span></div><div class="mk-cta"><a class="mk-btn mk-primary" href="http://pf.kakao.com/_pxlUnX/chat" target="_blank" rel="noopener">💬 카카오톡으로 상담하기</a><a class="mk-btn" href="https://www.instagram.com/answer_math/" target="_blank" rel="noopener">📷 인스타그램</a><a class="mk-btn" href="https://map.naver.com/p/search/서울 동대문구 왕산로 186" target="_blank" rel="noopener">🗺️ 위치</a></div><div class="mk-login-label">이미 등록한 학생·학부모이신가요? 아래로 로그인하세요 ↓</div></div>
   <div class="loginwrap"><div class="card"><button class="kbtn" onclick="A.loginKakao()"><span style="font-size:17px">💬</span> 카카오로 로그인</button>
   <a class="kbtn" style="text-decoration:none;margin-top:10px" href="http://pf.kakao.com/_pxlUnX/friend" target="_blank" rel="noopener"><span style="font-size:17px">＋</span> 카카오톡 채널 추가하고 알림 받기</a>
   <p class="note">학생·학부모는 카카오로 로그인하면 본인(자녀) 화면만 보여요.<br>채널을 추가하면 숙제·복습 알림을 카톡으로 받아요.<br>선생님(가람)이 가장 먼저 로그인하면 관리자로 설정됩니다.</p></div></div>`;}

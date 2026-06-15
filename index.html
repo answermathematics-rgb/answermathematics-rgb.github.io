@@ -121,7 +121,7 @@ const folderUrl=name=>{const st=students.find(s=>s.name===name);return (st&&st.d
 
 let mode='loading', session=null, profile=null;
 let students=[], curId=null, homework=[], videos=[], unlinked=[];
-let view='student', calView='month', focusDate=todayISO(), splitMode='auto', stuMode='auto', editPhone=false, editInfo=false, regChoice=null;
+let view='student', calView='month', focusDate=todayISO(), splitMode='auto', stuMode='auto', editPhone=false, regChoice=null;
 
 async function init(){
   try{ const {data}=await sb.auth.getSession(); session=data.session;
@@ -154,10 +154,10 @@ async function logout(){ await sb.auth.signOut(); session=null;profile=null;mode
 
 window.A={ loginKakao, logout, startDemo:()=>{mode='demo';render();},
   setView:async v=>{view=v; if(v==='link')await loadUnlinked(); render();},
-  pick:async v=>{curId=v;view='student';editPhone=false;editInfo=false;await loadStudent();render();},
+  pick:async v=>{curId=v;view='student';editPhone=false;await loadStudent();render();},
   setCal:v=>{calView=v;render();}, setFocus:d=>{focusDate=d;render();}, setSplit:v=>{splitMode=v;render();},
   autoSplit, manualAdd, toggle, linkStudent, studentAdd, openFolder, saveGuardianPhone, filterStudents, filterSelect, saveMyInfo,
-  stuSplit, stuAddDate, setStuMode:v=>{stuMode=v;render();}, editGuardianPhone:()=>{editPhone=true;render();}, editMyInfo:()=>{editInfo=true;render();}, chooseReg:v=>{regChoice=v;render();},
+  stuSplit, stuAddDate, setStuMode:v=>{stuMode=v;render();}, editGuardianPhone:()=>{editPhone=true;render();}, chooseReg:v=>{regChoice=v;render();},
   dRole:r=>{D.role=r;D.focus=D.TODAY;render();}, dCal:v=>{D.cal=v;render();}, dFocus:d=>{D.focus=d;render();}, dPick:v=>{D.sel=v;render();}, dToggle, dSplit:v=>{D.split=v;render();}, dAuto, dMan, dStu, dVid, dUp:()=>{D.up=true;render();}, dUpC:()=>{D.up=false;render();} };
 
 function openFolder(name){ const u=folderUrl(name); if(u) window.open(u,'_blank'); else alert('이 학생의 영상 폴더가 아직 연결되지 않았어요.'); }
@@ -213,7 +213,7 @@ async function saveMyInfo(){
   const {error}=await sb.rpc('save_my_info',{p_phone:phone,p_guardian:guardian,p_address:val('myAddr'),p_score:val('myScore')});
   if(error){alert('저장 실패: '+error.message);return;}
   const {data:st}=await sb.from('students').select('*').order('name');students=st||[];
-  editInfo=false;alert('정보가 저장됐어요! 감사합니다 🙂');render();}
+  alert('정보가 저장됐어요! 감사합니다 🙂');render();}
 
 function render(){renderBar();const app=document.getElementById('app');
   if(mode==='loading'){app.innerHTML='<div class="card"><div class="empty">불러오는 중…</div></div>';return;}
@@ -284,17 +284,14 @@ function realHtml(){
   h+=channelCard();
   if(!ro){
     const filled=s.student_phone||s.guardian_phone||s.address||s.score;
-    const need=!s.guardian_phone||!s.student_phone;
-    if(filled&&!editInfo){
-      h+=`<div style="text-align:right;margin:0 2px 6px"><span onclick="A.editMyInfo()" style="font-size:11px;color:var(--muted);text-decoration:underline;cursor:pointer">내 정보 수정</span></div>`;
-    } else {
-      h+=`<div class="card" style="${need?'border-color:var(--ter)':''}"><h2>내 정보 ${need?'<span class="pill warn">입력 필요</span>':'<span class="pill">입력됨</span>'}</h2>
-      <p class="sub">학원 등록 정보예요. 입력하면 선생님 노션에도 자동 반영돼요.</p>
-      <label>본인 연락처</label><input id="myPhone" type="text" inputmode="numeric" placeholder="01012345678 (숫자만)" value="${s.student_phone||''}">
-      <label>학부모 연락처</label><input id="myGuardian" type="text" inputmode="numeric" placeholder="01012345678 (숫자만)" value="${s.guardian_phone||''}">
-      <label>집주소</label><input id="myAddr" type="text" placeholder="서울 동대문구 …" value="${(s.address||'').replace(/"/g,'&quot;')}">
-      <label>성적 (자유롭게)</label><input id="myScore" type="text" placeholder="예: 수학 모의고사 3등급" value="${(s.score||'').replace(/"/g,'&quot;')}">
-      <button class="btn full" onclick="A.saveMyInfo()">내 정보 저장</button></div>`;
+    if(!filled){
+      h+=`<div class="card" style="border-color:var(--ter)"><h2>내 정보 <span class="pill warn">입력 필요</span></h2>
+      <p class="sub">학원 등록 정보예요. ⚠️ <b>한 번 저장하면 다시 못 고쳐요</b> — 정확히 입력해 주세요. (수정이 필요하면 선생님께 말씀하세요)</p>
+      <label>본인 연락처</label><input id="myPhone" type="text" inputmode="numeric" placeholder="01012345678 (숫자만)" value="">
+      <label>학부모 연락처</label><input id="myGuardian" type="text" inputmode="numeric" placeholder="01012345678 (숫자만)" value="">
+      <label>집주소</label><input id="myAddr" type="text" placeholder="서울 동대문구 …" value="">
+      <label>성적 (자유롭게)</label><input id="myScore" type="text" placeholder="예: 수학 모의고사 3등급" value="">
+      <button class="btn full" onclick="A.saveMyInfo()">내 정보 저장 (저장 후 수정 불가)</button></div>`;
     }
   }
   h+=dayCard(items,today,ro);

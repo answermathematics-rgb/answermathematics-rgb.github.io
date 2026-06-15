@@ -3,18 +3,11 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>앤서수학교습소 | 청량리 1:1 관리 수학 교습소</title>
-<meta name="description" content="복습영상으로 '설명할 수 있는 수학'을 가르치는 청량리 수학 교습소. 중·고등부 1:1 진도 관리, 학부모 알림톡, 자체 학습 포털.">
-<meta name="keywords" content="청량리 수학학원, 동대문구 수학교습소, 가람수학, 앤서수학, 중등수학, 고등수학, 1:1 수학, 복습영상">
-<meta property="og:title" content="앤서수학교습소 | 청량리 1:1 관리 수학 교습소">
-<meta property="og:description" content="복습영상으로 '설명할 수 있는 수학'을 만들어요. 중·고등부 1:1 진도 관리 · 학부모 알림톡.">
-<meta property="og:type" content="website">
-<meta property="og:url" content="https://answermathematics-rgb.github.io/">
-<meta name="twitter:card" content="summary">
-<style id="mk">.mk-hero{max-width:680px;margin:0 auto;padding:6px 16px 0}.mk-slogan{font-size:25px;font-weight:800;line-height:1.32;margin:14px 0 6px;color:#3b2e6e}.mk-sub{color:#6b6b80;font-size:14.5px;margin-bottom:16px}.mk-cards{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:16px 0}.mk-card{background:#fff;border:1px solid #ece9f6;border-radius:14px;padding:13px;text-align:left;display:flex;flex-direction:column;gap:5px;box-shadow:0 2px 10px rgba(80,60,150,.05)}.mk-ico{font-size:21px}.mk-card b{font-size:14.5px;color:#3b2e6e}.mk-card span{font-size:12.5px;color:#666;line-height:1.5}.mk-loc{background:#f6f4fc;border-radius:14px;padding:13px;margin:4px 0 14px;display:flex;flex-direction:column;gap:3px;text-align:left}.mk-loc b{color:#3b2e6e}.mk-loc span{font-size:13.5px;color:#555}.mk-cta{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;margin-bottom:14px}.mk-btn{flex:1;min-width:120px;padding:13px 12px;border-radius:12px;background:#fff;border:1px solid #d9d4ec;color:#3b2e6e;font-weight:700;font-size:13.5px;text-decoration:none;text-align:center}.mk-primary{background:#5b3df5;border-color:#5b3df5;color:#fff}.mk-login-label{font-size:12.5px;color:#999;margin:6px 0 2px}@media(max-width:640px){.mk-cards{grid-template-columns:1fr}.mk-slogan{font-size:21px}}</style>
+<title>앤서수학 학생 포털</title>
 <style>
-  :root{--bg:#f4f5f7;--card:#fff;--line:#e4e6ea;--text:#1c1e21;--muted:#6b7280;--brand:#2f6df0;--brand-soft:#e8f0fe;
-    --green:#16a34a;--green-soft:#e7f6ec;--red:#dc2626;--red-soft:#fdeaea;--amber:#d97706;--amber-soft:#fdf1e0;--star:#f5a623;--kakao:#FEE500;}
+  :root{--bg:#faf6f1;--card:#ffffff;--line:#ece4db;--text:#22201d;--muted:#8b8279;--brand:#c0452f;--brand-soft:#fbe9e4;
+    --green:#16a34a;--green-soft:#e7f6ec;--red:#dc2626;--red-soft:#fdeaea;--amber:#d97706;--amber-soft:#fdf1e0;--star:#f5a623;--kakao:#FEE500;
+    --ter:#c0452f;--ink:#22201d;}
   *{box-sizing:border-box;}
   body{margin:0;font-family:'Apple SD Gothic Neo','Malgun Gothic',sans-serif;background:var(--bg);color:var(--text);}
   #bar{background:var(--card);border-bottom:1px solid var(--line);padding:11px 18px;display:flex;align-items:center;gap:12px;flex-wrap:wrap;position:sticky;top:0;z-index:5;}
@@ -25,7 +18,11 @@
   .ghostbtn{border:1px solid var(--line);background:var(--card);border-radius:8px;padding:7px 12px;font-size:13px;cursor:pointer;color:var(--muted);}
   select{padding:8px 10px;border:1px solid var(--line);border-radius:8px;font-size:13px;background:var(--card);}
   main{max-width:880px;margin:18px auto;padding:0 16px 70px;}
-  .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:18px;margin-bottom:16px;}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:18px;margin-bottom:16px;box-shadow:0 6px 20px -16px rgba(80,45,25,.35);}
+  .chcard{display:flex;align-items:center;gap:12px;background:#fffdf3;border:1px solid #f4e7b8;border-radius:16px;padding:13px 14px;margin-bottom:16px;}
+  .chico{width:42px;height:42px;flex:none;border-radius:50%;background:var(--kakao);display:flex;align-items:center;justify-content:center;font-size:20px;}
+  .chtx{flex:1;min-width:0;} .chtx b{display:block;font-size:14px;color:#3b1e1e;} .chtx span{font-size:12px;color:var(--muted);line-height:1.45;display:block;margin-top:2px;}
+  .chbtn{flex:none;background:var(--kakao);color:#3b1e1e;font-weight:800;font-size:13px;border-radius:11px;padding:11px 13px;text-decoration:none;white-space:nowrap;}
   .card h2{margin:0 0 4px;font-size:16px;} .sub{color:var(--muted);font-size:13px;margin:0 0 14px;}
   .badge{display:inline-block;font-size:11px;font-weight:700;padding:3px 9px;border-radius:20px;}
   .b-teacher{background:#efe9fb;color:#6b3fd1;} .b-stu{background:var(--brand-soft);color:var(--brand);} .b-parent{background:var(--green-soft);color:var(--green);}
@@ -38,7 +35,7 @@
   .seg button.active{border-color:var(--brand);color:var(--brand);background:var(--brand-soft);}
   .calhdr{display:grid;grid-template-columns:repeat(7,1fr);gap:7px;margin-top:8px;} .calhdr span{text-align:center;font-size:11px;color:var(--muted);font-weight:700;}
   .mgrid,.week{display:grid;grid-template-columns:repeat(7,1fr);gap:7px;margin-top:7px;}
-  .day,.mcell{background:var(--card);border:1px solid var(--line);border-radius:10px;text-align:center;cursor:pointer;}
+  .day,.mcell{background:var(--card);border:1px solid var(--line);border-radius:12px;text-align:center;cursor:pointer;}
   .day{padding:9px 4px;} .mcell{min-height:56px;padding:5px 3px 7px;display:flex;flex-direction:column;align-items:center;gap:2px;}
   .day:hover,.mcell:hover{border-color:var(--brand);} .day.today,.mcell.today{background:var(--brand-soft);border:2px solid var(--brand);}
   .day .dnum,.mcell .mn{font-size:11px;color:var(--muted);} .mcell .mn{align-self:flex-start;margin-left:4px;} .mcell.today .mn,.day.today .dnum{color:var(--brand);font-weight:700;}
@@ -50,18 +47,52 @@
   label{font-size:12px;color:var(--muted);display:block;margin:10px 0 4px;font-weight:600;}
   input[type=text],input[type=number],input[type=date]{width:100%;padding:9px 10px;border:1px solid var(--line);border-radius:8px;font-size:13px;}
   .row{display:flex;gap:10px;flex-wrap:wrap;} .row>div{flex:1;min-width:120px;}
-  .btn{background:var(--brand);color:#fff;border:0;border-radius:9px;padding:11px 16px;font-size:14px;font-weight:700;cursor:pointer;margin-top:14px;} .btn.ghost{background:var(--bg);color:var(--text);border:1px solid var(--line);}
+  .btn{background:var(--brand);color:#fff;border:0;border-radius:11px;padding:12px 16px;font-size:14px;font-weight:700;cursor:pointer;margin-top:14px;} .btn.ghost{background:var(--bg);color:var(--text);border:1px solid var(--line);}
   .btn.amber{background:var(--amber);} .btn.full{width:100%;}
   .stat{display:flex;gap:10px;margin-top:8px;} .stat .box{flex:1;background:var(--bg);border-radius:10px;padding:11px;text-align:center;} .stat .box b{display:block;font-size:22px;} .stat .box span{font-size:11px;color:var(--muted);}
   .hint{font-size:12px;color:var(--muted);margin-top:8px;} .empty{color:var(--muted);font-size:13px;padding:14px 0;text-align:center;}
   .vid{border:1px solid var(--line);border-radius:12px;padding:13px 14px;margin-bottom:10px;} .vid .vh{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:6px;} .vid .vt{font-weight:600;font-size:14px;}
   .stars{color:var(--star);font-size:14px;letter-spacing:1px;} .vid .fb{font-size:13px;color:#374151;line-height:1.55;margin:4px 0 0;} .vid .err{font-size:12px;background:var(--red-soft);color:#a3261f;border-radius:8px;padding:7px 10px;margin-top:7px;}
-  .preview{display:flex;gap:10px;background:var(--brand-soft);border-radius:12px;padding:13px;align-items:flex-start;} .preview .ttl{font-size:13px;font-weight:700;color:#1d4ed8;margin:0 0 4px;} .preview p{margin:0;font-size:13px;color:#1d4ed8;line-height:1.55;}
+  .preview{display:flex;gap:10px;background:var(--brand-soft);border-radius:12px;padding:13px;align-items:flex-start;} .preview .ttl{font-size:13px;font-weight:700;color:var(--ter);margin:0 0 4px;} .preview p{margin:0;font-size:13px;color:#9a4636;line-height:1.55;}
   .lock{font-size:12px;color:var(--muted);background:var(--bg);border-radius:8px;padding:8px 11px;margin-top:6px;}
   .banner{background:var(--amber-soft);color:#7a4d06;font-size:12px;padding:8px 14px;text-align:center;}
   .srow{display:flex;align-items:center;gap:10px;padding:10px 2px;border-top:1px solid var(--line);cursor:pointer;} .srow:first-of-type{border-top:0;} .srow:hover{background:var(--bg);}
   .srow .sn{font-weight:600;font-size:14px;flex:1;} .srow .meta{font-size:12px;color:var(--muted);}
-  .pill{font-size:11px;font-weight:700;padding:2px 8px;border-radius:20px;background:var(--green-soft);color:var(--green);} .pill.warn{background:var(--red-soft);color:var(--red);} .pill.gray{background:#eef1f4;color:#6b7280;}
+  .pill{font-size:11px;font-weight:700;padding:2px 8px;border-radius:20px;background:var(--green-soft);color:var(--green);} .pill.warn{background:var(--red-soft);color:var(--red);} .pill.gray{background:#efe9e3;color:#8b8279;}
+
+  /* ===== 로그인·학원소개 리디자인 (따뜻한 카드형) ===== */
+  #app .lpx{max-width:460px;margin:0 auto;}
+  .lpx-top{background:linear-gradient(180deg,#fbe6d6 0%,#faf6f1 92%);border-radius:0 0 30px 30px;padding:24px 18px 22px;text-align:center;margin:-18px -16px 16px;}
+  .lpx-brand{display:flex;align-items:center;justify-content:center;gap:10px;margin-bottom:16px;}
+  .lpx-badge{width:44px;height:44px;border-radius:13px;background:var(--ter);color:#fff;font-weight:800;font-size:25px;display:flex;align-items:center;justify-content:center;box-shadow:0 7px 16px -6px rgba(192,69,47,.65);}
+  .lpx-bname{font-size:21px;font-weight:800;color:#3a2f29;}
+  .lpx-slogan{font-size:25px;line-height:1.34;font-weight:800;color:#2a221e;margin:4px 0 8px;letter-spacing:-.02em;}
+  .lpx-slogan em{color:var(--ter);font-style:normal;}
+  .lpx-sub{color:var(--muted);font-size:14px;margin:0 0 20px;line-height:1.55;}
+  .lpx-login{background:#fff;border:1px solid var(--line);border-radius:20px;padding:16px;box-shadow:0 16px 36px -22px rgba(80,45,25,.45);text-align:left;}
+  .lpx-login .lh{display:flex;align-items:center;gap:7px;font-size:13px;font-weight:700;color:#6b6058;margin:2px 2px 11px;}
+  .lpx-login .dot{width:8px;height:8px;border-radius:50%;background:var(--green);}
+  .lpx-kakao{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;background:var(--kakao);color:#3b1e1e;border:0;border-radius:14px;padding:15px;font-size:15.5px;font-weight:800;cursor:pointer;}
+  .lpx-chan{display:flex;align-items:center;justify-content:center;gap:6px;width:100%;background:#fff;color:#8b8279;border:1px solid var(--line);border-radius:12px;padding:10px;font-size:12.5px;font-weight:600;cursor:pointer;text-decoration:none;margin-top:8px;}
+  .lpx-note{font-size:11.5px;color:var(--muted);line-height:1.6;margin:12px 2px 2px;}
+  .lpx-scroll{display:flex;flex-direction:column;align-items:center;gap:5px;color:var(--muted);font-size:12.5px;margin:20px 0 8px;}
+  .lpx-scroll .arw{width:30px;height:30px;border-radius:50%;background:#fff;border:1px solid var(--line);display:flex;align-items:center;justify-content:center;color:var(--ter);font-size:14px;}
+  .lpx-sec{background:#fff;border:1px solid var(--line);border-radius:20px;padding:20px;margin:0 0 14px;}
+  .lpx-sec h2{font-size:16px;margin:0 0 14px;color:#2a221e;}
+  .lpx-feat{display:flex;gap:13px;padding:14px 0;border-top:1px solid var(--line);}
+  .lpx-feat:first-of-type{border-top:0;padding-top:2px;}
+  .lpx-fic{width:42px;height:42px;flex:none;border-radius:12px;background:var(--brand-soft);display:flex;align-items:center;justify-content:center;font-size:21px;}
+  .lpx-feat h3{font-size:14.5px;margin:2px 0 4px;color:var(--ter);}
+  .lpx-feat p{font-size:13px;color:#6b6058;line-height:1.62;margin:0;}
+  .lpx-teach{font-size:14px;color:#5a514a;line-height:1.78;margin:0;}
+  .lpx-teach b{color:var(--ter);}
+  .lpx-addr{font-size:14px;color:#5a514a;line-height:1.72;margin:0 0 14px;}
+  .lpx-addr b{color:#2a221e;}
+  .lpx-cta{display:grid;grid-template-columns:1fr 1fr;gap:9px;}
+  .lpx-cta a{display:flex;align-items:center;justify-content:center;gap:6px;border-radius:13px;padding:13px;font-size:13.5px;font-weight:700;text-decoration:none;border:1px solid var(--line);background:#fff;color:#5a514a;min-height:48px;}
+  .lpx-cta a.main{grid-column:1/-1;background:var(--kakao);color:#3b1e1e;border:0;font-size:15px;}
+  .lpx-foot{text-align:center;color:var(--muted);font-size:11.5px;line-height:1.7;padding:14px 0 4px;}
+  @media(max-width:480px){.lpx-slogan{font-size:22px;}}
 </style>
 </head>
 <body>
@@ -75,6 +106,10 @@ const SUPABASE_URL='https://hddsyoaymvpfcloqthyv.supabase.co';
 const SUPABASE_KEY='sb_publishable_cJHc-U-rvFrHVogusPcJ7A_x6uV1E4-';
 const sb=createClient(SUPABASE_URL, SUPABASE_KEY);
 
+const KAKAO_FRIEND='http://pf.kakao.com/_pxlUnX/friend';
+const KAKAO_CHAT='http://pf.kakao.com/_pxlUnX/chat';
+const INSTA_URL='https://www.instagram.com/';   // TODO: 앤서수학 인스타 계정 주소로 교체
+const MAP_URL='https://map.kakao.com/?q='+encodeURIComponent('서울 동대문구 왕산로 186 우남SL타워');
 const DOWK=['월','화','수','목','금','토','일'];
 const ICON={done:'✓',miss:'✕',todo:'✎',none:'·'}, ICLASS={done:'ic-done',miss:'ic-miss',todo:'ic-todo',none:'ic-none'};
 const pad=n=>String(n).padStart(2,'0');
@@ -120,8 +155,8 @@ window.A={ loginKakao, logout, startDemo:()=>{mode='demo';render();},
   setView:async v=>{view=v; if(v==='link')await loadUnlinked(); render();},
   pick:async v=>{curId=v;view='student';await loadStudent();render();},
   setCal:v=>{calView=v;render();}, setFocus:d=>{focusDate=d;render();}, setSplit:v=>{splitMode=v;render();},
-  autoSplit, manualAdd, toggle, linkStudent, studentAdd, openFolder,
-  stuSplit, stuAddDate, stuRebalance, setStuMode:v=>{stuMode=v;render();},
+  autoSplit, manualAdd, toggle, linkStudent, studentAdd, openFolder, saveGuardianPhone,
+  stuSplit, stuAddDate, setStuMode:v=>{stuMode=v;render();},
   dRole:r=>{D.role=r;D.focus=D.TODAY;render();}, dCal:v=>{D.cal=v;render();}, dFocus:d=>{D.focus=d;render();}, dPick:v=>{D.sel=v;render();}, dToggle, dSplit:v=>{D.split=v;render();}, dAuto, dMan, dStu, dVid, dUp:()=>{D.up=true;render();}, dUpC:()=>{D.up=false;render();} };
 
 function openFolder(name){ const u=folderUrl(name); if(u) window.open(u,'_blank'); else alert('이 학생의 영상 폴더가 아직 연결되지 않았어요.'); }
@@ -160,42 +195,72 @@ async function stuSplit(){
   await sb.from('homework').insert(rows); await loadStudent(); render();
 }
 async function stuAddDate(){const c=document.getElementById('sdText').value.trim(),d=document.getElementById('sdDate').value||todayISO();if(!c){alert('내용을 입력하세요');return;}await sb.from('homework').insert({student_id:curId,due_date:d,content:c,created_by:'student'});await loadStudent();render();}
-async function stuRebalance(){
-  const today=todayISO();
-  const overdue=homework.filter(h=>!h.done && h.due_date<today);
-  if(!overdue.length){alert('밀린 숙제가 없어요! 잘하고 있어요 👍');return;}
-  if(!confirm(`밀린 숙제 ${overdue.length}개를 오늘부터 3일에 나눠 다시 깔까요?`))return;
-  const span=3, per=Math.ceil(overdue.length/span); let i=0;
-  for(const it of overdue){
-    const off=Math.floor(i/per); const d=new Date(); d.setDate(d.getDate()+off);
-    const iso=d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate());
-    await sb.from('homework').update({due_date:iso}).eq('id',it.id); i++;
-  }
-  await loadStudent(); render();
-}
 async function toggle(id){if(profile.role==='parent')return;const it=homework.find(h=>h.id===id);if(!it)return;await sb.from('homework').update({done:!it.done,done_at:it.done?null:new Date().toISOString()}).eq('id',id);await loadStudent();render();}
 async function linkStudent(sid,profileId){if(!profileId)return;await sb.from('students').update({user_id:profileId}).eq('id',sid);const {data:st}=await sb.from('students').select('*').order('name');students=st||[];await loadUnlinked();render();}
+async function saveGuardianPhone(sid){
+  const el=document.getElementById('gphone'); if(!el)return;
+  const raw=el.value.replace(/[^0-9]/g,'');
+  if(raw && (raw.length<10||raw.length>11)){alert('전화번호를 다시 확인해 주세요 (예: 01012345678)');return;}
+  await sb.from('students').update({guardian_phone:raw||null}).eq('id',sid);
+  const {data:st}=await sb.from('students').select('*').order('name');students=st||[];render();}
 
 function render(){renderBar();const app=document.getElementById('app');
   if(mode==='loading'){app.innerHTML='<div class="card"><div class="empty">불러오는 중…</div></div>';return;}
   if(mode==='login'){app.innerHTML=loginHtml();return;}
   if(mode==='demo'){app.innerHTML=demoHtml();return;}
   app.innerHTML=realHtml();}
-function renderBar(){let h='<div class="logo">앤서수학<small>학생 포털</small></div><div class="spacer"></div>';document.getElementById('banner').innerHTML='';
+function renderBar(){const sub=mode==='login'?'수학 교습소':'학생 포털';let h='<div class="logo">앤서수학<small>'+sub+'</small></div><div class="spacer"></div>';document.getElementById('banner').innerHTML='';
   if(mode==='demo'){document.getElementById('banner').innerHTML='<div class="banner">둘러보기(데모) — 가짜 데이터예요.</div>';h+='<button class="ghostbtn" onclick="A.logout()">로그인 화면</button>';}
   if(mode==='real'&&profile){const rb=profile.role==='teacher'?'b-teacher':profile.role==='parent'?'b-parent':'b-stu';const rn=profile.role==='teacher'?'선생님':profile.role==='parent'?'학부모':'학생';
     h+=`<span class="badge ${rb}">${rn}</span><span class="who"><b>${profile.name||''}</b></span><button class="ghostbtn" onclick="A.logout()">로그아웃</button>`;}
   document.getElementById('bar').innerHTML=h;}
-function loginHtml(){return `<div class="hero mk-hero"><div class="lg">앤서수학</div><h1 class="mk-slogan">수학을 '설명할 수 있는 힘'으로.</h1><div class="mk-sub">복습영상으로 다지는 1:1 관리 수학 교습소 · 청량리</div><div class="mk-cards"><div class="mk-card"><div class="mk-ico">📹</div><b>복습영상 시스템</b><span>풀이를 직접 영상으로 설명·제출. 단순 채점 학원과 다른 가장 큰 차이예요.</span></div><div class="mk-card"><div class="mk-ico">👥</div><b>1:1 진도 관리</b><span>학생마다 단원·속도·시험일정에 맞춘 개별 진도. 같은 숙제를 받지 않아요.</span></div><div class="mk-card"><div class="mk-ico">📱</div><b>학부모 알림·포털</b><span>매주 출결·숙제를 카톡으로. 자체 포털에서 자녀 학습 현황을 확인해요.</span></div></div><div class="mk-loc"><b>📍 오시는 길</b><span>서울 동대문구 왕산로 186 (청량리역 우남SL타워) 409호</span><span>중·고등부 · 1:1 관리 수학 교습소 · ☎ 010-7419-3664</span></div><div class="mk-cta"><a class="mk-btn mk-primary" href="http://pf.kakao.com/_pxlUnX/chat" target="_blank" rel="noopener">💬 카카오톡으로 상담하기</a><a class="mk-btn" href="https://www.instagram.com/answer_math/" target="_blank" rel="noopener">📷 인스타그램</a><a class="mk-btn" href="https://map.naver.com/p/search/서울 동대문구 왕산로 186" target="_blank" rel="noopener">🗺️ 위치</a></div><div class="mk-login-label">이미 등록한 학생·학부모이신가요? 아래로 로그인하세요 ↓</div></div>
-  <div class="loginwrap"><div class="card"><button class="kbtn" onclick="A.loginKakao()"><span style="font-size:17px">💬</span> 카카오로 로그인</button>
-  <a class="kbtn" style="text-decoration:none;margin-top:10px" href="http://pf.kakao.com/_pxlUnX/friend" target="_blank" rel="noopener"><span style="font-size:17px">＋</span> 카카오톡 채널 추가하고 알림 받기</a>
-  <p class="note">학생·학부모는 카카오로 로그인하면 본인(자녀) 화면만 보여요.<br>채널을 추가하면 숙제·복습 알림을 카톡으로 받아요.<br>선생님(가람)이 가장 먼저 로그인하면 관리자로 설정됩니다.</p></div></div>`;}
+
+function loginHtml(){return `
+<div class="lpx">
+  <div class="lpx-top">
+    <div class="lpx-brand"><div class="lpx-badge">A</div><div class="lpx-bname">앤서수학</div></div>
+    <h1 class="lpx-slogan">수학을 <em>'설명할 수 있는 힘'</em>으로.</h1>
+    <p class="lpx-sub">복습영상으로 다지는 1:1 관리 수학 교습소 · 청량리</p>
+    <div class="lpx-login">
+      <div class="lh"><span class="dot"></span> 학생·학부모 로그인</div>
+      <button class="lpx-kakao" onclick="A.loginKakao()"><span style="font-size:17px">💬</span> 카카오로 로그인</button>
+      <p class="lpx-note">학생·학부모는 카카오로 로그인하면 본인(자녀) 화면만 보여요. 로그인 후 화면에서 <b>카카오톡 채널 추가</b>를 누르면 숙제·복습 알림이 카톡으로 와요. 선생님(가람)이 가장 먼저 로그인하면 관리자로 설정됩니다.</p>
+    </div>
+    <div class="lpx-scroll"><span>처음 오셨나요?</span><span class="arw">↓</span></div>
+  </div>
+
+  <div class="lpx-sec">
+    <h2>왜 앤서수학인가</h2>
+    <div class="lpx-feat"><div class="lpx-fic">📹</div><div><h3>풀이를 직접 설명하게 합니다</h3><p>매주 학생이 본인 풀이를 영상으로 설명·제출. AI가 분석해 약점을 짚어드립니다. 단순 채점 학원과 가장 큰 차이예요.</p></div></div>
+    <div class="lpx-feat"><div class="lpx-fic">👥</div><div><h3>학생 수만큼 진도가 있습니다</h3><p>단원·속도·시험 일정에 맞춘 개별 진도표. 같은 반이어도 같은 숙제를 받지 않습니다.</p></div></div>
+    <div class="lpx-feat"><div class="lpx-fic">📱</div><div><h3>오늘 우리 아이가 뭘 했는지 보입니다</h3><p>카카오 알림톡으로 매주 출결·숙제 요약 발송. 학부모 화면에서 자녀 학습 현황을 확인해요.</p></div></div>
+  </div>
+
+  <div class="lpx-sec">
+    <h2>강사 소개</h2>
+    <p class="lpx-teach">안녕하세요, 앤서수학 가람 선생님입니다. 한 명 한 명의 풀이 과정을 직접 듣고 피드백 드리는 1:1 관리 교습소예요. "맞았다 / 틀렸다"가 아니라 <b>왜 그 풀이가 떠올랐는지</b>를 학생이 직접 설명하게 합니다(파인만 학습법). 매주 복습영상으로 사고 흐름을 점검하고 AI 분석으로 약점을 짚어 드려요.</p>
+  </div>
+
+  <div class="lpx-sec">
+    <h2>오시는 길 · 상담</h2>
+    <p class="lpx-addr"><b>서울 동대문구 왕산로 186</b><br>청량리역 우남SL타워 409호 · 중·고등부 1:1 관리<br>☎ <a href="tel:01074193664" style="color:var(--ter);text-decoration:none;font-weight:700">010-7419-3664</a></p>
+    <div class="lpx-cta">
+      <a class="main" href="${KAKAO_CHAT}" target="_blank" rel="noopener">💬 카카오톡으로 상담하기</a>
+      <a href="${INSTA_URL}" target="_blank" rel="noopener">📷 인스타그램</a>
+      <a href="${MAP_URL}" target="_blank" rel="noopener">🗺 위치 보기</a>
+    </div>
+  </div>
+
+  <p class="lpx-foot">앤서수학 교습소 · 서울 청량리 · 중·고등부 1:1 관리 수학</p>
+</div>`;}
+
+function channelCard(){return `<div class="chcard"><div class="chico">🔔</div><div class="chtx"><b>카카오톡 알림 받기</b><span>채널을 추가하면 숙제·복습 알림을 카톡으로 받아요.</span></div><a class="chbtn" href="${KAKAO_FRIEND}" target="_blank" rel="noopener">＋ 채널 추가</a></div>`;}
 
 function realHtml(){
   if(!profile)return '<div class="card"><div class="empty">프로필 확인 중…</div></div>';
   const today=todayISO();
   if(profile.role==='teacher'){
-    let h=`<div class="card"><div class="seg" style="max-width:380px"><button class="${view==='student'?'active':''}" onclick="A.setView('student')">학생별 관리</button><button class="${view==='all'?'active':''}" onclick="A.setView('all')">전체 보기</button><button class="${view==='link'?'active':''}" onclick="A.setView('link')">계정 연결</button></div></div>`;
+    let h=channelCard()+`<div class="card"><div class="seg" style="max-width:380px"><button class="${view==='student'?'active':''}" onclick="A.setView('student')">학생별 관리</button><button class="${view==='all'?'active':''}" onclick="A.setView('all')">전체 보기</button><button class="${view==='link'?'active':''}" onclick="A.setView('link')">계정 연결</button></div></div>`;
     if(view==='all') return h+teacherAll(today);
     if(view==='link') return h+teacherLink();
     return h+teacherStudent(today);
@@ -205,19 +270,7 @@ function realHtml(){
   const items=homework.map(h=>({id:h.id,date:h.due_date,text:h.content,done:h.done,by:h.created_by}));
   const ro=profile.role==='parent';
   let h=`<div class="card"><h2>${s.name} <span class="badge ${ro?'b-parent':'b-stu'}">${ro?'학부모':'학생'}</span></h2><p class="sub">${ro?'자녀':'내'} 숙제·복습영상 · 본인 것만 보여요</p>${calBlock(items,today,'A.setFocus')}<div class="lock">🔒 다른 학생 정보는 서버에서 차단됩니다.</div></div>`;
-  if(!ro){
-    const todays=items.filter(i=>i.date===today);
-    const todoToday=todays.filter(i=>!i.done).length;
-    const overdue=items.filter(i=>i.date<today&&!i.done).length;
-    const weekDone=items.filter(i=>i.done).length;
-    let msg = overdue>0 ? `밀린 숙제가 <b>${overdue}개</b> 있어요. 아래 버튼으로 남은 날에 다시 나눠보세요.`
-            : todoToday>0 ? `오늘 할 숙제 <b>${todoToday}개</b>! 하나씩 체크해 나가요.`
-            : `오늘 할 숙제를 다 했어요. 멋져요! 🎉`;
-    h+=`<div class="card"><h2>오늘의 학습</h2>
-      <div class="stat"><div class="box"><b style="color:var(--brand)">${todoToday}</b><span>오늘 할 일</span></div><div class="box"><b style="color:var(--red)">${overdue}</b><span>밀린 것</span></div><div class="box"><b style="color:var(--green)">${weekDone}</b><span>완료</span></div></div>
-      <p class="hint">${msg}</p>
-      ${overdue>0?`<button class="btn full" onclick="A.stuRebalance()">밀린 숙제 ${overdue}개 다시 나누기</button>`:''}</div>`;
-  }
+  h+=channelCard();
   h+=dayCard(items,today,ro);
   if(!ro){
     const future=items.filter(i=>!i.done && i.date>=today).length;
@@ -228,7 +281,6 @@ function realHtml(){
     h+=`</div>`;
   }
   h+=`<div class="card"><h2>복습영상</h2><p class="sub">풀이를 직접 설명하며 녹화 → 본인 폴더에 올리면 선생님이 확인해요</p>
-    <a class="btn ghost full" href="recording-guide.pdf" target="_blank" rel="noopener" style="text-decoration:none;display:block;text-align:center;box-sizing:border-box;margin-bottom:10px">📖 녹화 방법 보기</a>
     <button class="btn amber full" onclick="A.openFolder('${s.name}')">＋ 복습영상 올리기 (내 드라이브 폴더 열기)</button>
     <p class="hint">파일명 예시: 0612_수1_삼각함수_개념설명.mp4 · 3~7분 권장</p>${videoList(videos)}</div>`;
   return h;
@@ -241,17 +293,23 @@ function teacherStudent(today){
   h+=`<div class="card"><h2>${s?s.name:''} <span style="color:var(--muted);font-weight:400">${s&&s.grade?'· '+s.grade:''} ${s&&s.subject?'· '+s.subject:''}</span> ${s&&s.user_id?'<span class="pill">연결됨</span>':'<span class="pill gray">미연결</span>'}</h2>
     <p class="sub">날짜를 누르면 그 날 숙제 · 추가하면 실시간 저장</p>${calBlock(items,today,'A.setFocus')}
     <div class="stat"><div class="box"><b>${tot}</b><span>등록 숙제</span></div><div class="box"><b style="color:var(--green)">${dn}</b><span>완료</span></div><div class="box"><b style="color:var(--red)">${tot-dn}</b><span>미완료</span></div></div></div>`;
+  h+=`<div class="card"><h2>학부모 연락처 ${s&&s.guardian_phone?'<span class="pill">등록됨</span>':'<span class="pill warn">미등록</span>'}</h2>
+    <p class="sub">미제출·복습 알림 문자를 받을 번호예요. 한 번 저장하면 계속 쓰여요.</p>
+    <input id="gphone" type="text" inputmode="numeric" placeholder="01012345678 (숫자만, - 없이)" value="${s&&s.guardian_phone?s.guardian_phone:''}">
+    <button class="btn" onclick="A.saveGuardianPhone('${s?s.id:''}')">번호 저장</button>
+    <p class="hint">비우고 저장하면 번호가 삭제돼요. 잘못 켜면 실제 문자가 나가니 발송 전 한 번 더 확인하세요.</p></div>`;
   h+=`<div class="card"><h2>숙제 등록</h2><div class="seg small" style="max-width:240px"><button class="${splitMode==='auto'?'active':''}" onclick="A.setSplit('auto')">자동 분배</button><button class="${splitMode==='manual'?'active':''}" onclick="A.setSplit('manual')">직접 입력</button></div>`;
   if(splitMode==='auto') h+=`<label>숙제 이름</label><input id="aTitle" type="text" placeholder="예: 시험대비 프린트"><div class="row"><div><label>총 문항</label><input id="aTotal" type="number" placeholder="30"></div><div><label>시작일</label><input id="aStart" type="date" value="${today}"></div><div><label>마감(시험일)</label><input id="aEnd" type="date" value="${today}"></div></div><button class="btn" onclick="A.autoSplit()">자동 분배해서 저장</button><p class="hint">예: 30문항을 오늘~시험일로 주면 하루치씩 자동으로 나눠 캘린더에 깔려요.</p>`;
   else h+=`<label>날짜</label><input id="mDate" type="date" value="${today}"><label>내용</label><input id="mText" type="text" placeholder="예: 오답노트 2문제"><button class="btn" onclick="A.manualAdd()">저장</button>`;
   h+=`</div>`;
   h+=dayCard(items,focusDate,false);
-  h+=`<div class="card"><h2>${s?s.name:''} 복습영상</h2>${videoList(videos)}<a class="btn ghost full" href="recording-guide.pdf" target="_blank" rel="noopener" style="text-decoration:none">📖 녹화 방법 보기</a><button class="btn ghost full" onclick="A.openFolder('${s?s.name:''}')">학생 영상 폴더 열기</button></div>`;
+  h+=`<div class="card"><h2>${s?s.name:''} 복습영상</h2>${videoList(videos)}<button class="btn ghost full" onclick="A.openFolder('${s?s.name:''}')">학생 영상 폴더 열기</button></div>`;
   return h;
 }
 function teacherAll(today){
-  let h=`<div class="card"><h2>전체 학생 (${students.length}명)</h2><p class="sub">이름을 누르면 그 학생 관리로 이동</p>`;
-  h+=students.map(s=>`<div class="srow" onclick="A.pick('${s.id}')"><div class="sn">${s.name}</div><span class="meta">${s.grade||''} ${s.subject||''}</span>${s.user_id?'<span class="pill">연결</span>':'<span class="pill gray">미연결</span>'}</div>`).join('');
+  const noPhone=students.filter(s=>!s.guardian_phone).length;
+  let h=`<div class="card"><h2>전체 학생 (${students.length}명)</h2><p class="sub">이름을 누르면 그 학생 관리로 이동${noPhone?` · 학부모 번호 미등록 <b>${noPhone}</b>명`:' · 학부모 번호 전원 등록됨 ✓'}</p>`;
+  h+=students.map(s=>`<div class="srow" onclick="A.pick('${s.id}')"><div class="sn">${s.name}</div><span class="meta">${s.grade||''} ${s.subject||''}</span>${s.guardian_phone?'<span class="pill">📞</span>':'<span class="pill warn">번호없음</span>'}${s.user_id?'<span class="pill">연결</span>':'<span class="pill gray">미연결</span>'}</div>`).join('');
   return h+'</div>';
 }
 function teacherLink(){
@@ -288,8 +346,7 @@ function demoHtml(){const sid=D.sel,s=dInfo(sid);let h=`<div class="card"><div c
     if(D.split==='auto')h+=`<label>숙제 이름</label><input id="dTitle" type="text" placeholder="예: 프린트"><div class="row"><div><label>총 문항</label><input id="dTotal" type="number" placeholder="30"></div></div><button class="btn" onclick="A.dAuto()">자동 분배</button>`;
     else h+=`<label>날짜</label><input id="dmDate" type="date" value="2026-06-11"><label>내용</label><input id="dmText" type="text"><button class="btn" onclick="A.dMan()">추가</button>`;
     h+=`</div><div class="card"><h2>${+D.focus.slice(-2)}일 숙제</h2>${dChk(sid,D.focus,false)}</div><div class="card"><h2>복습영상</h2>${dVids(sid)}</div>`;}
-  if(D.role==='student'){h+=`<div class="card"><h2>안녕, ${s.name}! <span class="badge b-stu">학생</span></h2>${dCalBlock(sid)}</div><div class="card"><h2>오늘 숙제</h2>${dChk(sid,D.TODAY,false)}<label style="margin-top:14px">나도 숙제 추가</label><div class="row"><div style="flex:3"><input id="dsText" type="text"></div><div><button class="btn ghost" style="margin-top:0" onclick="A.dStu()">추가</button></div></div></div><div class="card"><h2>복습영상</h2><a class="btn ghost full" href="recording-guide.pdf" target="_blank" rel="noopener" style="text-decoration:none;display:block;text-align:center;box-sizing:border-box;margin-bottom:10px">📖 녹화 방법 보기</a>
-    ${D.up?`<button class="btn amber" onclick="A.dVid()">제출(데모)</button> <button class="btn ghost" onclick="A.dUpC()">취소</button>`:`<button class="btn amber full" onclick="A.dUp()">＋ 복습영상 올리기</button>`}<div style="margin-top:12px">${dVids(sid)}</div></div>`;}
+  if(D.role==='student'){h+=`<div class="card"><h2>안녕, ${s.name}! <span class="badge b-stu">학생</span></h2>${dCalBlock(sid)}</div><div class="card"><h2>오늘 숙제</h2>${dChk(sid,D.TODAY,false)}<label style="margin-top:14px">나도 숙제 추가</label><div class="row"><div style="flex:3"><input id="dsText" type="text"></div><div><button class="btn ghost" style="margin-top:0" onclick="A.dStu()">추가</button></div></div></div><div class="card"><h2>복습영상</h2>${D.up?`<button class="btn amber" onclick="A.dVid()">제출(데모)</button> <button class="btn ghost" onclick="A.dUpC()">취소</button>`:`<button class="btn amber full" onclick="A.dUp()">＋ 복습영상 올리기</button>`}<div style="margin-top:12px">${dVids(sid)}</div></div>`;}
   if(D.role==='parent'){const td=dItems(sid,D.TODAY),done=td.filter(i=>i.done).length;h+=`<div class="card readonly"><h2>${s.name} 학습 현황 <span class="badge b-parent">학부모</span></h2>${dCalBlock(sid)}</div><div class="card readonly"><h2>오늘</h2><p class="sub">${td.length}개 중 ${done}개 완료</p>${dChk(sid,D.TODAY,true)}</div><div class="card"><h2>학부모 알림 미리보기</h2><div class="preview"><span style="font-size:18px">🔔</span><div><p class="ttl">[앤서수학교습소] 오늘의 학습 알림</p><p>${s.name} 학생 학부모님, 오늘 숙제 ${td.length}개 중 ${done}개 완료했어요.</p></div></div></div>`;}
   return h;}
 

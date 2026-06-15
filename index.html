@@ -286,12 +286,7 @@ function realHtml(){
     const filled=s.student_phone||s.guardian_phone||s.address||s.score;
     const need=!s.guardian_phone||!s.student_phone;
     if(filled&&!editInfo){
-      const ph=v=>v?String(v).replace(/(\d{3})(\d{3,4})(\d{4})/,'$1-$2-$3'):'<span style="color:var(--muted)">미입력</span>';
-      const tx=v=>v?String(v):'<span style="color:var(--muted)">미입력</span>';
-      h+=`<div class="card"><h2>내 정보 <span class="pill">입력됨</span></h2>
-        <p class="sub">저장된 정보예요. 바꾸려면 수정을 누르세요.</p>
-        <div class="lock" style="line-height:1.7">본인 연락처 <b>${ph(s.student_phone)}</b><br>학부모 연락처 <b>${ph(s.guardian_phone)}</b><br>집주소 ${tx(s.address)}<br>성적 ${tx(s.score)}</div>
-        <button class="ghostbtn" style="margin-top:10px" onclick="A.editMyInfo()">수정</button></div>`;
+      h+=`<div style="text-align:right;margin:0 2px 6px"><span onclick="A.editMyInfo()" style="font-size:11px;color:var(--muted);text-decoration:underline;cursor:pointer">내 정보 수정</span></div>`;
     } else {
       h+=`<div class="card" style="${need?'border-color:var(--ter)':''}"><h2>내 정보 ${need?'<span class="pill warn">입력 필요</span>':'<span class="pill">입력됨</span>'}</h2>
       <p class="sub">학원 등록 정보예요. 입력하면 선생님 노션에도 자동 반영돼요.</p>

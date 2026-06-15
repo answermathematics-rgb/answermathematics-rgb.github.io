@@ -121,7 +121,7 @@ const folderUrl=name=>{const st=students.find(s=>s.name===name);return (st&&st.d
 
 let mode='loading', session=null, profile=null;
 let students=[], curId=null, homework=[], videos=[], unlinked=[];
-let view='student', calView='month', focusDate=todayISO(), splitMode='auto', stuMode='auto', editPhone=false, regChoice=null;
+let view='student', calView='month', focusDate=todayISO(), splitMode='auto', stuMode='auto', editPhone=false, editInfo=false, regChoice=null;
 
 async function init(){
   try{ const {data}=await sb.auth.getSession(); session=data.session;
@@ -154,10 +154,10 @@ async function logout(){ await sb.auth.signOut(); session=null;profile=null;mode
 
 window.A={ loginKakao, logout, startDemo:()=>{mode='demo';render();},
   setView:async v=>{view=v; if(v==='link')await loadUnlinked(); render();},
-  pick:async v=>{curId=v;view='student';editPhone=false;await loadStudent();render();},
+  pick:async v=>{curId=v;view='student';editPhone=false;editInfo=false;await loadStudent();render();},
   setCal:v=>{calView=v;render();}, setFocus:d=>{focusDate=d;render();}, setSplit:v=>{splitMode=v;render();},
   autoSplit, manualAdd, toggle, linkStudent, studentAdd, openFolder, saveGuardianPhone, filterStudents, filterSelect, saveMyInfo,
-  stuSplit, stuAddDate, setStuMode:v=>{stuMode=v;render();}, editGuardianPhone:()=>{editPhone=true;render();}, chooseReg:v=>{regChoice=v;render();},
+  stuSplit, stuAddDate, setStuMode:v=>{stuMode=v;render();}, editGuardianPhone:()=>{editPhone=true;render();}, editMyInfo:()=>{editInfo=true;render();}, chooseReg:v=>{regChoice=v;render();},
   dRole:r=>{D.role=r;D.focus=D.TODAY;render();}, dCal:v=>{D.cal=v;render();}, dFocus:d=>{D.focus=d;render();}, dPick:v=>{D.sel=v;render();}, dToggle, dSplit:v=>{D.split=v;render();}, dAuto, dMan, dStu, dVid, dUp:()=>{D.up=true;render();}, dUpC:()=>{D.up=false;render();} };
 
 function openFolder(name){ const u=folderUrl(name); if(u) window.open(u,'_blank'); else alert('이 학생의 영상 폴더가 아직 연결되지 않았어요.'); }
@@ -213,7 +213,7 @@ async function saveMyInfo(){
   const {error}=await sb.rpc('save_my_info',{p_phone:phone,p_guardian:guardian,p_address:val('myAddr'),p_score:val('myScore')});
   if(error){alert('저장 실패: '+error.message);return;}
   const {data:st}=await sb.from('students').select('*').order('name');students=st||[];
-  alert('정보가 저장됐어요! 감사합니다 🙂');render();}
+  editInfo=false;alert('정보가 저장됐어요! 감사합니다 🙂');render();}
 
 function render(){renderBar();const app=document.getElementById('app');
   if(mode==='loading'){app.innerHTML='<div class="card"><div class="empty">불러오는 중…</div></div>';return;}
@@ -283,14 +283,24 @@ function realHtml(){
   let h=`<div class="card"><h2>${s.name} <span class="badge ${ro?'b-parent':'b-stu'}">${ro?'학부모':'학생'}</span></h2><p class="sub">${ro?'자녀':'내'} 숙제·복습영상 · 본인 것만 보여요</p>${calBlock(items,today,'A.setFocus')}<div class="lock">🔒 다른 학생 정보는 서버에서 차단됩니다.</div></div>`;
   h+=channelCard();
   if(!ro){
+    const filled=s.student_phone||s.guardian_phone||s.address||s.score;
     const need=!s.guardian_phone||!s.student_phone;
-    h+=`<div class="card" style="${need?'border-color:var(--ter)':''}"><h2>내 정보 ${need?'<span class="pill warn">입력 필요</span>':'<span class="pill">입력됨</span>'}</h2>
+    if(filled&&!editInfo){
+      const ph=v=>v?String(v).replace(/(\d{3})(\d{3,4})(\d{4})/,'$1-$2-$3'):'<span style="color:var(--muted)">미입력</span>';
+      const tx=v=>v?String(v):'<span style="color:var(--muted)">미입력</span>';
+      h+=`<div class="card"><h2>내 정보 <span class="pill">입력됨</span></h2>
+        <p class="sub">저장된 정보예요. 바꾸려면 수정을 누르세요.</p>
+        <div class="lock" style="line-height:1.7">본인 연락처 <b>${ph(s.student_phone)}</b><br>학부모 연락처 <b>${ph(s.guardian_phone)}</b><br>집주소 ${tx(s.address)}<br>성적 ${tx(s.score)}</div>
+        <button class="ghostbtn" style="margin-top:10px" onclick="A.editMyInfo()">수정</button></div>`;
+    } else {
+      h+=`<div class="card" style="${need?'border-color:var(--ter)':''}"><h2>내 정보 ${need?'<span class="pill warn">입력 필요</span>':'<span class="pill">입력됨</span>'}</h2>
       <p class="sub">학원 등록 정보예요. 입력하면 선생님 노션에도 자동 반영돼요.</p>
       <label>본인 연락처</label><input id="myPhone" type="text" inputmode="numeric" placeholder="01012345678 (숫자만)" value="${s.student_phone||''}">
       <label>학부모 연락처</label><input id="myGuardian" type="text" inputmode="numeric" placeholder="01012345678 (숫자만)" value="${s.guardian_phone||''}">
       <label>집주소</label><input id="myAddr" type="text" placeholder="서울 동대문구 …" value="${(s.address||'').replace(/"/g,'&quot;')}">
       <label>성적 (자유롭게)</label><input id="myScore" type="text" placeholder="예: 수학 모의고사 3등급" value="${(s.score||'').replace(/"/g,'&quot;')}">
       <button class="btn full" onclick="A.saveMyInfo()">내 정보 저장</button></div>`;
+    }
   }
   h+=dayCard(items,today,ro);
   if(!ro){
@@ -302,6 +312,7 @@ function realHtml(){
     h+=`</div>`;
   }
   h+=`<div class="card"><h2>복습영상</h2><p class="sub">풀이를 직접 설명하며 녹화 → 본인 폴더에 올리면 선생님이 확인해요</p>
+    <a class="btn ghost full" href="recording-guide.pdf" target="_blank" rel="noopener" style="text-decoration:none;display:block;text-align:center;box-sizing:border-box;margin-bottom:10px">📖 녹화 방법 보기</a>
     <button class="btn amber full" onclick="A.openFolder('${s.name}')">＋ 복습영상 올리기 (내 드라이브 폴더 열기)</button>
     <p class="hint">파일명 예시: 0612_수1_삼각함수_개념설명.mp4 · 3~7분 권장</p>${videoList(videos)}</div>`;
   return h;
@@ -373,7 +384,7 @@ h+=`<div class="card"><h2>숙제 등록</h2><div class="seg small" style="max-wi
 if(D.split==='auto')h+=`<label>숙제 이름</label><input id="dTitle" type="text" placeholder="예: 프린트"><div class="row"><div><label>총 문항</label><input id="dTotal" type="number" placeholder="30"></div></div><button class="btn" onclick="A.dAuto()">자동 분배</button>`;
 else h+=`<label>날짜</label><input id="dmDate" type="date" value="2026-06-11"><label>내용</label><input id="dmText" type="text"><button class="btn" onclick="A.dMan()">추가</button>`;
 h+=`</div><div class="card"><h2>${+D.focus.slice(-2)}일 숙제</h2>${dChk(sid,D.focus,false)}</div><div class="card"><h2>복습영상</h2>${dVids(sid)}</div>`;}
-if(D.role==='student'){h+=`<div class="card"><h2>안녕, ${s.name}! <span class="badge b-stu">학생</span></h2>${dCalBlock(sid)}</div><div class="card"><h2>오늘 숙제</h2>${dChk(sid,D.TODAY,false)}<label style="margin-top:14px">나도 숙제 추가</label><div class="row"><div style="flex:3"><input id="dsText" type="text"></div><div><button class="btn ghost" style="margin-top:0" onclick="A.dStu()">추가</button></div></div></div><div class="card"><h2>복습영상</h2>${D.up?`<button class="btn amber" onclick="A.dVid()">제출(데모)</button> <button class="btn ghost" onclick="A.dUpC()">취소</button>`:`<button class="btn amber full" onclick="A.dUp()">＋ 복습영상 올리기</button>`}<div style="margin-top:12px">${dVids(sid)}</div></div>`;}
+if(D.role==='student'){h+=`<div class="card"><h2>안녕, ${s.name}! <span class="badge b-stu">학생</span></h2>${dCalBlock(sid)}</div><div class="card"><h2>오늘 숙제</h2>${dChk(sid,D.TODAY,false)}<label style="margin-top:14px">나도 숙제 추가</label><div class="row"><div style="flex:3"><input id="dsText" type="text"></div><div><button class="btn ghost" style="margin-top:0" onclick="A.dStu()">추가</button></div></div></div><div class="card"><h2>복습영상</h2><a class="btn ghost full" href="recording-guide.pdf" target="_blank" rel="noopener" style="text-decoration:none;display:block;text-align:center;box-sizing:border-box;margin-bottom:10px">📖 녹화 방법 보기</a>${D.up?`<button class="btn amber" onclick="A.dVid()">제출(데모)</button> <button class="btn ghost" onclick="A.dUpC()">취소</button>`:`<button class="btn amber full" onclick="A.dUp()">＋ 복습영상 올리기</button>`}<div style="margin-top:12px">${dVids(sid)}</div></div>`;}
 if(D.role==='parent'){const td=dItems(sid,D.TODAY),done=td.filter(i=>i.done).length;h+=`<div class="card readonly"><h2>${s.name} 학습 현황 <span class="badge b-parent">학부모</span></h2>${dCalBlock(sid)}</div><div class="card readonly"><h2>오늘</h2><p class="sub">${td.length}개 중 ${done}개 완료</p>${dChk(sid,D.TODAY,true)}</div><div class="card"><h2>학부모 알림 미리보기</h2><div class="preview"><span style="font-size:18px">🔔</span><div><p class="ttl">[앤서수학교습소] 오늘의 학습 알림</p><p>${s.name} 학생 학부모님, 오늘 숙제 ${td.length}개 중 ${done}개 완료했어요.</p></div></div></div>`;}
 return h;}
 

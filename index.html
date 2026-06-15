@@ -110,6 +110,7 @@ const KAKAO_FRIEND='http://pf.kakao.com/_pxlUnX/friend';
 const KAKAO_CHAT='http://pf.kakao.com/_pxlUnX/chat';
 const INSTA_URL='https://www.instagram.com/';   // TODO: 앤서수학 인스타 계정 주소로 교체
 const MAP_URL='https://map.kakao.com/?q='+encodeURIComponent('서울 동대문구 왕산로 186 우남SL타워');
+const FORM_EMBED_URL='';   // TODO: 노션 '학생 등록 신청서' 게시(Publish) 후 공개 폼 링크 붙여넣기
 const DOWK=['월','화','수','목','금','토','일'];
 const ICON={done:'✓',miss:'✕',todo:'✎',none:'·'}, ICLASS={done:'ic-done',miss:'ic-miss',todo:'ic-todo',none:'ic-none'};
 const pad=n=>String(n).padStart(2,'0');
@@ -120,7 +121,7 @@ const folderUrl=name=>{const st=students.find(s=>s.name===name);return (st&&st.d
 
 let mode='loading', session=null, profile=null;
 let students=[], curId=null, homework=[], videos=[], unlinked=[];
-let view='student', calView='month', focusDate=todayISO(), splitMode='auto', stuMode='auto';
+let view='student', calView='month', focusDate=todayISO(), splitMode='auto', stuMode='auto', editPhone=false, regChoice=null;
 
 async function init(){
   try{ const {data}=await sb.auth.getSession(); session=data.session;
@@ -153,10 +154,10 @@ async function logout(){ await sb.auth.signOut(); session=null;profile=null;mode
 
 window.A={ loginKakao, logout, startDemo:()=>{mode='demo';render();},
   setView:async v=>{view=v; if(v==='link')await loadUnlinked(); render();},
-  pick:async v=>{curId=v;view='student';await loadStudent();render();},
+  pick:async v=>{curId=v;view='student';editPhone=false;await loadStudent();render();},
   setCal:v=>{calView=v;render();}, setFocus:d=>{focusDate=d;render();}, setSplit:v=>{splitMode=v;render();},
-  autoSplit, manualAdd, toggle, linkStudent, studentAdd, openFolder, saveGuardianPhone,
-  stuSplit, stuAddDate, setStuMode:v=>{stuMode=v;render();},
+  autoSplit, manualAdd, toggle, linkStudent, studentAdd, openFolder, saveGuardianPhone, filterStudents, filterSelect, saveMyInfo,
+  stuSplit, stuAddDate, setStuMode:v=>{stuMode=v;render();}, editGuardianPhone:()=>{editPhone=true;render();}, chooseReg:v=>{regChoice=v;render();},
   dRole:r=>{D.role=r;D.focus=D.TODAY;render();}, dCal:v=>{D.cal=v;render();}, dFocus:d=>{D.focus=d;render();}, dPick:v=>{D.sel=v;render();}, dToggle, dSplit:v=>{D.split=v;render();}, dAuto, dMan, dStu, dVid, dUp:()=>{D.up=true;render();}, dUpC:()=>{D.up=false;render();} };
 
 function openFolder(name){ const u=folderUrl(name); if(u) window.open(u,'_blank'); else alert('이 학생의 영상 폴더가 아직 연결되지 않았어요.'); }
@@ -202,7 +203,17 @@ async function saveGuardianPhone(sid){
   const raw=el.value.replace(/[^0-9]/g,'');
   if(raw && (raw.length<10||raw.length>11)){alert('전화번호를 다시 확인해 주세요 (예: 01012345678)');return;}
   await sb.from('students').update({guardian_phone:raw||null}).eq('id',sid);
-  const {data:st}=await sb.from('students').select('*').order('name');students=st||[];render();}
+  const {data:st}=await sb.from('students').select('*').order('name');students=st||[];editPhone=false;render();}
+function filterStudents(v){v=(v||'').trim().toLowerCase();document.querySelectorAll('.srow[data-name]').forEach(el=>{el.style.display=(!v||el.dataset.name.toLowerCase().includes(v))?'':'none';});}
+function filterSelect(v){v=(v||'').trim().toLowerCase();const sel=document.getElementById('stuSelect');if(!sel)return;[...sel.options].forEach(o=>{o.hidden=!!v&&!o.text.toLowerCase().includes(v);});}
+async function saveMyInfo(){
+  const val=id=>(document.getElementById(id)?.value||'');
+  const phone=val('myPhone').replace(/[^0-9]/g,''), guardian=val('myGuardian').replace(/[^0-9]/g,'');
+  if(guardian&&(guardian.length<10||guardian.length>11)){alert('학부모 연락처를 확인해 주세요 (예: 01012345678)');return;}
+  const {error}=await sb.rpc('save_my_info',{p_phone:phone,p_guardian:guardian,p_address:val('myAddr'),p_score:val('myScore')});
+  if(error){alert('저장 실패: '+error.message);return;}
+  const {data:st}=await sb.from('students').select('*').order('name');students=st||[];
+  alert('정보가 저장됐어요! 감사합니다 🙂');render();}
 
 function render(){renderBar();const app=document.getElementById('app');
   if(mode==='loading'){app.innerHTML='<div class="card"><div class="empty">불러오는 중…</div></div>';return;}
@@ -266,11 +277,21 @@ function realHtml(){
     return h+teacherStudent(today);
   }
   const s=students.find(x=>x.id===curId);
-  if(!s) return `<div class="card"><h2>안녕하세요, ${profile.name||''}님</h2><p class="sub">아직 연결된 학생 정보가 없어요. 선생님이 계정을 연결하면 여기에서 숙제와 복습영상을 볼 수 있어요.</p></div>`;
+  if(!s) return channelCard()+`<div class="card"><h2>환영합니다, ${profile.name||''}님! 🎉</h2><p class="sub">선생님이 계정을 연결하면 <b>내 정보 입력</b>과 숙제·복습영상이 보여요. 카카오로 로그인한 그대로 잠시만 기다려주세요 🙂</p><p class="hint">선생님(가람)이 "계정 연결"에서 회원님을 찾아 연결해드립니다.</p></div>`;
   const items=homework.map(h=>({id:h.id,date:h.due_date,text:h.content,done:h.done,by:h.created_by}));
   const ro=profile.role==='parent';
   let h=`<div class="card"><h2>${s.name} <span class="badge ${ro?'b-parent':'b-stu'}">${ro?'학부모':'학생'}</span></h2><p class="sub">${ro?'자녀':'내'} 숙제·복습영상 · 본인 것만 보여요</p>${calBlock(items,today,'A.setFocus')}<div class="lock">🔒 다른 학생 정보는 서버에서 차단됩니다.</div></div>`;
   h+=channelCard();
+  if(!ro){
+    const need=!s.guardian_phone||!s.student_phone;
+    h+=`<div class="card" style="${need?'border-color:var(--ter)':''}"><h2>내 정보 ${need?'<span class="pill warn">입력 필요</span>':'<span class="pill">입력됨</span>'}</h2>
+      <p class="sub">학원 등록 정보예요. 입력하면 선생님 노션에도 자동 반영돼요.</p>
+      <label>본인 연락처</label><input id="myPhone" type="text" inputmode="numeric" placeholder="01012345678 (숫자만)" value="${s.student_phone||''}">
+      <label>학부모 연락처</label><input id="myGuardian" type="text" inputmode="numeric" placeholder="01012345678 (숫자만)" value="${s.guardian_phone||''}">
+      <label>집주소</label><input id="myAddr" type="text" placeholder="서울 동대문구 …" value="${(s.address||'').replace(/"/g,'&quot;')}">
+      <label>성적 (자유롭게)</label><input id="myScore" type="text" placeholder="예: 수학 모의고사 3등급" value="${(s.score||'').replace(/"/g,'&quot;')}">
+      <button class="btn full" onclick="A.saveMyInfo()">내 정보 저장</button></div>`;
+  }
   h+=dayCard(items,today,ro);
   if(!ro){
     const future=items.filter(i=>!i.done && i.date>=today).length;
@@ -289,15 +310,21 @@ function teacherStudent(today){
   const s=students.find(x=>x.id===curId);
   const items=homework.map(h=>({id:h.id,date:h.due_date,text:h.content,done:h.done,by:h.created_by}));
   const tot=homework.length, dn=homework.filter(h=>h.done).length;
-  let h=`<div class="card"><label style="margin-bottom:6px">학생 선택 (${students.length}명) — 골라서 바로 이동</label><select onchange="A.pick(this.value)">${students.map(x=>`<option value="${x.id}" ${x.id===curId?'selected':''}>${x.name}${x.user_id?'':' · 미연결'}</option>`).join('')}</select></div>`;
+  let h=`<div class="card"><label style="margin-bottom:6px">학생 선택 (${students.length}명) — 이름 검색 후 선택</label><input type="text" placeholder="🔍 학생 이름 검색" oninput="A.filterSelect(this.value)" style="margin-bottom:8px"><select id="stuSelect" onchange="A.pick(this.value)">${students.map(x=>`<option value="${x.id}" ${x.id===curId?'selected':''}>${x.name}${x.user_id?'':' · 미연결'}</option>`).join('')}</select></div>`;
   h+=`<div class="card"><h2>${s?s.name:''} <span style="color:var(--muted);font-weight:400">${s&&s.grade?'· '+s.grade:''} ${s&&s.subject?'· '+s.subject:''}</span> ${s&&s.user_id?'<span class="pill">연결됨</span>':'<span class="pill gray">미연결</span>'}</h2>
     <p class="sub">날짜를 누르면 그 날 숙제 · 추가하면 실시간 저장</p>${calBlock(items,today,'A.setFocus')}
     <div class="stat"><div class="box"><b>${tot}</b><span>등록 숙제</span></div><div class="box"><b style="color:var(--green)">${dn}</b><span>완료</span></div><div class="box"><b style="color:var(--red)">${tot-dn}</b><span>미완료</span></div></div></div>`;
-  h+=`<div class="card"><h2>학부모 연락처 ${s&&s.guardian_phone?'<span class="pill">등록됨</span>':'<span class="pill warn">미등록</span>'}</h2>
-    <p class="sub">미제출·복습 알림 문자를 받을 번호예요. 한 번 저장하면 계속 쓰여요.</p>
-    <input id="gphone" type="text" inputmode="numeric" placeholder="01012345678 (숫자만, - 없이)" value="${s&&s.guardian_phone?s.guardian_phone:''}">
-    <button class="btn" onclick="A.saveGuardianPhone('${s?s.id:''}')">번호 저장</button>
-    <p class="hint">비우고 저장하면 번호가 삭제돼요. 잘못 켜면 실제 문자가 나가니 발송 전 한 번 더 확인하세요.</p></div>`;
+  const gp=s&&s.guardian_phone;
+  h+=`<div class="card"><h2>학부모 연락처 ${gp?'<span class="pill">등록됨</span>':'<span class="pill warn">미등록</span>'}</h2>`;
+  if(gp&&!editPhone){
+    h+=`<p class="sub">알림 문자를 받을 번호예요.</p><div style="display:flex;align-items:center;gap:12px"><b style="font-size:17px">${gp.replace(/(\d{3})(\d{3,4})(\d{4})/,'$1-$2-$3')}</b><button class="ghostbtn" onclick="A.editGuardianPhone()">변경</button></div>`;
+  } else {
+    h+=`<p class="sub">미제출·복습 알림 문자를 받을 번호. <b>저장하면 칸이 사라지고</b> 번호만 남아요.</p>
+      <input id="gphone" type="text" inputmode="numeric" placeholder="01012345678 (숫자만, - 없이)" value="${gp||''}">
+      <button class="btn" onclick="A.saveGuardianPhone('${s?s.id:''}')">번호 저장</button>
+      <p class="hint">비우고 저장하면 번호가 삭제돼요.</p>`;
+  }
+  h+=`</div>`;
   h+=`<div class="card"><h2>숙제 등록</h2><div class="seg small" style="max-width:240px"><button class="${splitMode==='auto'?'active':''}" onclick="A.setSplit('auto')">자동 분배</button><button class="${splitMode==='manual'?'active':''}" onclick="A.setSplit('manual')">직접 입력</button></div>`;
   if(splitMode==='auto') h+=`<label>숙제 이름</label><input id="aTitle" type="text" placeholder="예: 시험대비 프린트"><div class="row"><div><label>총 문항</label><input id="aTotal" type="number" placeholder="30"></div><div><label>시작일</label><input id="aStart" type="date" value="${today}"></div><div><label>마감(시험일)</label><input id="aEnd" type="date" value="${today}"></div></div><button class="btn" onclick="A.autoSplit()">자동 분배해서 저장</button><p class="hint">예: 30문항을 오늘~시험일로 주면 하루치씩 자동으로 나눠 캘린더에 깔려요.</p>`;
   else h+=`<label>날짜</label><input id="mDate" type="date" value="${today}"><label>내용</label><input id="mText" type="text" placeholder="예: 오답노트 2문제"><button class="btn" onclick="A.manualAdd()">저장</button>`;
@@ -308,14 +335,14 @@ function teacherStudent(today){
 }
 function teacherAll(today){
   const noPhone=students.filter(s=>!s.guardian_phone).length;
-  let h=`<div class="card"><h2>전체 학생 (${students.length}명)</h2><p class="sub">이름을 누르면 그 학생 관리로 이동${noPhone?` · 학부모 번호 미등록 <b>${noPhone}</b>명`:' · 학부모 번호 전원 등록됨 ✓'}</p>`;
-  h+=students.map(s=>`<div class="srow" onclick="A.pick('${s.id}')"><div class="sn">${s.name}</div><span class="meta">${s.grade||''} ${s.subject||''}</span>${s.guardian_phone?'<span class="pill">📞</span>':'<span class="pill warn">번호없음</span>'}${s.user_id?'<span class="pill">연결</span>':'<span class="pill gray">미연결</span>'}</div>`).join('');
+  let h=`<div class="card"><h2>전체 학생 (${students.length}명)</h2><p class="sub">이름을 누르면 그 학생 관리로 이동${noPhone?` · 학부모 번호 미등록 <b>${noPhone}</b>명`:' · 학부모 번호 전원 등록됨 ✓'}</p><input type="text" placeholder="🔍 학생 이름 검색" oninput="A.filterStudents(this.value)" style="margin-bottom:6px">`;
+  h+=students.map(s=>`<div class="srow" data-name="${s.name}" onclick="A.pick('${s.id}')"><div class="sn">${s.name}</div><span class="meta">${s.grade||''} ${s.subject||''}</span>${s.guardian_phone?'<span class="pill">📞</span>':'<span class="pill warn">번호없음</span>'}${s.user_id?'<span class="pill">연결</span>':'<span class="pill gray">미연결</span>'}</div>`).join('');
   return h+'</div>';
 }
 function teacherLink(){
-  let h=`<div class="card"><h2>학생 계정 연결</h2><p class="sub">학생이 카카오로 로그인하면 아래에 나타나요. 어떤 학생인지 선택해 연결하면, 그 학생은 본인 숙제·영상만 보게 돼요.</p>`;
+  let h=`<div class="card"><h2>학생 계정 연결</h2><p class="sub">학생이 카카오로 로그인하면 아래에 나타나요. 어떤 학생인지 선택해 연결하면, 그 학생은 본인 숙제·영상만 보게 돼요.</p>${unlinked.length>6?'<input type="text" placeholder="🔍 이름 검색" oninput="A.filterStudents(this.value)" style="margin-bottom:6px">':''}`;
   if(!unlinked.length) h+='<div class="empty">아직 로그인했지만 연결 안 된 학생이 없어요. 학생이 "카카오로 로그인" 후 새로고침하세요.</div>';
-  else h+=unlinked.map(p=>`<div class="srow"><div class="sn">${p.name||'(이름없음)'}</div><select onchange="A.linkStudent(this.value, '${p.id}')"><option value="">— 학생 선택 —</option>${students.filter(s=>!s.user_id).map(s=>`<option value="${s.id}">${s.name}</option>`).join('')}</select></div>`).join('');
+  else h+=unlinked.map(p=>`<div class="srow" data-name="${p.name||''}"><div class="sn">${p.name||'(이름없음)'}</div><select onchange="A.linkStudent(this.value, '${p.id}')"><option value="">— 학생 선택 —</option>${students.filter(s=>!s.user_id).map(s=>`<option value="${s.id}">${s.name}</option>`).join('')}</select></div>`).join('');
   h+=`<p class="hint">연결 가능한 학생(미연결): ${students.filter(s=>!s.user_id).length}명</p></div>`;
   return h;
 }
@@ -332,25 +359,4 @@ const D={TODAY:'2026-06-11',role:'teacher',sel:'s1',cal:'month',focus:'2026-06-1
 function dItems(sid,date){return D.items.filter(i=>i.sid===sid&&i.date===date);}
 function dCalBlock(sid){const items=D.items.filter(i=>i.sid===sid).map(i=>({date:i.date,done:i.done}));const f=cb=>D.cal==='week'?weekStrip(items,D.TODAY,cb):monthGrid(items,D.TODAY,cb);return `<div class="seg small"><button class="${D.cal==='week'?'active':''}" onclick="A.dCal('week')">주간</button><button class="${D.cal==='month'?'active':''}" onclick="A.dCal('month')">월간</button></div>`+f('A.dFocus');}
 function dChk(sid,date,ro){const l=dItems(sid,date);if(!l.length)return'<div class="empty">이 날은 숙제가 없어요.</div>';return l.map(i=>`<div class="hwitem ${i.done?'done':''} ${ro?'readonly':''}"><span class="chk ${i.done?'on':''}" onclick="${ro?'':'A.dToggle(\''+i.id+'\')'}">${i.done?'☑':'☐'}</span><span class="txt">${i.text}</span>${i.by==='student'?'<span class="tag stu">학생</span>':'<span class="tag">선생님</span>'}</div>`).join('');}
-function dVids(sid){const vs=D.videos.filter(v=>v.sid===sid);if(!vs.length)return'<div class="empty">아직 영상이 없어요.</div>';return vs.map(v=>v.status==='ing'?`<div class="vid"><div class="vh"><span class="vt">${v.title}</span><span style="color:var(--amber);font-weight:600">분석 중…</span></div></div>`:`<div class="vid"><div class="vh"><span class="vt">${v.title}</span><span class="stars">${'★'.repeat(v.stars)}${'☆'.repeat(5-v.stars)}</span></div><p class="fb">${v.feedback}</p>${v.error_note?`<div class="err">보완: ${v.error_note}</div>`:''}</div>`).join('');}
-function dInfo(sid){return D.students.find(s=>s.id===sid);}
-function dToggle(id){if(D.role==='parent')return;const it=D.items.find(i=>i.id===id);if(it){it.done=!it.done;render();}}
-function dAuto(){const t=document.getElementById('dTitle').value.trim()||'숙제';const tot=parseInt(document.getElementById('dTotal').value)||0;if(tot<=0){alert('총 문항');return;}const days=['2026-06-11','2026-06-12','2026-06-13','2026-06-14'];const per=Math.ceil(tot/days.length);let n=1;days.forEach(d=>{const f=n,to=Math.min(n+per-1,tot);if(f>tot)return;D.items.push({id:'h'+(D.uid++),sid:D.sel,date:d,text:`${t} ${f}~${to}번`,done:false,by:'teacher'});n=to+1;});render();}
-function dMan(){const d=document.getElementById('dmDate').value,t=document.getElementById('dmText').value.trim();if(!d||!t)return;D.items.push({id:'h'+(D.uid++),sid:D.sel,date:d,text:t,done:false,by:'teacher'});render();}
-function dStu(){const t=document.getElementById('dsText').value.trim();if(!t)return;D.items.push({id:'h'+(D.uid++),sid:D.sel,date:D.TODAY,text:t,done:false,by:'student'});render();}
-function dVid(){const v={id:'v'+(D.uid++),sid:D.sel,title:'복습영상 (방금 제출)',status:'ing',stars:0};D.videos.unshift(v);D.up=false;render();setTimeout(()=>{v.status='done';v.stars=4;v.feedback='풀이를 단계별로 잘 설명했어요.';v.error_note='검산 한 줄 추가하면 완벽';render();},1500);}
-function demoHtml(){const sid=D.sel,s=dInfo(sid);let h=`<div class="card"><div class="seg" style="max-width:330px"><button class="${D.role==='teacher'?'active':''}" onclick="A.dRole('teacher')">선생님</button><button class="${D.role==='student'?'active':''}" onclick="A.dRole('student')">학생</button><button class="${D.role==='parent'?'active':''}" onclick="A.dRole('parent')">학부모</button></div><div style="margin-top:10px"><select onchange="A.dPick(this.value)">`+D.students.map(x=>`<option value="${x.id}" ${x.id===D.sel?'selected':''}>${x.name}</option>`).join('')+`</select></div></div>`;
-  if(D.role==='teacher'){const tot=D.items.filter(i=>i.sid===sid).length,dn=D.items.filter(i=>i.sid===sid&&i.done).length;
-    h+=`<div class="card"><h2>${s.name} · ${s.grade} · ${s.subject}</h2>${dCalBlock(sid)}<div class="stat"><div class="box"><b>${tot}</b><span>등록</span></div><div class="box"><b style="color:var(--green)">${dn}</b><span>완료</span></div><div class="box"><b style="color:var(--red)">${tot-dn}</b><span>미완료</span></div></div></div>`;
-    h+=`<div class="card"><h2>숙제 등록</h2><div class="seg small" style="max-width:240px"><button class="${D.split==='auto'?'active':''}" onclick="A.dSplit('auto')">자동 분배</button><button class="${D.split==='manual'?'active':''}" onclick="A.dSplit('manual')">직접 입력</button></div>`;
-    if(D.split==='auto')h+=`<label>숙제 이름</label><input id="dTitle" type="text" placeholder="예: 프린트"><div class="row"><div><label>총 문항</label><input id="dTotal" type="number" placeholder="30"></div></div><button class="btn" onclick="A.dAuto()">자동 분배</button>`;
-    else h+=`<label>날짜</label><input id="dmDate" type="date" value="2026-06-11"><label>내용</label><input id="dmText" type="text"><button class="btn" onclick="A.dMan()">추가</button>`;
-    h+=`</div><div class="card"><h2>${+D.focus.slice(-2)}일 숙제</h2>${dChk(sid,D.focus,false)}</div><div class="card"><h2>복습영상</h2>${dVids(sid)}</div>`;}
-  if(D.role==='student'){h+=`<div class="card"><h2>안녕, ${s.name}! <span class="badge b-stu">학생</span></h2>${dCalBlock(sid)}</div><div class="card"><h2>오늘 숙제</h2>${dChk(sid,D.TODAY,false)}<label style="margin-top:14px">나도 숙제 추가</label><div class="row"><div style="flex:3"><input id="dsText" type="text"></div><div><button class="btn ghost" style="margin-top:0" onclick="A.dStu()">추가</button></div></div></div><div class="card"><h2>복습영상</h2>${D.up?`<button class="btn amber" onclick="A.dVid()">제출(데모)</button> <button class="btn ghost" onclick="A.dUpC()">취소</button>`:`<button class="btn amber full" onclick="A.dUp()">＋ 복습영상 올리기</button>`}<div style="margin-top:12px">${dVids(sid)}</div></div>`;}
-  if(D.role==='parent'){const td=dItems(sid,D.TODAY),done=td.filter(i=>i.done).length;h+=`<div class="card readonly"><h2>${s.name} 학습 현황 <span class="badge b-parent">학부모</span></h2>${dCalBlock(sid)}</div><div class="card readonly"><h2>오늘</h2><p class="sub">${td.length}개 중 ${done}개 완료</p>${dChk(sid,D.TODAY,true)}</div><div class="card"><h2>학부모 알림 미리보기</h2><div class="preview"><span style="font-size:18px">🔔</span><div><p class="ttl">[앤서수학교습소] 오늘의 학습 알림</p><p>${s.name} 학생 학부모님, 오늘 숙제 ${td.length}개 중 ${done}개 완료했어요.</p></div></div></div>`;}
-  return h;}
-
-init();
-</script>
-</body>
-</html>
+function dVids(sid){const vs=D.videos.filter(v=>v.sid===sid);if(!vs.length)return'<div class="empty">아직 영상이 없어요.</div>';return vs.map(v=>v.status==='ing'?`<div class="vid"><div class="vh"><span class="vt">${v.title}</span><span style="color:var(--amber);font-weight:600">분석 중…</span></div></div>`:`<div class="vid"><div class="vh"><span class="vt">${v.title}</span><span class="stars">${'★'.repeat(v.stars)}${'☆'.repeat(5-v.stars)}</span></div><p class="fb">${v.feedba

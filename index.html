@@ -152,11 +152,12 @@ async function loadUnlinked(){
 async function loginKakao(){ await sb.auth.signInWithOAuth({provider:'kakao',options:{redirectTo:location.origin+location.pathname}}); }
 async function logout(){ await sb.auth.signOut(); session=null;profile=null;mode='login';render(); }
 
+async function editHW(id){ if(profile&&profile.role==='parent')return; const it=homework.find(h=>h.id===id); if(!it)return; const v=prompt('숙제 내용 수정', it.content); if(v===null)return; const tt=v.trim(); if(!tt){alert('내용을 비울 수 없어요');return;} const {error}=await sb.from('homework').update({content:tt}).eq('id',id); if(error){alert('수정 실패: '+error.message);return;} await loadStudent(); render(); }
 window.A={ loginKakao, logout, startDemo:()=>{mode='demo';render();},
   setView:async v=>{view=v; if(v==='link')await loadUnlinked(); render();},
   pick:async v=>{curId=v;view='student';editPhone=false;await loadStudent();render();},
   setCal:v=>{calView=v;render();}, setFocus:d=>{focusDate=d;render();}, setSplit:v=>{splitMode=v;render();},
-  autoSplit, manualAdd, toggle, linkStudent, studentAdd, openFolder, saveGuardianPhone, filterStudents, filterSelect, saveMyInfo,
+  autoSplit, manualAdd, toggle, editHW, linkStudent, studentAdd, openFolder, saveGuardianPhone, filterStudents, filterSelect, saveMyInfo,
   stuSplit, stuAddDate, setStuMode:v=>{stuMode=v;render();}, editGuardianPhone:()=>{editPhone=true;render();}, chooseReg:v=>{regChoice=v;render();},
   dRole:r=>{D.role=r;D.focus=D.TODAY;render();}, dCal:v=>{D.cal=v;render();}, dFocus:d=>{D.focus=d;render();}, dPick:v=>{D.sel=v;render();}, dToggle, dSplit:v=>{D.split=v;render();}, dAuto, dMan, dStu, dVid, dUp:()=>{D.up=true;render();}, dUpC:()=>{D.up=false;render();} };
 
@@ -350,7 +351,7 @@ function teacherLink(){
   return h;
 }
 function dayCard(items,date,ro){const l=items.filter(i=>i.date===date);
-  const list=l.length?l.map(i=>`<div class="hwitem ${i.done?'done':''} ${ro?'readonly':''}"><span class="chk ${i.done?'on':''}" onclick="${ro?'':'A.toggle(\''+i.id+'\')'}">${i.done?'☑':'☐'}</span><span class="txt">${i.text}</span>${i.by==='student'?'<span class="tag stu">학생</span>':'<span class="tag">선생님</span>'}</div>`).join(''):'<div class="empty">이 날은 등록된 숙제가 없어요.</div>';
+  const list=l.length?l.map(i=>`<div class="hwitem ${i.done?'done':''} ${ro?'readonly':''}"><span class="chk ${i.done?'on':''}" onclick="${ro?'':'A.toggle(\''+i.id+'\')'}">${i.done?'☑':'☐'}</span><span class="txt">${i.text}</span>${i.by==='student'?'<span class="tag stu">학생</span>':'<span class="tag">선생님</span>'}${ro?'':'<button class="ghostbtn" style="padding:4px 9px;font-size:12px" onclick="A.editHW(\''+i.id+'\')">수정</button>'}</div>`).join(''):'<div class="empty">이 날은 등록된 숙제가 없어요.</div>';
   return `<div class="card"><h2>${+date.slice(-2)}일 숙제</h2><p class="sub">${ro?'':'체크하면 저장됩니다'}</p>${list}</div>`;}
 function videoList(vs){if(!vs.length)return '<div class="empty" style="margin-top:10px">아직 분석된 복습영상이 없어요.</div>';
   return vs.map(v=>v.status==='ing'?`<div class="vid"><div class="vh"><span class="vt">${v.title||'복습영상'}</span><span style="color:var(--amber);font-weight:600">분석 중…</span></div></div>`:`<div class="vid"><div class="vh"><span class="vt">${v.title||'복습영상'}</span><span class="stars">${'★'.repeat(v.stars||0)}${'☆'.repeat(5-(v.stars||0))}</span></div><p class="fb">${v.feedback||''}</p>${v.error_note?`<div class="err">보완: ${v.error_note}</div>`:''}</div>`).join('');}

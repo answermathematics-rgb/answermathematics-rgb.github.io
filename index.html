@@ -152,7 +152,7 @@ async function loadUnlinked(){
 async function loginKakao(){ await sb.auth.signInWithOAuth({provider:'kakao',options:{redirectTo:location.origin+location.pathname}}); }
 async function logout(){ await sb.auth.signOut(); session=null;profile=null;mode='login';render(); }
 
-async function editHW(id){ if(profile&&profile.role==='parent')return; const it=homework.find(h=>h.id===id); if(!it)return; const v=prompt('숙제 내용 수정', it.content); if(v===null)return; const tt=v.trim(); if(!tt){alert('내용을 비울 수 없어요');return;} const {error}=await sb.from('homework').update({content:tt}).eq('id',id); if(error){alert('수정 실패: '+error.message);return;} await loadStudent(); render(); }
+async function editHW(id){ if(profile&&profile.role==='parent')return; const it=homework.find(h=>h.id===id); if(!it)return; const v=prompt('숙제 내용 수정', it.content); if(v===null)return; const tt=v.trim(); if(!tt){alert('내용을 비울 수 없어요');return;} const dd=prompt('날짜 (예: 2026-06-20)', it.due_date); if(dd===null)return; const dv=dd.trim(); if(!/^\d{4}-\d{2}-\d{2}$/.test(dv)){alert('날짜 형식이 올바르지 않아요 (예: 2026-06-20)');return;} const {error}=await sb.from('homework').update({content:tt,due_date:dv}).eq('id',id); if(error){alert('수정 실패: '+error.message);return;} await loadStudent(); render(); }
 window.A={ loginKakao, logout, startDemo:()=>{mode='demo';render();},
   setView:async v=>{view=v; if(v==='link')await loadUnlinked(); render();},
   pick:async v=>{curId=v;view='student';editPhone=false;await loadStudent();render();},
@@ -295,7 +295,7 @@ function realHtml(){
       <button class="btn full" onclick="A.saveMyInfo()">내 정보 저장 (저장 후 수정 불가)</button></div>`;
     }
   }
-  h+=dayCard(items,today,ro);
+  h+=dayCard(items,focusDate,ro);
   if(!ro){
     const future=items.filter(i=>!i.done && i.date>=today).length;
     h+=`<div class="card"><h2>내 숙제 계획 세우기</h2><p class="sub">스스로 기간에 나눠 계획하면 매일 부담이 줄어요${future?` · 앞으로 할 숙제 <b>${future}</b>개`:''}</p>

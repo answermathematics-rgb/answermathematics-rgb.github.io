@@ -23,6 +23,9 @@
   .seg{display:flex;gap:8px;margin:0 0 14px}
   .seg button{flex:1;padding:10px 0;border:1px solid var(--line);background:var(--card);border-radius:10px;font-size:14px;font-weight:700;color:var(--muted);cursor:pointer;font-family:inherit}
   .seg button.active{border-color:var(--brand);color:var(--brand);background:var(--brand-soft)}
+  .mrow{display:flex;gap:7px;overflow-x:auto;padding-bottom:4px;margin:0 0 13px;-webkit-overflow-scrolling:touch}
+  .mchip{flex:none;padding:7px 15px;border:1px solid var(--line);background:var(--card);border-radius:20px;font-size:13px;font-weight:700;color:var(--muted);cursor:pointer;font-family:inherit;white-space:nowrap}
+  .mchip.on{border-color:var(--brand);color:var(--brand);background:var(--brand-soft)}
   section{display:none} section.on{display:block}
   .card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:15px 16px;margin-bottom:12px;box-shadow:0 6px 20px -16px rgba(80,45,25,.35)}
   .crow{display:flex;align-items:center;justify-content:space-between;gap:10px}
@@ -77,12 +80,24 @@ async function main(){
 
   chip.textContent = (st.name||"학생") + " 학부모님";
 
-  const lessonHtml = lessons.length ? lessons.map(l=>`
+  // 월 목록 (YYYY-MM, 오름차순) — 기본은 가장 최근 달
+  const months = [...new Set(lessons.map(l=>l.date.slice(0,7)))];
+  let curMonth = months.length ? months[months.length-1] : null;
+  const mLabel = ym => (+ym.slice(5,7)) + "월";
+
+  const lessonCard = l => `
     <div class="card">
       <div class="crow"><span class="date">${fmt(l.date)}</span>${statusPill(l.status)}</div>
       <div class="content">${esc(l.content)||"—"}</div>
       ${l.completion!=null ? `<div class="bar"><i style="width:${Math.max(0,Math.min(100,l.completion))}%"></i></div><div class="barlabel">숙제 완성도 ${l.completion}%</div>` : ``}
-    </div>`).join("") : `<div class="empty">아직 등록된 일지가 없어요.</div>`;
+    </div>`;
+
+  function lessonSection(){
+    if(!months.length) return `<div class="empty">아직 등록된 일지가 없어요.</div>`;
+    const chips = `<div class="mrow">` + months.map(m=>`<button class="mchip ${m===curMonth?'on':''}" data-m="${m}">${mLabel(m)}</button>`).join("") + `</div>`;
+    const list = lessons.filter(l=>l.date.slice(0,7)===curMonth).map(lessonCard).join("") || `<div class="empty">이 달 일지가 없어요.</div>`;
+    return chips + list;
+  }
 
   const hwHtml = homework.length ? homework.map(h=>`
     <div class="card hwitem ${h.done?'done':''}">
@@ -111,16 +126,25 @@ async function main(){
       <button data-t="h">📚 숙제</button>
       <button data-t="v">🎬 복습영상</button>
     </div>
-    <section id="s-l" class="on">${lessonHtml}</section>
+    <section id="s-l" class="on">${lessonSection()}</section>
     <section id="s-h">${hwHtml}</section>
     <section id="s-v">${vidHtml}</section>
     <footer>앤서수학교습소 · 문의 010-7419-3664<br><span style="font-size:11px">이 페이지는 ${esc(st.name)||""} 학부모님 전용입니다.</span></footer>`;
 
+  // 상단 탭 전환
   app.querySelectorAll(".seg button").forEach(b=>b.onclick=()=>{
     app.querySelectorAll(".seg button").forEach(x=>x.classList.remove("active"));
     app.querySelectorAll("section").forEach(x=>x.classList.remove("on"));
     b.classList.add("active");
     app.querySelector("#s-"+b.dataset.t).classList.add("on");
+  });
+
+  // 월 버튼 전환 (이벤트 위임)
+  const sl = app.querySelector("#s-l");
+  sl.addEventListener("click", e=>{
+    const b = e.target.closest(".mchip"); if(!b) return;
+    curMonth = b.dataset.m;
+    sl.innerHTML = lessonSection();
   });
 }
 main();

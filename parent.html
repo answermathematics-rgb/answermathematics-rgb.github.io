@@ -1,124 +1,127 @@
 <!DOCTYPE html>
 <html lang="ko">
 <head>
-<meta charset="utf-8" />
+<meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>앤서수학 · 학습 현황</title>
+<title>앤서수학 학습 현황</title>
 <style>
-  :root{ --navy:#1f2a44; --blue:#2f6df0; --bg:#f5f6fa; --card:#fff; --line:#e6e8ef; --muted:#8a90a2; --green:#1faa59; --red:#e0533d; --amber:#e6a700; }
+  :root{--bg:#faf6f1;--card:#fff;--line:#ece4db;--text:#22201d;--muted:#8b8279;--brand:#c0452f;--brand-soft:#fbe9e4;
+    --green:#16a34a;--green-soft:#e7f6ec;--red:#dc2626;--red-soft:#fdeaea;--amber:#d97706;--amber-soft:#fdf1e0;--star:#f5a623;}
   *{box-sizing:border-box}
-  body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Malgun Gothic",sans-serif;background:var(--bg);color:var(--navy);-webkit-font-smoothing:antialiased}
-  .wrap{max-width:560px;margin:0 auto;padding:16px 14px 60px}
-  header.top{display:flex;align-items:center;gap:10px;padding:6px 2px 14px}
-  .logo{font-weight:800;color:var(--blue);font-size:15px;letter-spacing:-.3px}
-  .who{background:linear-gradient(135deg,#2f6df0,#1f2a44);color:#fff;border-radius:18px;padding:18px 18px;margin-bottom:14px}
-  .who h1{margin:0;font-size:22px;font-weight:800}
-  .who p{margin:4px 0 0;opacity:.85;font-size:13px}
-  .tabs{display:flex;gap:6px;margin:0 0 12px}
-  .tab{flex:1;text-align:center;padding:9px 0;border-radius:12px;background:#eceef5;color:var(--muted);font-weight:700;font-size:14px;cursor:pointer;border:none}
-  .tab.on{background:var(--navy);color:#fff}
-  section{display:none}
-  section.on{display:block}
-  .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:13px 14px;margin-bottom:9px}
-  .row{display:flex;align-items:center;justify-content:space-between;gap:10px}
-  .date{font-size:12px;font-weight:700;color:var(--blue);background:#eaf0fe;border-radius:8px;padding:3px 8px;white-space:nowrap}
-  .content{font-size:15px;font-weight:600;margin:8px 0 0;line-height:1.45}
-  .badge{font-size:11px;font-weight:800;border-radius:7px;padding:3px 8px;white-space:nowrap}
-  .b-out{background:#fdece8;color:var(--red)}
-  .b-late{background:#fff5dd;color:var(--amber)}
-  .bar{height:7px;background:#eceef5;border-radius:5px;margin-top:10px;overflow:hidden}
-  .bar>i{display:block;height:100%;background:var(--green);border-radius:5px}
-  .barlabel{font-size:11px;color:var(--muted);margin-top:5px}
-  .hw{display:flex;align-items:flex-start;gap:9px}
-  .chk{width:18px;height:18px;border-radius:6px;border:2px solid var(--line);flex:none;margin-top:1px}
-  .chk.done{background:var(--green);border-color:var(--green);position:relative}
-  .chk.done:after{content:"✓";color:#fff;font-size:12px;position:absolute;left:3px;top:-2px}
-  .stars{color:var(--amber);font-size:13px}
-  .muted{color:var(--muted);font-size:13px}
+  body{margin:0;font-family:'Apple SD Gothic Neo','Malgun Gothic',sans-serif;background:var(--bg);color:var(--text);-webkit-font-smoothing:antialiased}
+  #bar{background:var(--card);border-bottom:1px solid var(--line);padding:11px 16px;display:flex;align-items:center;gap:10px;position:sticky;top:0;z-index:5}
+  .badge-logo{width:34px;height:34px;flex:none;border-radius:10px;background:var(--brand);color:#fff;font-weight:800;font-size:19px;display:flex;align-items:center;justify-content:center;box-shadow:0 6px 14px -6px rgba(192,69,47,.6)}
+  .logo{font-weight:800;font-size:17px;color:var(--brand);line-height:1.1}
+  .logo small{display:block;font-size:11px;color:var(--muted);font-weight:500}
+  .spacer{flex:1}
+  .who-chip{font-size:12px;color:var(--muted);background:var(--bg);border:1px solid var(--line);border-radius:20px;padding:5px 11px;font-weight:600}
+  main{max-width:600px;margin:16px auto;padding:0 16px 70px}
+  .hero{background:linear-gradient(180deg,#fbe6d6 0%,#faf6f1 95%);border:1px solid var(--line);border-radius:20px;padding:22px 20px;margin-bottom:16px;display:flex;align-items:center;gap:14px}
+  .hero .hb{width:48px;height:48px;flex:none;border-radius:14px;background:var(--brand);color:#fff;font-weight:800;font-size:24px;display:flex;align-items:center;justify-content:center;box-shadow:0 8px 18px -7px rgba(192,69,47,.65)}
+  .hero h1{margin:0;font-size:23px;font-weight:800;color:#2a221e}
+  .hero p{margin:3px 0 0;font-size:13px;color:var(--muted)}
+  .seg{display:flex;gap:8px;margin:0 0 14px}
+  .seg button{flex:1;padding:10px 0;border:1px solid var(--line);background:var(--card);border-radius:10px;font-size:14px;font-weight:700;color:var(--muted);cursor:pointer;font-family:inherit}
+  .seg button.active{border-color:var(--brand);color:var(--brand);background:var(--brand-soft)}
+  section{display:none} section.on{display:block}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:15px 16px;margin-bottom:12px;box-shadow:0 6px 20px -16px rgba(80,45,25,.35)}
+  .crow{display:flex;align-items:center;justify-content:space-between;gap:10px}
+  .date{font-size:12px;font-weight:700;color:var(--brand);background:var(--brand-soft);border-radius:20px;padding:3px 11px;white-space:nowrap}
+  .content{font-size:15px;font-weight:600;margin:9px 0 0;line-height:1.5;color:var(--text)}
+  .pill{font-size:11px;font-weight:700;border-radius:20px;padding:3px 9px;white-space:nowrap}
+  .p-out{background:var(--red-soft);color:var(--red)} .p-late{background:var(--amber-soft);color:var(--amber)}
+  .bar{height:7px;background:#f0eae3;border-radius:6px;margin-top:11px;overflow:hidden}
+  .bar>i{display:block;height:100%;background:var(--green);border-radius:6px}
+  .barlabel{font-size:11px;color:var(--muted);margin-top:6px}
+  .hwitem{display:flex;align-items:flex-start;gap:11px}
+  .chk{font-size:21px;line-height:1.1;color:#cbbfb3;flex:none;margin-top:1px} .chk.on{color:var(--green)}
+  .hwitem .htxt{font-size:14px;flex:1;line-height:1.5} .hwitem.done .htxt{color:var(--muted)}
+  .tag{font-size:10px;font-weight:700;padding:2px 8px;border-radius:20px;background:var(--amber-soft);color:var(--amber);margin-left:6px}
+  .stars{color:var(--star);font-size:14px;letter-spacing:1px}
   .empty{text-align:center;color:var(--muted);padding:34px 10px;font-size:14px}
   footer{text-align:center;color:var(--muted);font-size:12px;margin-top:22px;line-height:1.7}
-  .center{display:flex;align-items:center;justify-content:center;min-height:60vh;text-align:center;padding:20px}
+  .center{display:flex;align-items:center;justify-content:center;min-height:62vh;text-align:center;padding:20px;color:var(--muted);font-size:14px;line-height:1.7}
 </style>
 </head>
 <body>
-<div class="wrap">
-  <header class="top"><span class="logo">앤서수학</span><span class="muted" style="font-size:12px">학습 현황</span></header>
-  <div id="app"><div class="center muted">불러오는 중…</div></div>
-  <footer id="foot"></footer>
+<div id="bar">
+  <div class="badge-logo">앤</div>
+  <div class="logo">앤서수학<small>학습 현황</small></div>
+  <div class="spacer"></div>
+  <div class="who-chip" id="chip"></div>
 </div>
+<main id="app"><div class="center">불러오는 중…</div></main>
 
 <script type="module">
-import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm";
-
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 const SUPABASE_URL = "https://hddsyoaymvpfcloqthyv.supabase.co";
 const SUPABASE_KEY = "sb_publishable_cJHc-U-rvFrHVogusPcJ7A_x6uV1E4-";
 const sb = createClient(SUPABASE_URL, SUPABASE_KEY);
 
 const app = document.getElementById("app");
-const foot = document.getElementById("foot");
+const chip = document.getElementById("chip");
 const token = new URLSearchParams(location.search).get("t");
 const esc = s => (s??"").toString().replace(/[&<>]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;"}[c]));
-const fmt = d => { if(!d) return ""; const [y,m,da]=d.split("-"); return `${+m}/${+da}`; };
-
-function statusBadge(s){
-  if(s==="결석") return `<span class="badge b-out">결석</span>`;
-  if(s==="지각") return `<span class="badge b-late">지각</span>`;
-  return "";
-}
+const fmt = d => { if(!d) return ""; const p=d.split("-"); return `${+p[1]}/${+p[2]}`; };
+const statusPill = s => s==="결석" ? `<span class="pill p-out">결석</span>` : s==="지각" ? `<span class="pill p-late">지각</span>` : "";
 
 async function main(){
-  if(!token){ app.innerHTML = `<div class="center muted">잘못된 접근입니다.<br>학원에서 받은 링크로 들어와 주세요.</div>`; return; }
+  if(!token){ app.innerHTML = `<div class="center">잘못된 접근입니다.<br>학원에서 받은 링크로 들어와 주세요.</div>`; return; }
   const { data, error } = await sb.rpc("get_student_feed", { p_token: token });
-  if(error || !data){ app.innerHTML = `<div class="center muted">링크가 만료되었거나 올바르지 않습니다.<br>가람쌤(010-7419-3664)에게 문의해 주세요.</div>`; return; }
+  if(error || !data){ app.innerHTML = `<div class="center">링크가 만료되었거나 올바르지 않습니다.<br>가람쌤(010-7419-3664)에게 문의해 주세요.</div>`; return; }
 
   const st = data.student || {};
-  const lessons = data.lessons || [];
+  const lessons = (data.lessons || []).slice().sort((a,b)=> (a.date<b.date?-1:a.date>b.date?1:0)); // 오래된 → 최신
   const homework = data.homework || [];
   const videos = data.videos || [];
 
+  chip.textContent = (st.name||"학생") + " 학부모님";
+
   const lessonHtml = lessons.length ? lessons.map(l=>`
     <div class="card">
-      <div class="row"><span class="date">${fmt(l.date)}</span>${statusBadge(l.status)}</div>
+      <div class="crow"><span class="date">${fmt(l.date)}</span>${statusPill(l.status)}</div>
       <div class="content">${esc(l.content)||"—"}</div>
       ${l.completion!=null ? `<div class="bar"><i style="width:${Math.max(0,Math.min(100,l.completion))}%"></i></div><div class="barlabel">숙제 완성도 ${l.completion}%</div>` : ``}
     </div>`).join("") : `<div class="empty">아직 등록된 일지가 없어요.</div>`;
 
   const hwHtml = homework.length ? homework.map(h=>`
-    <div class="card hw">
-      <span class="chk ${h.done?'done':''}"></span>
-      <div style="flex:1">
-        <div class="row"><span class="date">${fmt(h.due)} 까지</span>${h.is_video?`<span class="muted" style="font-size:12px">🎬 영상</span>`:``}</div>
-        <div class="content" style="font-size:14px">${esc(h.content)||"—"}</div>
+    <div class="card hwitem ${h.done?'done':''}">
+      <span class="chk ${h.done?'on':''}">${h.done?'✓':'○'}</span>
+      <div class="htxt">
+        <span class="date">${fmt(h.due)}</span>${h.is_video?`<span class="tag">🎬 영상</span>`:``}
+        <div style="margin-top:6px">${esc(h.content)||"—"}</div>
       </div>
     </div>`).join("") : `<div class="empty">등록된 숙제가 없어요.</div>`;
 
   const vidHtml = videos.length ? videos.map(v=>`
     <div class="card">
-      <div class="row"><span class="date">${fmt(v.date)}</span><span class="stars">${v.stars?"★".repeat(v.stars):""}</span></div>
-      <div class="content" style="font-size:14px">${esc(v.title)||"복습영상"}</div>
-      <div class="muted">상태: ${esc(v.status)||"제출됨"}</div>
+      <div class="crow"><span class="date">${fmt(v.date)}</span><span class="stars">${v.stars?"★".repeat(v.stars):""}</span></div>
+      <div class="content">${esc(v.title)||"복습영상"}</div>
+      <div class="barlabel">상태: ${esc(v.status)||"제출됨"}</div>
     </div>`).join("") : `<div class="empty">제출된 복습영상이 없어요.</div>`;
 
   app.innerHTML = `
-    <div class="who">
-      <h1>${esc(st.name)||"학생"}</h1>
-      <p>${[st.school,st.grade].filter(Boolean).map(esc).join(" · ")||"앤서수학 학습 현황"}</p>
+    <div class="hero">
+      <div class="hb">${(st.name||"학").slice(0,1)}</div>
+      <div>
+        <h1>${esc(st.name)||"학생"}</h1>
+        <p>${[st.school,st.grade].filter(Boolean).map(esc).join(" · ")||"앤서수학 학습 현황"}</p>
+      </div>
     </div>
-    <div class="tabs">
-      <button class="tab on" data-t="l">📝 일지</button>
-      <button class="tab" data-t="h">📚 숙제</button>
-      <button class="tab" data-t="v">🎬 영상</button>
+    <div class="seg">
+      <button class="active" data-t="l">📝 수업일지</button>
+      <button data-t="h">📚 숙제</button>
+      <button data-t="v">🎬 복습영상</button>
     </div>
     <section id="s-l" class="on">${lessonHtml}</section>
     <section id="s-h">${hwHtml}</section>
-    <section id="s-v">${vidHtml}</section>`;
+    <section id="s-v">${vidHtml}</section>
+    <footer>앤서수학교습소 · 문의 010-7419-3664<br><span style="font-size:11px">이 페이지는 ${esc(st.name)||""} 학부모님 전용입니다.</span></footer>`;
 
-  foot.innerHTML = `앤서수학교습소 · 문의 010-7419-3664<br><span style="font-size:11px">이 페이지는 ${esc(st.name)||""} 학부모님 전용입니다.</span>`;
-
-  app.querySelectorAll(".tab").forEach(b=>b.onclick=()=>{
-    app.querySelectorAll(".tab").forEach(x=>x.classList.remove("on"));
+  app.querySelectorAll(".seg button").forEach(b=>b.onclick=()=>{
+    app.querySelectorAll(".seg button").forEach(x=>x.classList.remove("active"));
     app.querySelectorAll("section").forEach(x=>x.classList.remove("on"));
-    b.classList.add("on");
+    b.classList.add("active");
     app.querySelector("#s-"+b.dataset.t).classList.add("on");
   });
 }

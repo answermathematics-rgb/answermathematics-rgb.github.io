@@ -110,7 +110,8 @@ const SB_URL = "https://hddsyoaymvpfcloqthyv.supabase.co";
 const SB_KEY = "sb_publishable_cJHc-U-rvFrHVogusPcJ7A_x6uV1E4-";
 const sb = supabase.createClient(SB_URL, SB_KEY, { auth: { persistSession: false } });
 const PHONE = "010-7419-3664";
-const MAX_MB_NOW = 50; // 무료 플랜 한도. Pro 전환 후 늘릴 것
+const PART_BYTES = 45 * 1048576; // 저장소 파일당 50MB 제한 → 45MB 조각으로 나눠 올림
+const MAX_TOTAL_MB = 1500;
 
 const $app = document.getElementById("app");
 const q = new URLSearchParams(location.search);
@@ -253,25 +254,38 @@ async function uploadVideo(f){
   const status = document.getElementById("v-status"), prog = document.getElementById("v-prog"), pick = document.getElementById("v-pick");
   const mb = f.size / 1048576;
   status.hidden = false;
-  if (mb > MAX_MB_NOW) { status.textContent = `영상이 ${mb.toFixed(0)}MB라서 너무 커. ${MAX_MB_NOW}MB 이하로 짧게 찍거나 화질을 낮춰서 다시 올려줘.`; return; }
-  pick.disabled = true; prog.hidden = false; status.textContent = "올리는 중… 화면을 닫지 마";
+  if (mb > MAX_TOTAL_MB) { status.textContent = `영상이 ${mb.toFixed(0)}MB라서 너무 커. 반으로 나눠서 두 번 올려줘.`; return; }
+  pick.disabled = true; prog.hidden = false;
+  const n = Math.max(1, Math.ceil(f.size / PART_BYTES));
+  status.textContent = `올리는 중… 화면을 닫지 마 (${mb.toFixed(0)}MB)`;
   try {
     const ext = (f.name.split(".").pop() || "mp4").toLowerCase();
     const r = await fetch(`${SB_URL}/functions/v1/portal-video`, { method:"POST", headers:{ "content-type":"application/json", apikey: SB_KEY },
-      body: JSON.stringify({ action:"upload", token: TOKEN, ext }) });
+      body: JSON.stringify({ action:"upload", token: TOKEN, ext, parts: n }) });
     const j = await r.json(); if (!r.ok) throw new Error(j.error || "업로드 준비 실패");
-    await new Promise((res, rej) => {
-      const x = new XMLHttpRequest();
-      x.open("PUT", j.signedUrl);
-      x.setRequestHeader("content-type", f.type || "video/mp4");
-      x.setRequestHeader("x-upsert", "false");
-      x.upload.onprogress = e => { if (e.lengthComputable) prog.firstElementChild.style.width = (e.loaded / e.total * 100) + "%"; };
-      x.onload = () => (x.status >= 200 && x.status < 300) ? res() : rej(new Error("업로드 실패 (" + x.status + ")"));
-      x.onerror = () => rej(new Error("인터넷 연결을 확인해 줘"));
-      x.send(f);
-    });
-    const { error } = await sb.rpc("portal_register_video", { p_token: TOKEN, p_path: j.path,
-      p_title: document.getElementById("v-title").value.trim(), p_size: f.size, p_memo: document.getElementById("v-memo").value.trim() });
+    const urls = j.signedUrls || [j.signedUrl];
+    let doneBytes = 0;
+    for (let i = 0; i < n; i++) {
+      const chunk = f.slice(i * PART_BYTES, Math.min(f.size, (i + 1) * PART_BYTES));
+      for (let attempt = 1; ; attempt++) {
+        try {
+          await new Promise((res, rej) => {
+            const x = new XMLHttpRequest();
+            x.open("PUT", urls[i]);
+            x.setRequestHeader("content-type", n > 1 ? "application/octet-stream" : (f.type || "video/mp4"));
+            x.setRequestHeader("x-upsert", "true");
+            x.upload.onprogress = e => { if (e.lengthComputable) prog.firstElementChild.style.width = ((doneBytes + e.loaded) / f.size * 100) + "%"; };
+            x.onload = () => (x.status >= 200 && x.status < 300) ? res() : rej(new Error("업로드 실패 (" + x.status + ")"));
+            x.onerror = () => rej(new Error("인터넷 연결을 확인해 줘"));
+            x.send(chunk);
+          });
+          break;
+        } catch (err) { if (attempt >= 3) throw err; status.textContent = `연결이 끊겨서 다시 시도하는 중… (${i + 1}/${n})`; await new Promise(r => setTimeout(r, 2000)); }
+      }
+      doneBytes += chunk.size;
+    }
+    const { error } = await sb.rpc("portal_register_video2", { p_token: TOKEN, p_path: j.path,
+      p_title: document.getElementById("v-title").value.trim(), p_size: f.size, p_memo: document.getElementById("v-memo").value.trim(), p_parts: n });
     if (error) throw error;
     toast("영상 올렸어! 선생님이 확인할게");
     const { data } = await sb.rpc("portal_feed", { p_token: TOKEN }); if (data) { FEED = data; renderPortal(); }
@@ -354,7 +368,7 @@ function adminVideos(d){
     <div class="card" data-vid="${v.id}"><div class="lesson-row"><span class="date">${esc(v.student)} · ${md(v.date)}</span>
       <span class="pill ${v.status==="확인 완료"?"ok":"warn"}">${esc(v.status)}</span></div>
       <div class="lesson-c">${esc(v.title||"제목 없음")}</div>${v.memo?`<div class="muted">학생 메모: ${esc(v.memo)}</div>`:""}
-      ${v.path?`<button class="mini" data-play="${esc(v.path)}" style="margin-top:8px">▶ 재생</button><div class="player"></div>`:`<div class="muted">예전 드라이브 영상</div>`}
+      ${v.path?`<button class="mini" data-play="${esc(v.path)}" data-parts="${v.parts||1}" style="margin-top:8px">▶ 재생</button><div class="player"></div>`:`<div class="muted">예전 드라이브 영상</div>`}
       <label class="field" style="margin-top:10px">피드백 (학생·학부모에게 보여요)<textarea data-fb rows="3" style="min-height:70px">${esc(v.feedback||"")}</textarea></label>
       <button class="btn ghost" data-save style="margin-top:8px">피드백 저장 · 확인 완료</button></div>`).join("") + `</div>`;
 }
@@ -389,11 +403,23 @@ function bindAdmin(){
   });
   $app.querySelectorAll("[data-play]").forEach(b => b.onclick = async () => {
     b.disabled = true;
+    const parts = Number(b.dataset.parts) || 1;
     const r = await fetch(`${SB_URL}/functions/v1/portal-video`, { method:"POST", headers:{ "content-type":"application/json", apikey: SB_KEY },
-      body: JSON.stringify({ action:"view", token: ADMIN, path: b.dataset.play }) });
+      body: JSON.stringify({ action:"view", token: ADMIN, path: b.dataset.play, parts }) });
     const j = await r.json();
     if (!r.ok) { toast("재생 실패: " + (j.error||r.status)); b.disabled = false; return; }
-    b.nextElementSibling.innerHTML = `<video controls playsinline src="${esc(j.url)}"></video>`;
+    const box = b.nextElementSibling;
+    if (parts <= 1) { box.innerHTML = `<video controls playsinline src="${esc(j.url)}"></video>`; return; }
+    try {
+      const blobs = [];
+      for (let i = 0; i < j.urls.length; i++) {
+        box.innerHTML = `<div class="muted" style="margin-top:8px">영상 불러오는 중… ${i + 1}/${j.urls.length}</div>`;
+        const res = await fetch(j.urls[i]); if (!res.ok) throw new Error(res.status);
+        blobs.push(await res.blob());
+      }
+      const url = URL.createObjectURL(new Blob(blobs, { type: "video/mp4" }));
+      box.innerHTML = `<video controls playsinline src="${url}"></video>`;
+    } catch (e) { toast("재생 실패: " + e.message); b.disabled = false; }
   });
   $app.querySelectorAll("[data-save]").forEach(b => b.onclick = async () => {
     const card = b.closest("[data-vid]");

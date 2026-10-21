@@ -1,387 +1,412 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="ko">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>앤서수학 학생 포털</title>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="robots" content="noindex,nofollow">
+<meta name="referrer" content="no-referrer">
+<title>앤서수학 포털</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css">
 <style>
-  :root{--bg:#faf6f1;--card:#ffffff;--line:#ece4db;--text:#22201d;--muted:#8b8279;--brand:#c0452f;--brand-soft:#fbe9e4;
-    --green:#16a34a;--green-soft:#e7f6ec;--red:#dc2626;--red-soft:#fdeaea;--amber:#d97706;--amber-soft:#fdf1e0;--star:#f5a623;--kakao:#FEE500;
-    --ter:#c0452f;--ink:#22201d;}
-  *{box-sizing:border-box;}
-  body{margin:0;font-family:'Apple SD Gothic Neo','Malgun Gothic',sans-serif;background:var(--bg);color:var(--text);}
-  #bar{background:var(--card);border-bottom:1px solid var(--line);padding:11px 18px;display:flex;align-items:center;gap:12px;flex-wrap:wrap;position:sticky;top:0;z-index:5;}
-  .logo{font-weight:800;font-size:18px;color:var(--brand);line-height:1.1;}
-  .logo small{display:block;font-size:11px;color:var(--muted);font-weight:500;}
-  .spacer{flex:1;}
-  .who{font-size:13px;color:var(--muted);} .who b{color:var(--text);}
-  .ghostbtn{border:1px solid var(--line);background:var(--card);border-radius:8px;padding:7px 12px;font-size:13px;cursor:pointer;color:var(--muted);}
-  select{padding:8px 10px;border:1px solid var(--line);border-radius:8px;font-size:13px;background:var(--card);}
-  main{max-width:880px;margin:18px auto;padding:0 16px 70px;}
-  .card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:18px;margin-bottom:16px;box-shadow:0 6px 20px -16px rgba(80,45,25,.35);}
-  .chcard{display:flex;align-items:center;gap:12px;background:#fffdf3;border:1px solid #f4e7b8;border-radius:16px;padding:13px 14px;margin-bottom:16px;}
-  .chico{width:42px;height:42px;flex:none;border-radius:50%;background:var(--kakao);display:flex;align-items:center;justify-content:center;font-size:20px;}
-  .chtx{flex:1;min-width:0;} .chtx b{display:block;font-size:14px;color:#3b1e1e;} .chtx span{font-size:12px;color:var(--muted);line-height:1.45;display:block;margin-top:2px;}
-  .chbtn{flex:none;background:var(--kakao);color:#3b1e1e;font-weight:800;font-size:13px;border-radius:11px;padding:11px 13px;text-decoration:none;white-space:nowrap;}
-  .card h2{margin:0 0 4px;font-size:16px;} .sub{color:var(--muted);font-size:13px;margin:0 0 14px;}
-  .badge{display:inline-block;font-size:11px;font-weight:700;padding:3px 9px;border-radius:20px;}
-  .b-teacher{background:#efe9fb;color:#6b3fd1;} .b-stu{background:var(--brand-soft);color:var(--brand);} .b-parent{background:var(--green-soft);color:var(--green);}
-  .hero{text-align:center;padding:34px 0 8px;} .hero .lg{font-size:32px;font-weight:800;color:var(--brand);} .hero p{color:var(--muted);margin:8px 0 0;font-size:14px;}
-  .kbtn{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;background:var(--kakao);color:#191600;border:0;border-radius:12px;padding:14px;font-size:15px;font-weight:700;cursor:pointer;margin-top:8px;}
-  .demobtn{display:block;width:100%;background:var(--card);color:var(--text);border:1px solid var(--line);border-radius:12px;padding:13px;font-size:14px;font-weight:600;cursor:pointer;margin-top:10px;}
-  .loginwrap{max-width:360px;margin:0 auto;} .note{font-size:12px;color:var(--muted);text-align:center;margin-top:16px;line-height:1.6;}
-  .seg{display:flex;gap:8px;} .seg.small{max-width:200px;margin-bottom:4px;}
-  .seg button{flex:1;padding:9px;border:1px solid var(--line);background:var(--card);border-radius:8px;font-size:13px;font-weight:600;color:var(--muted);cursor:pointer;}
-  .seg button.active{border-color:var(--brand);color:var(--brand);background:var(--brand-soft);}
-  .calhdr{display:grid;grid-template-columns:repeat(7,1fr);gap:7px;margin-top:8px;} .calhdr span{text-align:center;font-size:11px;color:var(--muted);font-weight:700;}
-  .mgrid,.week{display:grid;grid-template-columns:repeat(7,1fr);gap:7px;margin-top:7px;}
-  .day,.mcell{background:var(--card);border:1px solid var(--line);border-radius:12px;text-align:center;cursor:pointer;}
-  .day{padding:9px 4px;} .mcell{min-height:56px;padding:5px 3px 7px;display:flex;flex-direction:column;align-items:center;gap:2px;}
-  .day:hover,.mcell:hover{border-color:var(--brand);} .day.today,.mcell.today{background:var(--brand-soft);border:2px solid var(--brand);}
-  .day .dnum,.mcell .mn{font-size:11px;color:var(--muted);} .mcell .mn{align-self:flex-start;margin-left:4px;} .mcell.today .mn,.day.today .dnum{color:var(--brand);font-weight:700;}
-  .ic{font-size:20px;line-height:1.3;} .ic-done{color:var(--green);} .ic-miss{color:var(--red);} .ic-todo{color:var(--brand);} .ic-none{color:#cbd2dc;}
-  .hwitem{display:flex;align-items:center;gap:11px;padding:11px 2px;border-top:1px solid var(--line);} .hwitem:first-of-type{border-top:0;}
-  .chk{font-size:22px;cursor:pointer;color:#cbd2dc;user-select:none;} .chk.on{color:var(--green);}
-  .hwitem .txt{font-size:14px;flex:1;} .hwitem.done .txt{text-decoration:line-through;color:var(--muted);} .readonly .chk{cursor:default;}
-  .tag{font-size:10px;font-weight:600;padding:2px 7px;border-radius:20px;background:#eef1f4;color:#6b7280;} .tag.stu{background:var(--brand-soft);color:var(--brand);} .tag.video{background:var(--amber-soft);color:var(--amber);}
-  label{font-size:12px;color:var(--muted);display:block;margin:10px 0 4px;font-weight:600;}
-  input[type=text],input[type=number],input[type=date]{width:100%;padding:9px 10px;border:1px solid var(--line);border-radius:8px;font-size:13px;}
-  .row{display:flex;gap:10px;flex-wrap:wrap;} .row>div{flex:1;min-width:120px;}
-  .btn{background:var(--brand);color:#fff;border:0;border-radius:11px;padding:12px 16px;font-size:14px;font-weight:700;cursor:pointer;margin-top:14px;} .btn.ghost{background:var(--bg);color:var(--text);border:1px solid var(--line);}
-  .btn.amber{background:var(--amber);} .btn.full{width:100%;}
-  .stat{display:flex;gap:10px;margin-top:8px;} .stat .box{flex:1;background:var(--bg);border-radius:10px;padding:11px;text-align:center;} .stat .box b{display:block;font-size:22px;} .stat .box span{font-size:11px;color:var(--muted);}
-  .hint{font-size:12px;color:var(--muted);margin-top:8px;} .empty{color:var(--muted);font-size:13px;padding:14px 0;text-align:center;}
-  .vid{border:1px solid var(--line);border-radius:12px;padding:13px 14px;margin-bottom:10px;} .vid .vh{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:6px;} .vid .vt{font-weight:600;font-size:14px;}
-  .stars{color:var(--star);font-size:14px;letter-spacing:1px;} .vid .fb{font-size:13px;color:#374151;line-height:1.55;margin:4px 0 0;} .vid .err{font-size:12px;background:var(--red-soft);color:#a3261f;border-radius:8px;padding:7px 10px;margin-top:7px;}
-  .preview{display:flex;gap:10px;background:var(--brand-soft);border-radius:12px;padding:13px;align-items:flex-start;} .preview .ttl{font-size:13px;font-weight:700;color:var(--ter);margin:0 0 4px;} .preview p{margin:0;font-size:13px;color:#9a4636;line-height:1.55;}
-  .lock{font-size:12px;color:var(--muted);background:var(--bg);border-radius:8px;padding:8px 11px;margin-top:6px;}
-  .banner{background:var(--amber-soft);color:#7a4d06;font-size:12px;padding:8px 14px;text-align:center;}
-  .srow{display:flex;align-items:center;gap:10px;padding:10px 2px;border-top:1px solid var(--line);cursor:pointer;} .srow:first-of-type{border-top:0;} .srow:hover{background:var(--bg);}
-  .srow .sn{font-weight:600;font-size:14px;flex:1;} .srow .meta{font-size:12px;color:var(--muted);}
-  .pill{font-size:11px;font-weight:700;padding:2px 8px;border-radius:20px;background:var(--green-soft);color:var(--green);} .pill.warn{background:var(--red-soft);color:var(--red);} .pill.gray{background:#efe9e3;color:#8b8279;}
-
-  /* ===== 로그인·학원소개 리디자인 (따뜻한 카드형) ===== */
-  #app .lpx{max-width:460px;margin:0 auto;}
-  .lpx-top{background:linear-gradient(180deg,#fbe6d6 0%,#faf6f1 92%);border-radius:0 0 30px 30px;padding:24px 18px 22px;text-align:center;margin:-18px -16px 16px;}
-  .lpx-brand{display:flex;align-items:center;justify-content:center;gap:10px;margin-bottom:16px;}
-  .lpx-badge{width:44px;height:44px;border-radius:13px;background:var(--ter);color:#fff;font-weight:800;font-size:25px;display:flex;align-items:center;justify-content:center;box-shadow:0 7px 16px -6px rgba(192,69,47,.65);}
-  .lpx-bname{font-size:21px;font-weight:800;color:#3a2f29;}
-  .lpx-slogan{font-size:25px;line-height:1.34;font-weight:800;color:#2a221e;margin:4px 0 8px;letter-spacing:-.02em;}
-  .lpx-slogan em{color:var(--ter);font-style:normal;}
-  .lpx-sub{color:var(--muted);font-size:14px;margin:0 0 20px;line-height:1.55;}
-  .lpx-login{background:#fff;border:1px solid var(--line);border-radius:20px;padding:16px;box-shadow:0 16px 36px -22px rgba(80,45,25,.45);text-align:left;}
-  .lpx-login .lh{display:flex;align-items:center;gap:7px;font-size:13px;font-weight:700;color:#6b6058;margin:2px 2px 11px;}
-  .lpx-login .dot{width:8px;height:8px;border-radius:50%;background:var(--green);}
-  .lpx-kakao{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;background:var(--kakao);color:#3b1e1e;border:0;border-radius:14px;padding:15px;font-size:15.5px;font-weight:800;cursor:pointer;}
-  .lpx-chan{display:flex;align-items:center;justify-content:center;gap:6px;width:100%;background:#fff;color:#8b8279;border:1px solid var(--line);border-radius:12px;padding:10px;font-size:12.5px;font-weight:600;cursor:pointer;text-decoration:none;margin-top:8px;}
-  .lpx-note{font-size:11.5px;color:var(--muted);line-height:1.6;margin:12px 2px 2px;}
-  .lpx-scroll{display:flex;flex-direction:column;align-items:center;gap:5px;color:var(--muted);font-size:12.5px;margin:20px 0 8px;}
-  .lpx-scroll .arw{width:30px;height:30px;border-radius:50%;background:#fff;border:1px solid var(--line);display:flex;align-items:center;justify-content:center;color:var(--ter);font-size:14px;}
-  .lpx-sec{background:#fff;border:1px solid var(--line);border-radius:20px;padding:20px;margin:0 0 14px;}
-  .lpx-sec h2{font-size:16px;margin:0 0 14px;color:#2a221e;}
-  .lpx-feat{display:flex;gap:13px;padding:14px 0;border-top:1px solid var(--line);}
-  .lpx-feat:first-of-type{border-top:0;padding-top:2px;}
-  .lpx-fic{width:42px;height:42px;flex:none;border-radius:12px;background:var(--brand-soft);display:flex;align-items:center;justify-content:center;font-size:21px;}
-  .lpx-feat h3{font-size:14.5px;margin:2px 0 4px;color:var(--ter);}
-  .lpx-feat p{font-size:13px;color:#6b6058;line-height:1.62;margin:0;}
-  .lpx-teach{font-size:14px;color:#5a514a;line-height:1.78;margin:0;}
-  .lpx-teach b{color:var(--ter);}
-  .lpx-addr{font-size:14px;color:#5a514a;line-height:1.72;margin:0 0 14px;}
-  .lpx-addr b{color:#2a221e;}
-  .lpx-cta{display:grid;grid-template-columns:1fr 1fr;gap:9px;}
-  .lpx-cta a{display:flex;align-items:center;justify-content:center;gap:6px;border-radius:13px;padding:13px;font-size:13.5px;font-weight:700;text-decoration:none;border:1px solid var(--line);background:#fff;color:#5a514a;min-height:48px;}
-  .lpx-cta a.main{grid-column:1/-1;background:var(--kakao);color:#3b1e1e;border:0;font-size:15px;}
-  .lpx-foot{text-align:center;color:var(--muted);font-size:11.5px;line-height:1.7;padding:14px 0 4px;}
-  @media(max-width:480px){.lpx-slogan{font-size:22px;}}
+/* 폰 한 손 화면 기준: 위에서 아래로 공지 → 회차 → 탭(일지·영상·분석) */
+:root{
+  --brand:#B62A1D; --brand-soft:#F8E9E7; --navy:#1E2A44; --navy-soft:#E8EBF2;
+  --bg:#F6F5F3; --card:#FFFFFF; --ink:#1C1F26; --muted:#7A7F8C; --line:#E7E4E0;
+  --ok:#1E8A55; --ok-soft:#E3F3EA; --warn:#B7791F; --warn-soft:#FBF1DC; --bad:#B62A1D;
+  --font:"Pretendard",-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Malgun Gothic",sans-serif;
+  color-scheme:light;
+}
+@media (prefers-color-scheme:dark){:root{
+  --brand:#E0624F; --brand-soft:#3A1F1C; --navy:#C9D3EA; --navy-soft:#232B3D;
+  --bg:#121418; --card:#1B1E24; --ink:#ECEDF0; --muted:#9097A4; --line:#2B2F37;
+  --ok:#4CC28A; --ok-soft:#173326; --warn:#E3B04B; --warn-soft:#352A12; --bad:#E0624F; color-scheme:dark}}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{font-family:var(--font);background:var(--bg);color:var(--ink);-webkit-font-smoothing:antialiased;font-size:15px;line-height:1.5;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.wrap{max-width:560px;margin:0 auto;padding-block:max(14px,env(safe-area-inset-top,0px)) calc(48px + env(safe-area-inset-bottom,0px))}
+button,input,select,textarea{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:2px solid var(--brand);outline-offset:2px}
+.top{display:flex;align-items:center;justify-content:space-between;padding:4px 2px 14px}
+.mark{display:flex;align-items:center;gap:8px;font-weight:800;letter-spacing:-.4px;font-size:16px;color:var(--navy)}
+.mark i{width:22px;height:22px;border-radius:6px;background:var(--brand);display:grid;place-items:center;color:#fff;font-style:normal;font-size:13px;font-weight:900}
+.who-tag{font-size:12px;color:var(--muted)}
+.hero{background:var(--navy);color:var(--card);border-radius:18px;padding:18px 18px 16px;margin-bottom:12px}
+@media (prefers-color-scheme:dark){.hero{background:var(--navy-soft);color:var(--ink)}}
+.hero h1{margin:0;font-size:23px;font-weight:800;letter-spacing:-.5px}
+.hero p{margin:3px 0 0;font-size:13px;opacity:.8}
+.cycle{margin-top:14px}
+.cycle-top{display:flex;justify-content:space-between;align-items:baseline;gap:8px;font-size:13px}
+.cycle-top b{font-size:20px;font-weight:800;font-variant-numeric:tabular-nums}
+.dots{display:flex;gap:4px;margin-top:8px;flex-wrap:wrap}
+.dots span{flex:1;min-width:10px;height:7px;border-radius:4px;background:rgba(255,255,255,.22)}
+.dots span.on{background:#fff}
+@media (prefers-color-scheme:dark){.dots span{background:var(--line)}.dots span.on{background:var(--brand)}}
+.pill{display:inline-flex;align-items:center;gap:4px;font-size:12px;font-weight:700;border-radius:999px;padding:3px 9px;white-space:nowrap}
+.pill.ok{background:var(--ok-soft);color:var(--ok)} .pill.warn{background:var(--warn-soft);color:var(--warn)}
+.pill.bad{background:var(--brand-soft);color:var(--bad)} .pill.navy{background:var(--navy-soft);color:var(--navy)}
+.sec-title{font-size:13px;font-weight:800;color:var(--muted);letter-spacing:.2px;margin:18px 2px 8px;display:flex;justify-content:space-between;align-items:center}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:13px 14px}
+.stack{display:grid;gap:8px}
+.ann{border-left:3px solid var(--line)}
+.ann.unread{border-left-color:var(--brand)}
+.ann-head{display:flex;justify-content:space-between;gap:8px;align-items:flex-start;width:100%;background:none;border:0;padding:0;text-align:left}
+.ann-title{font-weight:700;font-size:15px}
+.ann-body{margin-top:8px;font-size:14px;white-space:pre-wrap;color:var(--ink)}
+.ann-meta{font-size:12px;color:var(--muted);margin-top:2px}
+.new{width:7px;height:7px;border-radius:50%;background:var(--brand);flex:none;margin-top:8px}
+.tabs{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin:18px 0 10px;position:sticky;top:env(safe-area-inset-top,0px);background:var(--bg);padding-block:6px;z-index:2}
+.tab{border:0;border-radius:11px;padding:10px 0;background:var(--navy-soft);color:var(--muted);font-weight:700;font-size:14px}
+.tab[aria-selected="true"]{background:var(--navy);color:var(--card)}
+@media (prefers-color-scheme:dark){.tab[aria-selected="true"]{background:var(--brand);color:#fff}}
+.lesson-row{display:flex;justify-content:space-between;align-items:center;gap:8px}
+.date{font-size:13px;font-weight:800;color:var(--navy);font-variant-numeric:tabular-nums}
+.date small{font-weight:600;color:var(--muted);margin-left:4px}
+.lesson-c{font-size:15px;font-weight:600;margin-top:6px}
+.kv{display:grid;grid-template-columns:44px 1fr;gap:4px 8px;margin-top:8px;font-size:13.5px}
+.kv dt{color:var(--muted)} .kv dd{margin:0;min-width:0}
+.bar{height:6px;background:var(--navy-soft);border-radius:4px;overflow:hidden;margin-top:3px;max-width:160px}
+.bar i{display:block;height:100%;background:var(--ok)}
+.hw-now{background:var(--brand-soft);border-color:transparent}
+.hw-now .lbl{font-size:12px;font-weight:800;color:var(--bad)}
+.hw-now .txt{font-size:16px;font-weight:700;margin-top:3px}
+.empty{text-align:center;color:var(--muted);padding:28px 10px;font-size:14px}
+.btn{border:0;border-radius:12px;padding:12px 14px;font-weight:700;background:var(--brand);color:#fff;width:100%}
+.btn.ghost{background:var(--navy-soft);color:var(--navy)}
+.btn:disabled{opacity:.5}
+.field{display:grid;gap:5px;font-size:13px;color:var(--muted)}
+.field input,.field textarea,.field select{border:1px solid var(--line);background:var(--card);border-radius:10px;padding:10px 11px;font-size:15px;color:var(--ink);width:100%}
+.field textarea{min-height:96px;resize:vertical}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.muted{color:var(--muted);font-size:13px}
+.prog{height:8px;background:var(--navy-soft);border-radius:5px;overflow:hidden;margin-top:8px}
+.prog i{display:block;height:100%;width:0;background:var(--brand);transition:width .2s}
+.feedback{margin-top:8px;padding:9px 11px;border-radius:10px;background:var(--navy-soft);font-size:14px;white-space:pre-wrap}
+.center{min-height:60vh;display:grid;place-items:center;text-align:center;color:var(--muted);padding:20px}
+footer{text-align:center;color:var(--muted);font-size:12px;margin-top:26px}
+/* 원장 */
+.admin-tabs{display:flex;gap:6px;overflow-x:auto;margin:6px 0 12px}
+.admin-tabs .tab{padding:9px 14px;flex:none}
+.tbl{width:100%;border-collapse:collapse;font-size:13.5px}
+.tbl th{text-align:left;color:var(--muted);font-weight:700;font-size:12px;padding:6px 6px;border-bottom:1px solid var(--line)}
+.tbl td{padding:9px 6px;border-bottom:1px solid var(--line);vertical-align:middle}
+.tbl-wrap{overflow-x:auto;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:4px 8px}
+.mini{border:0;background:var(--navy-soft);color:var(--navy);border-radius:8px;padding:6px 9px;font-size:12.5px;font-weight:700;white-space:nowrap}
+.mini.red{background:var(--brand-soft);color:var(--bad)}
+.toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--navy);color:var(--card);padding:10px 16px;border-radius:12px;font-size:14px;font-weight:600;z-index:20;max-width:90vw}
+@media (prefers-color-scheme:dark){.toast{background:var(--ink);color:var(--bg)}}
+video{width:100%;border-radius:10px;margin-top:8px;background:#000}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
 </style>
 </head>
 <body>
-<div id="bar"></div>
-<div id="banner"></div>
-<main id="app"><div class="card"><div class="empty">불러오는 중…</div></div></main>
+<div class="wrap" id="app"><div class="center">불러오는 중…</div></div>
+<div class="toast" id="toast" hidden></div>
 
-<script type="module">
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
-const SUPABASE_URL='https://hddsyoaymvpfcloqthyv.supabase.co';
-const SUPABASE_KEY='sb_publishable_cJHc-U-rvFrHVogusPcJ7A_x6uV1E4-';
-const sb=createClient(SUPABASE_URL, SUPABASE_KEY);
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<script>
+const SB_URL = "https://hddsyoaymvpfcloqthyv.supabase.co";
+const SB_KEY = "sb_publishable_cJHc-U-rvFrHVogusPcJ7A_x6uV1E4-";
+const sb = supabase.createClient(SB_URL, SB_KEY, { auth: { persistSession: false } });
+const PHONE = "010-7419-3664";
+const MAX_MB_NOW = 50; // 무료 플랜 한도. Pro 전환 후 늘릴 것
 
-const KAKAO_FRIEND='http://pf.kakao.com/_pxlUnX/friend';
-const KAKAO_CHAT='http://pf.kakao.com/_pxlUnX/chat';
-const INSTA_URL='https://www.instagram.com/';   // TODO: 앤서수학 인스타 계정 주소로 교체
-const MAP_URL='https://map.kakao.com/?q='+encodeURIComponent('서울 동대문구 왕산로 186 우남SL타워');
-const FORM_EMBED_URL='';   // TODO: 노션 '학생 등록 신청서' 게시(Publish) 후 공개 폼 링크 붙여넣기
-const DOWK=['월','화','수','목','금','토','일'];
-const ICON={done:'✓',miss:'✕',todo:'✎',none:'·'}, ICLASS={done:'ic-done',miss:'ic-miss',todo:'ic-todo',none:'ic-none'};
-const pad=n=>String(n).padStart(2,'0');
-const todayISO=()=>{const d=new Date();return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate());};
-
-// 폴더 주소는 코드에 박지 않고 DB(students.drive_folder_url)에서 읽음 → 학생은 본인 것만 보임(명단/타인 폴더 노출 X)
-const folderUrl=name=>{const st=students.find(s=>s.name===name);return (st&&st.drive_folder_url)||null;};
-
-let mode='loading', session=null, profile=null;
-let students=[], curId=null, homework=[], videos=[], unlinked=[];
-let view='student', calView='month', focusDate=todayISO(), splitMode='auto', stuMode='auto', editPhone=false, regChoice=null;
-
-async function init(){
-  try{ const {data}=await sb.auth.getSession(); session=data.session;
-    if(session) await enterReal(); else { mode='login'; render(); }
-  }catch(e){ mode='login'; render(); }
+const $app = document.getElementById("app");
+const q = new URLSearchParams(location.search);
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const DOW = "일월화수목금토";
+const md = d => { if (!d) return ""; const t = new Date(d + "T00:00:00+09:00"); return `${t.getMonth()+1}/${t.getDate()}<small>${DOW[t.getDay()]}</small>`; };
+const ago = ts => { const d = new Date(ts); return `${d.getMonth()+1}/${d.getDate()}`; };
+function toast(msg){ const t=document.getElementById("toast"); t.textContent=msg; t.hidden=false; clearTimeout(toast._t); toast._t=setTimeout(()=>t.hidden=true,2200); }
+async function copy(text, label){
+  try { await navigator.clipboard.writeText(text); toast(label || "복사했어요"); }
+  catch { window.prompt("복사해서 쓰세요", text); }
 }
-sb.auth.onAuthStateChange((_e,s)=>{ if(s && mode!=='real'){ session=s; enterReal(); }});
+const header = tag => `<div class="top"><div class="mark"><i>A</i>앤서수학</div><span class="who-tag">${esc(tag||"")}</span></div>`;
+const foot = `<footer>앤서수학교습소 · 문의 ${PHONE}</footer>`;
 
-async function enterReal(){
-  mode='real'; render();
-  const {data:prof}=await sb.from('profiles').select('*').eq('id',session.user.id).maybeSingle();
-  profile=prof||{role:'student',name:(session.user.user_metadata.name||'사용자')};
-  const {data:st}=await sb.from('students').select('*').order('name'); students=st||[];
-  if(profile.role==='teacher'){ curId=students[0]?.id||null; }
-  else { curId=students[0]?students[0].id:null; }
-  await loadStudent(); render();
-}
-async function loadStudent(){
-  if(!curId){homework=[];videos=[];return;}
-  const {data:hw}=await sb.from('homework').select('*').eq('student_id',curId); homework=hw||[];
-  const {data:vd}=await sb.from('videos').select('*').eq('student_id',curId); videos=vd||[];
-}
-async function loadUnlinked(){
-  const {data:profs}=await sb.from('profiles').select('*').eq('role','student');
-  const linked=new Set(students.map(s=>s.user_id).filter(Boolean));
-  unlinked=(profs||[]).filter(p=>!linked.has(p.id) && p.id!==session.user.id);
-}
-async function loginKakao(){ await sb.auth.signInWithOAuth({provider:'kakao',options:{redirectTo:location.origin+location.pathname}}); }
-async function logout(){ await sb.auth.signOut(); session=null;profile=null;mode='login';render(); }
+/* ---------------- 학부모·학생 화면 ---------------- */
+let FEED = null, TOKEN = null, TAB = "lessons";
 
-function startEdit(id){ if(profile&&profile.role==='parent')return; const it=homework.find(h=>h.id===id); if(!it)return; const ov=document.createElement('div'); ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.4);display:flex;align-items:center;justify-content:center;z-index:99;padding:16px'; const box=document.createElement('div'); box.style.cssText='background:#fff;border-radius:14px;padding:20px;width:320px;max-width:100%;box-sizing:border-box'; const ti=document.createElement('div'); ti.textContent='숙제 수정'; ti.style.cssText='font-weight:700;margin-bottom:12px;font-size:15px'; const l1=document.createElement('div'); l1.textContent='내용'; l1.style.cssText='font-size:12px;color:#777;margin-bottom:4px'; const ci=document.createElement('input'); ci.type='text'; ci.value=it.content||''; ci.style.cssText='width:100%;padding:9px;border:1px solid #ddd;border-radius:8px;margin-bottom:10px;box-sizing:border-box'; const l2=document.createElement('div'); l2.textContent='날짜'; l2.style.cssText='font-size:12px;color:#777;margin-bottom:4px'; const di=document.createElement('input'); di.type='date'; di.value=it.due_date||''; di.style.cssText='width:100%;padding:9px;border:1px solid #ddd;border-radius:8px;margin-bottom:14px;box-sizing:border-box'; const bs=document.createElement('div'); bs.style.cssText='display:flex;gap:8px'; const sv=document.createElement('button'); sv.textContent='저장'; sv.style.cssText='flex:1;background:#a24837;color:#fff;border:0;border-radius:8px;padding:11px;font-weight:700;cursor:pointer'; const cn=document.createElement('button'); cn.textContent='취소'; cn.style.cssText='flex:1;background:#eee;border:0;border-radius:8px;padding:11px;cursor:pointer'; bs.appendChild(sv); bs.appendChild(cn); box.appendChild(ti); box.appendChild(l1); box.appendChild(ci); box.appendChild(l2); box.appendChild(di); box.appendChild(bs); ov.appendChild(box); document.body.appendChild(ov); ci.focus(); cn.onclick=function(){ov.remove();}; ov.onclick=function(e){if(e.target===ov)ov.remove();}; sv.onclick=async function(){ const c=ci.value.trim(); const d=di.value; if(!c){alert('내용을 비울 수 없어요');return;} if(!d){alert('날짜를 선택하세요');return;} const r=await sb.from('homework').update({content:c,due_date:d}).eq('id',id); if(r.error){alert('수정 실패: '+r.error.message);return;} ov.remove(); await loadStudent(); render(); }; }
-window.A={ loginKakao, logout, startDemo:()=>{mode='demo';render();},
-  setView:async v=>{view=v; if(v==='link')await loadUnlinked(); render();},
-  pick:async v=>{curId=v;view='student';editPhone=false;await loadStudent();render();},
-  setCal:v=>{calView=v;render();}, setFocus:d=>{focusDate=d;render();}, setSplit:v=>{splitMode=v;render();},
-  autoSplit, manualAdd, toggle, startEdit, linkStudent, studentAdd, openFolder, saveGuardianPhone, filterStudents, filterSelect, saveMyInfo,
-  stuSplit, stuAddDate, setStuMode:v=>{stuMode=v;render();}, editGuardianPhone:()=>{editPhone=true;render();}, chooseReg:v=>{regChoice=v;render();},
-  dRole:r=>{D.role=r;D.focus=D.TODAY;render();}, dCal:v=>{D.cal=v;render();}, dFocus:d=>{D.focus=d;render();}, dPick:v=>{D.sel=v;render();}, dToggle, dSplit:v=>{D.split=v;render();}, dAuto, dMan, dStu, dVid, dUp:()=>{D.up=true;render();}, dUpC:()=>{D.up=false;render();} };
-
-function openFolder(name){ const u=folderUrl(name); if(u) window.open(u,'_blank'); else alert('이 학생의 영상 폴더가 아직 연결되지 않았어요.'); }
-
-function statusOf(items,date,today){const l=items.filter(i=>i.date===date);if(!l.length)return'none';if(l.every(i=>i.done))return'done';if(date<today)return'miss';return'todo';}
-function weekStrip(items,today,cb){let h='<div class="week">';const s=new Date(today);s.setDate(s.getDate()-((s.getDay()+6)%7));for(let i=0;i<7;i++){const d=new Date(s);d.setDate(s.getDate()+i);const iso=d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate());const st=statusOf(items,iso,today);h+=`<div class="day ${iso===today?'today':''}" onclick="${cb}('${iso}')"><div class="dnum">${DOWK[i]} ${+iso.slice(-2)}</div><div class="ic ${ICLASS[st]}">${ICON[st]}</div></div>`;}return h+'</div>';}
-function monthGrid(items,today,cb){const[y,m]=today.split('-').map(Number);const n=new Date(y,m,0).getDate();let h='<div class="calhdr">'+DOWK.map(x=>`<span>${x}</span>`).join('')+'</div><div class="mgrid">';const lead=(new Date(y,m-1,1).getDay()+6)%7;for(let i=0;i<lead;i++)h+='<div></div>';for(let day=1;day<=n;day++){const iso=y+'-'+pad(m)+'-'+pad(day);const st=statusOf(items,iso,today);h+=`<div class="mcell ${iso===today?'today':''}" onclick="${cb}('${iso}')"><span class="mn">${day}</span><div class="ic ${ICLASS[st]}">${st==='none'?'':ICON[st]}</div></div>`;}return h+'</div>';}
-function calBlock(items,today,cb){return `<div class="seg small"><button class="${calView==='week'?'active':''}" onclick="A.setCal('week')">주간</button><button class="${calView==='month'?'active':''}" onclick="A.setCal('month')">월간</button></div>`+(calView==='week'?weekStrip(items,today,cb):monthGrid(items,today,cb));}
-
-async function autoSplit(){
-  const title=document.getElementById('aTitle').value.trim()||'숙제';
-  const total=parseInt(document.getElementById('aTotal').value)||0;
-  const start=document.getElementById('aStart').value||todayISO();
-  const end=document.getElementById('aEnd').value||start;
-  if(total<=0){alert('총 문항 수를 입력하세요');return;}
-  const days=[];let d=new Date(start),e=new Date(end);
-  while(d<=e){days.push(d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate()));d.setDate(d.getDate()+1);}
-  if(!days.length){alert('기간을 확인하세요');return;}
-  const per=Math.ceil(total/days.length);let n=1;const rows=[];
-  for(const dd of days){const f=n,t=Math.min(n+per-1,total);if(f>total)break;rows.push({student_id:curId,due_date:dd,content:`${title} ${f}~${t}번`,created_by:'teacher'});n=t+1;}
-  await sb.from('homework').insert(rows); await loadStudent(); render();
-}
-async function manualAdd(){const c=document.getElementById('mText').value.trim(),d=document.getElementById('mDate').value||todayISO();if(!c){alert('내용을 입력하세요');return;}await sb.from('homework').insert({student_id:curId,due_date:d,content:c,created_by:'teacher'});await loadStudent();render();}
-async function studentAdd(){const c=document.getElementById('sText').value.trim();if(!c)return;await sb.from('homework').insert({student_id:curId,due_date:todayISO(),content:c,created_by:'student'});await loadStudent();render();}
-async function stuSplit(){
-  const title=document.getElementById('sTitle').value.trim()||'내 숙제';
-  const total=parseInt(document.getElementById('sTotal').value)||0;
-  const start=document.getElementById('sStart').value||todayISO();
-  const end=document.getElementById('sEnd').value||start;
-  if(total<=0){alert('총 분량(문항 수)을 입력하세요');return;}
-  const days=[];let d=new Date(start),e=new Date(end);
-  while(d<=e){days.push(d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate()));d.setDate(d.getDate()+1);}
-  if(!days.length){alert('기간을 확인하세요');return;}
-  const per=Math.ceil(total/days.length);let n=1;const rows=[];
-  for(const dd of days){const f=n,t=Math.min(n+per-1,total);if(f>total)break;rows.push({student_id:curId,due_date:dd,content:`${title} ${f}~${t}번`,created_by:'student'});n=t+1;}
-  await sb.from('homework').insert(rows); await loadStudent(); render();
-}
-async function stuAddDate(){const c=document.getElementById('sdText').value.trim(),d=document.getElementById('sdDate').value||todayISO();if(!c){alert('내용을 입력하세요');return;}await sb.from('homework').insert({student_id:curId,due_date:d,content:c,created_by:'student'});await loadStudent();render();}
-async function toggle(id){if(profile.role==='parent')return;const it=homework.find(h=>h.id===id);if(!it)return;await sb.from('homework').update({done:!it.done,done_at:it.done?null:new Date().toISOString()}).eq('id',id);await loadStudent();render();}
-async function linkStudent(sid,profileId){if(!profileId)return;await sb.from('students').update({user_id:profileId}).eq('id',sid);const {data:st}=await sb.from('students').select('*').order('name');students=st||[];await loadUnlinked();render();}
-async function saveGuardianPhone(sid){
-  const el=document.getElementById('gphone'); if(!el)return;
-  const raw=el.value.replace(/[^0-9]/g,'');
-  if(raw && (raw.length<10||raw.length>11)){alert('전화번호를 다시 확인해 주세요 (예: 01012345678)');return;}
-  await sb.from('students').update({guardian_phone:raw||null}).eq('id',sid);
-  const {data:st}=await sb.from('students').select('*').order('name');students=st||[];editPhone=false;render();}
-function filterStudents(v){v=(v||'').trim().toLowerCase();document.querySelectorAll('.srow[data-name]').forEach(el=>{el.style.display=(!v||el.dataset.name.toLowerCase().includes(v))?'':'none';});}
-function filterSelect(v){v=(v||'').trim().toLowerCase();const sel=document.getElementById('stuSelect');if(!sel)return;[...sel.options].forEach(o=>{o.hidden=!!v&&!o.text.toLowerCase().includes(v);});}
-async function saveMyInfo(){
-  const val=id=>(document.getElementById(id)?.value||'');
-  const phone=val('myPhone').replace(/[^0-9]/g,''), guardian=val('myGuardian').replace(/[^0-9]/g,'');
-  if(guardian&&(guardian.length<10||guardian.length>11)){alert('학부모 연락처를 확인해 주세요 (예: 01012345678)');return;}
-  const {error}=await sb.rpc('save_my_info',{p_phone:phone,p_guardian:guardian,p_address:val('myAddr'),p_score:val('myScore')});
-  if(error){alert('저장 실패: '+error.message);return;}
-  const {data:st}=await sb.from('students').select('*').order('name');students=st||[];
-  alert('정보가 저장됐어요! 감사합니다 🙂');render();}
-
-function render(){renderBar();const app=document.getElementById('app');
-  if(mode==='loading'){app.innerHTML='<div class="card"><div class="empty">불러오는 중…</div></div>';return;}
-  if(mode==='login'){app.innerHTML=loginHtml();return;}
-  if(mode==='demo'){app.innerHTML=demoHtml();return;}
-  app.innerHTML=realHtml();}
-function renderBar(){const sub=mode==='login'?'수학 교습소':'학생 포털';let h='<div class="logo">앤서수학<small>'+sub+'</small></div><div class="spacer"></div>';document.getElementById('banner').innerHTML='';
-  if(mode==='demo'){document.getElementById('banner').innerHTML='<div class="banner">둘러보기(데모) — 가짜 데이터예요.</div>';h+='<button class="ghostbtn" onclick="A.logout()">로그인 화면</button>';}
-  if(mode==='real'&&profile){const rb=profile.role==='teacher'?'b-teacher':profile.role==='parent'?'b-parent':'b-stu';const rn=profile.role==='teacher'?'선생님':profile.role==='parent'?'학부모':'학생';
-    h+=`<span class="badge ${rb}">${rn}</span><span class="who"><b>${profile.name||''}</b></span><button class="ghostbtn" onclick="A.logout()">로그아웃</button>`;}
-  document.getElementById('bar').innerHTML=h;}
-
-function loginHtml(){return `
-<div class="lpx">
-  <div class="lpx-top">
-    <div class="lpx-brand"><div class="lpx-badge">A</div><div class="lpx-bname">앤서수학</div></div>
-    <h1 class="lpx-slogan">수학을 <em>'설명할 수 있는 힘'</em>으로.</h1>
-    <p class="lpx-sub">복습영상으로 다지는 1:1 관리 수학 교습소 · 청량리</p>
-    <div class="lpx-login">
-      <div class="lh"><span class="dot"></span> 학생·학부모 로그인</div>
-      <button class="lpx-kakao" onclick="A.loginKakao()"><span style="font-size:17px">💬</span> 카카오로 로그인</button>
-      <p class="lpx-note">학생·학부모는 카카오로 로그인하면 본인(자녀) 화면만 보여요. 로그인 후 화면에서 <b>카카오톡 채널 추가</b>를 누르면 숙제·복습 알림이 카톡으로 와요. 선생님(가람)이 가장 먼저 로그인하면 관리자로 설정됩니다.</p>
-    </div>
-    <div class="lpx-scroll"><span>처음 오셨나요?</span><span class="arw">↓</span></div>
-  </div>
-
-  <div class="lpx-sec">
-    <h2>왜 앤서수학인가</h2>
-    <div class="lpx-feat"><div class="lpx-fic">📹</div><div><h3>풀이를 직접 설명하게 합니다</h3><p>매주 학생이 본인 풀이를 영상으로 설명·제출. AI가 분석해 약점을 짚어드립니다. 단순 채점 학원과 가장 큰 차이예요.</p></div></div>
-    <div class="lpx-feat"><div class="lpx-fic">👥</div><div><h3>학생 수만큼 진도가 있습니다</h3><p>단원·속도·시험 일정에 맞춘 개별 진도표. 같은 반이어도 같은 숙제를 받지 않습니다.</p></div></div>
-    <div class="lpx-feat"><div class="lpx-fic">📱</div><div><h3>오늘 우리 아이가 뭘 했는지 보입니다</h3><p>카카오 알림톡으로 매주 출결·숙제 요약 발송. 학부모 화면에서 자녀 학습 현황을 확인해요.</p></div></div>
-  </div>
-
-  <div class="lpx-sec">
-    <h2>강사 소개</h2>
-    <p class="lpx-teach">안녕하세요, 앤서수학 가람 선생님입니다. 한 명 한 명의 풀이 과정을 직접 듣고 피드백 드리는 1:1 관리 교습소예요. "맞았다 / 틀렸다"가 아니라 <b>왜 그 풀이가 떠올랐는지</b>를 학생이 직접 설명하게 합니다(파인만 학습법). 매주 복습영상으로 사고 흐름을 점검하고 AI 분석으로 약점을 짚어 드려요.</p>
-  </div>
-
-  <div class="lpx-sec">
-    <h2>오시는 길 · 상담</h2>
-    <p class="lpx-addr"><b>서울 동대문구 왕산로 186</b><br>청량리역 우남SL타워 409호 · 중·고등부 1:1 관리<br>☎ <a href="tel:01074193664" style="color:var(--ter);text-decoration:none;font-weight:700">010-7419-3664</a></p>
-    <div class="lpx-cta">
-      <a class="main" href="${KAKAO_CHAT}" target="_blank" rel="noopener">💬 카카오톡으로 상담하기</a>
-      <a href="${INSTA_URL}" target="_blank" rel="noopener">📷 인스타그램</a>
-      <a href="${MAP_URL}" target="_blank" rel="noopener">🗺 위치 보기</a>
-    </div>
-  </div>
-
-  <p class="lpx-foot">앤서수학 교습소 · 서울 청량리 · 중·고등부 1:1 관리 수학</p>
-</div>`;}
-
-function channelCard(){return `<div class="chcard"><div class="chico">🔔</div><div class="chtx"><b>카카오톡 알림 받기</b><span>채널을 추가하면 숙제·복습 알림을 카톡으로 받아요.</span></div><a class="chbtn" href="${KAKAO_FRIEND}" target="_blank" rel="noopener">＋ 채널 추가</a></div>`;}
-
-function realHtml(){
-  if(!profile)return '<div class="card"><div class="empty">프로필 확인 중…</div></div>';
-  const today=todayISO();
-  if(profile.role==='teacher'){
-    let h=channelCard()+`<div class="card"><div class="seg" style="max-width:380px"><button class="${view==='student'?'active':''}" onclick="A.setView('student')">학생별 관리</button><button class="${view==='all'?'active':''}" onclick="A.setView('all')">전체 보기</button><button class="${view==='link'?'active':''}" onclick="A.setView('link')">계정 연결</button></div></div>`;
-    if(view==='all') return h+teacherAll(today);
-    if(view==='link') return h+teacherLink();
-    return h+teacherStudent(today);
+async function loadPortal(){
+  TOKEN = q.get("t");
+  const { data, error } = await sb.rpc("portal_feed", { p_token: TOKEN });
+  if (error || !data) {
+    $app.innerHTML = header() + `<div class="center">링크가 만료됐거나 올바르지 않아요.<br>학원에 새 링크를 요청해 주세요.<br><br>${PHONE}</div>`;
+    return;
   }
-  const s=students.find(x=>x.id===curId);
-  if(!s) return channelCard()+`<div class="card"><h2>환영합니다, ${profile.name||''}님! 🎉</h2><p class="sub">선생님이 계정을 연결하면 <b>내 정보 입력</b>과 숙제·복습영상이 보여요. 카카오로 로그인한 그대로 잠시만 기다려주세요 🙂</p><p class="hint">선생님(가람)이 "계정 연결"에서 회원님을 찾아 연결해드립니다.</p></div>`;
-  const items=homework.map(h=>({id:h.id,date:h.due_date,text:h.content,done:h.done,by:h.created_by}));
-  const ro=profile.role==='parent';
-  let h=`<div class="card"><h2>${s.name} <span class="badge ${ro?'b-parent':'b-stu'}">${ro?'학부모':'학생'}</span></h2><p class="sub">${ro?'자녀':'내'} 숙제·복습영상 · 본인 것만 보여요</p>${calBlock(items,today,'A.setFocus')}<div class="lock">🔒 다른 학생 정보는 서버에서 차단됩니다.</div></div>`;
-  h+=channelCard();
-  if(!ro){
-    const filled=s.student_phone||s.guardian_phone||s.address||s.score;
-    if(!filled){
-      h+=`<div class="card" style="border-color:var(--ter)"><h2>내 정보 <span class="pill warn">입력 필요</span></h2>
-      <p class="sub">학원 등록 정보예요. ⚠️ <b>한 번 저장하면 다시 못 고쳐요</b> — 정확히 입력해 주세요. (수정이 필요하면 선생님께 말씀하세요)</p>
-      <label>본인 연락처</label><input id="myPhone" type="text" inputmode="numeric" placeholder="01012345678 (숫자만)" value="">
-      <label>학부모 연락처</label><input id="myGuardian" type="text" inputmode="numeric" placeholder="01012345678 (숫자만)" value="">
-      <label>집주소</label><input id="myAddr" type="text" placeholder="서울 동대문구 …" value="">
-      <label>성적 (자유롭게)</label><input id="myScore" type="text" placeholder="예: 수학 모의고사 3등급" value="">
-      <button class="btn full" onclick="A.saveMyInfo()">내 정보 저장 (저장 후 수정 불가)</button></div>`;
-    }
-  }
-  h+=dayCard(items,focusDate,ro);
-  if(!ro){
-    const future=items.filter(i=>!i.done && i.date>=today).length;
-    h+=`<div class="card"><h2>내 숙제 계획 세우기</h2><p class="sub">스스로 기간에 나눠 계획하면 매일 부담이 줄어요${future?` · 앞으로 할 숙제 <b>${future}</b>개`:''}</p>
-      <div class="seg small" style="max-width:260px"><button class="${stuMode==='auto'?'active':''}" onclick="A.setStuMode('auto')">기간에 나누기</button><button class="${stuMode==='manual'?'active':''}" onclick="A.setStuMode('manual')">직접 추가</button></div>`;
-    if(stuMode==='auto') h+=`<label>숙제 이름</label><input id="sTitle" type="text" placeholder="예: 쎈 3단원"><div class="row"><div><label>총 문항</label><input id="sTotal" type="number" placeholder="40"></div><div><label>오늘부터</label><input id="sStart" type="date" value="${today}"></div><div><label>마감일</label><input id="sEnd" type="date" value="${today}"></div></div><button class="btn" onclick="A.stuSplit()">나눠서 계획표 만들기</button><p class="hint">남은 날에 맞춰 하루치씩 자동으로 캘린더에 깔려요.</p>`;
-    else h+=`<label>날짜</label><input id="sdDate" type="date" value="${today}"><label>내용</label><input id="sdText" type="text" placeholder="예: 오답노트 5문제"><button class="btn" onclick="A.stuAddDate()">내 계획에 추가</button>`;
-    h+=`</div>`;
-  }
-  h+=`<div class="card"><h2>복습영상</h2><p class="sub">풀이를 직접 설명하며 녹화 → 본인 폴더에 올리면 선생님이 확인해요</p>
-    <a class="btn ghost full" href="recording-guide.pdf" target="_blank" rel="noopener" style="text-decoration:none;display:block;text-align:center;box-sizing:border-box;margin-bottom:10px">📖 녹화 방법 보기</a>
-    <button class="btn amber full" onclick="A.openFolder('${s.name}')">＋ 복습영상 올리기 (내 드라이브 폴더 열기)</button>
-    <p class="hint">파일명 예시: 0612_수1_삼각함수_개념설명.mp4 · 3~7분 권장</p>${videoList(videos)}</div>`;
-  return h;
+  FEED = data; renderPortal();
 }
-function teacherStudent(today){
-  const s=students.find(x=>x.id===curId);
-  const items=homework.map(h=>({id:h.id,date:h.due_date,text:h.content,done:h.done,by:h.created_by}));
-  const tot=homework.length, dn=homework.filter(h=>h.done).length;
-  let h=`<div class="card"><label style="margin-bottom:6px">학생 선택 (${students.length}명) — 이름 검색 후 선택</label><input type="text" placeholder="🔍 학생 이름 검색" oninput="A.filterSelect(this.value)" style="margin-bottom:8px"><select id="stuSelect" onchange="A.pick(this.value)">${students.map(x=>`<option value="${x.id}" ${x.id===curId?'selected':''}>${x.name}${x.user_id?'':' · 미연결'}</option>`).join('')}</select></div>`;
-  h+=`<div class="card"><h2>${s?s.name:''} <span style="color:var(--muted);font-weight:400">${s&&s.grade?'· '+s.grade:''} ${s&&s.subject?'· '+s.subject:''}</span> ${s&&s.user_id?'<span class="pill">연결됨</span>':'<span class="pill gray">미연결</span>'}</h2>
-    <p class="sub">날짜를 누르면 그 날 숙제 · 추가하면 실시간 저장</p>${calBlock(items,today,'A.setFocus')}
-    <div class="stat"><div class="box"><b>${tot}</b><span>등록 숙제</span></div><div class="box"><b style="color:var(--green)">${dn}</b><span>완료</span></div><div class="box"><b style="color:var(--red)">${tot-dn}</b><span>미완료</span></div></div></div>`;
-  const gp=s&&s.guardian_phone;
-  h+=`<div class="card"><h2>학부모 연락처 ${gp?'<span class="pill">등록됨</span>':'<span class="pill warn">미등록</span>'}</h2>`;
-  if(gp&&!editPhone){
-    h+=`<p class="sub">알림 문자를 받을 번호예요.</p><div style="display:flex;align-items:center;gap:12px"><b style="font-size:17px">${gp.replace(/(\d{3})(\d{3,4})(\d{4})/,'$1-$2-$3')}</b><button class="ghostbtn" onclick="A.editGuardianPhone()">변경</button></div>`;
-  } else {
-    h+=`<p class="sub">미제출·복습 알림 문자를 받을 번호. <b>저장하면 칸이 사라지고</b> 번호만 남아요.</p>
-      <input id="gphone" type="text" inputmode="numeric" placeholder="01012345678 (숫자만, - 없이)" value="${gp||''}">
-      <button class="btn" onclick="A.saveGuardianPhone('${s?s.id:''}')">번호 저장</button>
-      <p class="hint">비우고 저장하면 번호가 삭제돼요.</p>`;
-  }
-  h+=`</div>`;
-  h+=`<div class="card"><h2>숙제 등록</h2><div class="seg small" style="max-width:240px"><button class="${splitMode==='auto'?'active':''}" onclick="A.setSplit('auto')">자동 분배</button><button class="${splitMode==='manual'?'active':''}" onclick="A.setSplit('manual')">직접 입력</button></div>`;
-  if(splitMode==='auto') h+=`<label>숙제 이름</label><input id="aTitle" type="text" placeholder="예: 시험대비 프린트"><div class="row"><div><label>총 문항</label><input id="aTotal" type="number" placeholder="30"></div><div><label>시작일</label><input id="aStart" type="date" value="${today}"></div><div><label>마감(시험일)</label><input id="aEnd" type="date" value="${today}"></div></div><button class="btn" onclick="A.autoSplit()">자동 분배해서 저장</button><p class="hint">예: 30문항을 오늘~시험일로 주면 하루치씩 자동으로 나눠 캘린더에 깔려요.</p>`;
-  else h+=`<label>날짜</label><input id="mDate" type="date" value="${today}"><label>내용</label><input id="mText" type="text" placeholder="예: 오답노트 2문제"><button class="btn" onclick="A.manualAdd()">저장</button>`;
-  h+=`</div>`;
-  h+=dayCard(items,focusDate,false);
-  h+=`<div class="card"><h2>${s?s.name:''} 복습영상</h2><a class="btn ghost full" href="recording-guide.pdf" target="_blank" rel="noopener" style="text-decoration:none;display:block;text-align:center;box-sizing:border-box;margin-bottom:10px">📖 녹화 방법 보기</a>${videoList(videos)}<button class="btn ghost full" onclick="A.openFolder('${s?s.name:''}')">학생 영상 폴더 열기</button></div>`;
-  return h;
-}
-function teacherAll(today){
-  const noPhone=students.filter(s=>!s.guardian_phone).length;
-  let h=`<div class="card"><h2>전체 학생 (${students.length}명)</h2><p class="sub">이름을 누르면 그 학생 관리로 이동${noPhone?` · 학부모 번호 미등록 <b>${noPhone}</b>명`:' · 학부모 번호 전원 등록됨 ✓'}</p><input type="text" placeholder="🔍 학생 이름 검색" oninput="A.filterStudents(this.value)" style="margin-bottom:6px">`;
-  h+=students.map(s=>`<div class="srow" data-name="${s.name}" onclick="A.pick('${s.id}')"><div class="sn">${s.name}</div><span class="meta">${s.grade||''} ${s.subject||''}</span>${s.guardian_phone?'<span class="pill">📞</span>':'<span class="pill warn">번호없음</span>'}${s.user_id?'<span class="pill">연결</span>':'<span class="pill gray">미연결</span>'}</div>`).join('');
-  return h+'</div>';
-}
-function teacherLink(){
-  let h=`<div class="card"><h2>학생 계정 연결</h2><p class="sub">학생이 카카오로 로그인하면 아래에 나타나요. 어떤 학생인지 선택해 연결하면, 그 학생은 본인 숙제·영상만 보게 돼요.</p>${unlinked.length>6?'<input type="text" placeholder="🔍 이름 검색" oninput="A.filterStudents(this.value)" style="margin-bottom:6px">':''}`;
-  if(!unlinked.length) h+='<div class="empty">아직 로그인했지만 연결 안 된 학생이 없어요. 학생이 "카카오로 로그인" 후 새로고침하세요.</div>';
-  else h+=unlinked.map(p=>`<div class="srow" data-name="${p.name||''}"><div class="sn">${p.name||'(이름없음)'}</div><select onchange="A.linkStudent(this.value, '${p.id}')"><option value="">— 학생 선택 —</option>${students.filter(s=>!s.user_id).map(s=>`<option value="${s.id}">${s.name}</option>`).join('')}</select></div>`).join('');
-  h+=`<p class="hint">연결 가능한 학생(미연결): ${students.filter(s=>!s.user_id).length}명</p></div>`;
-  return h;
-}
-function dayCard(items,date,ro){const l=items.filter(i=>i.date===date);
-  const list=l.length?l.map(i=>`<div class="hwitem ${i.done?'done':''} ${ro?'readonly':''}"><span class="chk ${i.done?'on':''}" onclick="${ro?'':'A.toggle(\''+i.id+'\')'}">${i.done?'☑':'☐'}</span><span class="txt">${i.text}</span>${i.by==='student'?'<span class="tag stu">학생</span>':'<span class="tag">선생님</span>'}${ro?'':'<button class="ghostbtn" style="padding:4px 9px;font-size:12px" onclick="A.startEdit(\''+i.id+'\')">수정</button>'}</div>`).join(''):'<div class="empty">이 날은 등록된 숙제가 없어요.</div>';
-  return `<div class="card"><h2>${+date.slice(-2)}일 숙제</h2><p class="sub">${ro?'':'체크하면 저장됩니다'}</p>${list}</div>`;}
-function videoList(vs){if(!vs.length)return '<div class="empty" style="margin-top:10px">아직 분석된 복습영상이 없어요.</div>';
-  return vs.map(v=>v.status==='ing'?`<div class="vid"><div class="vh"><span class="vt">${v.title||'복습영상'}</span><span style="color:var(--amber);font-weight:600">분석 중…</span></div></div>`:`<div class="vid"><div class="vh"><span class="vt">${v.title||'복습영상'}</span><span class="stars">${'★'.repeat(v.stars||0)}${'☆'.repeat(5-(v.stars||0))}</span></div><p class="fb">${v.feedback||''}</p>${v.error_note?`<div class="err">보완: ${v.error_note}</div>`:''}</div>`).join('');}
 
-const D={TODAY:'2026-06-11',role:'teacher',sel:'s1',cal:'month',focus:'2026-06-11',split:'auto',up:false,uid:100,
- students:[{id:'s1',name:'김윤하',grade:'고1',subject:'경우의 수'},{id:'s2',name:'조세빈',grade:'고2',subject:'수열'},{id:'s3',name:'정혜교',grade:'중3',subject:'이차함수'}],
- items:[{id:'h1',sid:'s1',date:'2026-06-08',text:'경우의 수 1~8번',done:true,by:'teacher'},{id:'h2',sid:'s1',date:'2026-06-09',text:'경우의 수 9~16번',done:true,by:'teacher'},{id:'h3',sid:'s1',date:'2026-06-10',text:'경우의 수 17~24번',done:false,by:'teacher'},{id:'h4',sid:'s1',date:'2026-06-11',text:'곱법칙 프린트 1~6번',done:true,by:'teacher'},{id:'h5',sid:'s1',date:'2026-06-11',text:'곱법칙 프린트 7~12번',done:false,by:'teacher'},{id:'h7',sid:'s1',date:'2026-06-12',text:'경우의 수 25~30번',done:false,by:'teacher'},{id:'h8',sid:'s2',date:'2026-06-09',text:'등차수열 1~10번',done:true,by:'teacher'},{id:'h9',sid:'s3',date:'2026-06-10',text:'이차함수 RPM',done:false,by:'teacher'}],
- videos:[{id:'v1',sid:'s1',title:'경우의 수 길찾기 12번',status:'done',stars:4,feedback:'풀이 근거를 또박또박 설명했어요.',error_note:'마지막 경로 1가지 누락'}]};
-function dItems(sid,date){return D.items.filter(i=>i.sid===sid&&i.date===date);}
-function dCalBlock(sid){const items=D.items.filter(i=>i.sid===sid).map(i=>({date:i.date,done:i.done}));const f=cb=>D.cal==='week'?weekStrip(items,D.TODAY,cb):monthGrid(items,D.TODAY,cb);return `<div class="seg small"><button class="${D.cal==='week'?'active':''}" onclick="A.dCal('week')">주간</button><button class="${D.cal==='month'?'active':''}" onclick="A.dCal('month')">월간</button></div>`+f('A.dFocus');}
-function dChk(sid,date,ro){const l=dItems(sid,date);if(!l.length)return'<div class="empty">이 날은 숙제가 없어요.</div>';return l.map(i=>`<div class="hwitem ${i.done?'done':''} ${ro?'readonly':''}"><span class="chk ${i.done?'on':''}" onclick="${ro?'':'A.dToggle(\''+i.id+'\')'}">${i.done?'☑':'☐'}</span><span class="txt">${i.text}</span>${i.by==='student'?'<span class="tag stu">학생</span>':'<span class="tag">선생님</span>'}</div>`).join('');}
-function dVids(sid){const vs=D.videos.filter(v=>v.sid===sid);if(!vs.length)return'<div class="empty">아직 영상이 없어요.</div>';return vs.map(v=>v.status==='ing'?`<div class="vid"><div class="vh"><span class="vt">${v.title}</span><span style="color:var(--amber);font-weight:600">분석 중…</span></div></div>`:`<div class="vid"><div class="vh"><span class="vt">${v.title}</span><span class="stars">${'★'.repeat(v.stars)}${'☆'.repeat(5-v.stars)}</span></div><p class="fb">${v.feedback}</p>${v.error_note?`<div class="err">보완: ${v.error_note}</div>`:''}</div>`).join('');}
-function dInfo(sid){return D.students.find(s=>s.id===sid);}
-function dToggle(id){if(D.role==='parent')return;const it=D.items.find(i=>i.id===id);if(it){it.done=!it.done;render();}}
-function dAuto(){const t=document.getElementById('dTitle').value.trim()||'숙제';const tot=parseInt(document.getElementById('dTotal').value)||0;if(tot<=0){alert('총 문항');return;}const days=['2026-06-11','2026-06-12','2026-06-13','2026-06-14'];const per=Math.ceil(tot/days.length);let n=1;days.forEach(d=>{const f=n,to=Math.min(n+per-1,tot);if(f>tot)return;D.items.push({id:'h'+(D.uid++),sid:D.sel,date:d,text:`${t} ${f}~${to}번`,done:false,by:'teacher'});n=to+1;});render();}
-function dMan(){const d=document.getElementById('dmDate').value,t=document.getElementById('dmText').value.trim();if(!d||!t)return;D.items.push({id:'h'+(D.uid++),sid:D.sel,date:d,text:t,done:false,by:'teacher'});render();}
-function dStu(){const t=document.getElementById('dsText').value.trim();if(!t)return;D.items.push({id:'h'+(D.uid++),sid:D.sel,date:D.TODAY,text:t,done:false,by:'student'});render();}
-function dVid(){const v={id:'v'+(D.uid++),sid:D.sel,title:'복습영상 (방금 제출)',status:'ing',stars:0};D.videos.unshift(v);D.up=false;render();setTimeout(()=>{v.status='done';v.stars=4;v.feedback='풀이를 단계별로 잘 설명했어요.';v.error_note='검산 한 줄 추가하면 완벽';render();},1500);}
-function demoHtml(){const sid=D.sel,s=dInfo(sid);let h=`<div class="card"><div class="seg" style="max-width:330px"><button class="${D.role==='teacher'?'active':''}" onclick="A.dRole('teacher')">선생님</button><button class="${D.role==='student'?'active':''}" onclick="A.dRole('student')">학생</button><button class="${D.role==='parent'?'active':''}" onclick="A.dRole('parent')">학부모</button></div><div style="margin-top:10px"><select onchange="A.dPick(this.value)">`+D.students.map(x=>`<option value="${x.id}" ${x.id===D.sel?'selected':''}>${x.name}</option>`).join('')+`</select></div></div>`;
-if(D.role==='teacher'){const tot=D.items.filter(i=>i.sid===sid).length,dn=D.items.filter(i=>i.sid===sid&&i.done).length;
-h+=`<div class="card"><h2>${s.name} · ${s.grade} · ${s.subject}</h2>${dCalBlock(sid)}<div class="stat"><div class="box"><b>${tot}</b><span>등록</span></div><div class="box"><b style="color:var(--green)">${dn}</b><span>완료</span></div><div class="box"><b style="color:var(--red)">${tot-dn}</b><span>미완료</span></div></div></div>`;
-h+=`<div class="card"><h2>숙제 등록</h2><div class="seg small" style="max-width:240px"><button class="${D.split==='auto'?'active':''}" onclick="A.dSplit('auto')">자동 분배</button><button class="${D.split==='manual'?'active':''}" onclick="A.dSplit('manual')">직접 입력</button></div>`;
-if(D.split==='auto')h+=`<label>숙제 이름</label><input id="dTitle" type="text" placeholder="예: 프린트"><div class="row"><div><label>총 문항</label><input id="dTotal" type="number" placeholder="30"></div></div><button class="btn" onclick="A.dAuto()">자동 분배</button>`;
-else h+=`<label>날짜</label><input id="dmDate" type="date" value="2026-06-11"><label>내용</label><input id="dmText" type="text"><button class="btn" onclick="A.dMan()">추가</button>`;
-h+=`</div><div class="card"><h2>${+D.focus.slice(-2)}일 숙제</h2>${dChk(sid,D.focus,false)}</div><div class="card"><h2>복습영상</h2>${dVids(sid)}</div>`;}
-if(D.role==='student'){h+=`<div class="card"><h2>안녕, ${s.name}! <span class="badge b-stu">학생</span></h2>${dCalBlock(sid)}</div><div class="card"><h2>오늘 숙제</h2>${dChk(sid,D.TODAY,false)}<label style="margin-top:14px">나도 숙제 추가</label><div class="row"><div style="flex:3"><input id="dsText" type="text"></div><div><button class="btn ghost" style="margin-top:0" onclick="A.dStu()">추가</button></div></div></div><div class="card"><h2>복습영상</h2><a class="btn ghost full" href="recording-guide.pdf" target="_blank" rel="noopener" style="text-decoration:none;display:block;text-align:center;box-sizing:border-box;margin-bottom:10px">📖 녹화 방법 보기</a>${D.up?`<button class="btn amber" onclick="A.dVid()">제출(데모)</button> <button class="btn ghost" onclick="A.dUpC()">취소</button>`:`<button class="btn amber full" onclick="A.dUp()">＋ 복습영상 올리기</button>`}<div style="margin-top:12px">${dVids(sid)}</div></div>`;}
-if(D.role==='parent'){const td=dItems(sid,D.TODAY),done=td.filter(i=>i.done).length;h+=`<div class="card readonly"><h2>${s.name} 학습 현황 <span class="badge b-parent">학부모</span></h2>${dCalBlock(sid)}</div><div class="card readonly"><h2>오늘</h2><p class="sub">${td.length}개 중 ${done}개 완료</p>${dChk(sid,D.TODAY,true)}</div><div class="card"><h2>학부모 알림 미리보기</h2><div class="preview"><span style="font-size:18px">🔔</span><div><p class="ttl">[앤서수학교습소] 오늘의 학습 알림</p><p>${s.name} 학생 학부모님, 오늘 숙제 ${td.length}개 중 ${done}개 완료했어요.</p></div></div></div>`;}
-return h;}
+function cycleHtml(c, isParent){
+  if (!c) return "";
+  const total = Math.max(1, c.total|0), used = Math.min(total, c.used|0);
+  let dots = ""; if (total <= 20) for (let i=0;i<total;i++) dots += `<span class="${i<used?"on":""}"></span>`;
+  const pay = isParent && c.pay ? `<span class="pill ${c.pay==="결제 필요"?"bad":c.pay==="매월 정산"?"navy":"ok"}">${esc(c.pay)}</span>` : "";
+  return `<div class="cycle"><div class="cycle-top"><span>이번 회차 <b>${used}</b> / ${total}회</span>${pay}</div>${dots?`<div class="dots">${dots}</div>`:""}</div>`;
+}
 
-init();
+function annHtml(list){
+  if (!list.length) return "";
+  return `<div class="sec-title">공지</div><div class="stack">` + list.map(a => `
+    <div class="card ann ${a.read?"":"unread"}" data-ann="${a.id}">
+      <button class="ann-head" aria-expanded="false">
+        <div style="min-width:0"><div class="ann-title">${a.pinned?"📌 ":""}${esc(a.title)}</div>
+        <div class="ann-meta">${ago(a.at)}${a.personal?" · 개별 안내":""}</div></div>
+        ${a.read?"":`<span class="new" aria-label="안 읽음"></span>`}
+      </button>
+      <div class="ann-body" hidden>${esc(a.body)}</div>
+    </div>`).join("") + `</div>`;
+}
+
+function lessonsHtml(list, isParent){
+  if (!list.length) return `<div class="empty">아직 등록된 수업 기록이 없어요.</div>`;
+  return `<div class="stack">` + list.map(l => {
+    const absent = l.status === "결석";
+    const badge = absent ? `<span class="pill ${l.deducted?"warn":"navy"}">결석${l.deducted?" · 차감":" · 차감 없음"}</span>`
+                : (l.cycle_no ? `<span class="pill navy">${l.cycle_no}회차</span>` : "");
+    const comp = l.hw_done ? (l.completion!=null ? `<dd>${l.completion}%<div class="bar"><i style="width:${Math.max(0,Math.min(100,l.completion))}%"></i></div></dd>` : `<dd>${esc(l.hw_done)}</dd>`) : "";
+    const body = absent ? (isParent && l.reason ? `<div class="lesson-c">${esc(l.reason)}</div>` : `<div class="lesson-c">결석</div>`)
+                : `<div class="lesson-c">${esc(l.content)}</div>`;
+    return `<div class="card"><div class="lesson-row"><span class="date">${md(l.date)}</span>${badge}</div>${body}
+      ${(!absent && (l.homework || comp)) ? `<dl class="kv">${l.homework?`<dt>숙제</dt><dd>${esc(l.homework)}</dd>`:""}${comp?`<dt>완성도</dt>${comp}`:""}</dl>`:""}</div>`;
+  }).join("") + `</div>`;
+}
+
+function videosHtml(list, isStudent){
+  const up = isStudent ? `
+    <div class="card" style="margin-bottom:10px">
+      <div style="font-weight:800;font-size:16px">복습영상 올리기</div>
+      <div class="muted" style="margin-top:2px">문제 푸는 모습을 찍어서 올려줘. 3분 안쪽이면 좋아.</div>
+      <div class="stack" style="margin-top:12px">
+        <label class="field">어떤 문제? (예: 쎈 수열 212번)<input id="v-title" maxlength="80" placeholder="교재·단원·문제 번호"></label>
+        <label class="field">선생님께 한마디 (선택)<input id="v-memo" maxlength="200" placeholder="막힌 부분이 있으면 적어줘"></label>
+        <input type="file" id="v-file" accept="video/*" capture="environment" hidden>
+        <button class="btn" id="v-pick">영상 고르기 / 촬영하기</button>
+        <div id="v-status" class="muted" hidden></div>
+        <div class="prog" id="v-prog" hidden><i></i></div>
+      </div>
+    </div>` : "";
+  const items = list.length ? `<div class="stack">` + list.map(v => `
+    <div class="card"><div class="lesson-row"><span class="date">${md(v.date)}</span>
+      <span class="pill ${v.status==="확인 완료"?"ok":"navy"}">${esc(v.status||"제출됨")}</span></div>
+      <div class="lesson-c">${esc(v.title||"복습영상")}</div>
+      ${v.feedback?`<div class="feedback"><b>선생님 피드백</b><br>${esc(v.feedback)}</div>`:""}</div>`).join("") + `</div>`
+    : `<div class="empty">${isStudent?"아직 올린 영상이 없어.":"아직 제출된 복습영상이 없어요."}</div>`;
+  return up + items;
+}
+
+function analysesHtml(list){
+  if (!list.length) return `<div class="empty">아직 올라온 시험 분석이 없어요.<br>시험이 끝나면 여기에 분석을 올려드려요.</div>`;
+  return `<div class="stack">` + list.map(x => `
+    <div class="card"><div class="lesson-row"><span class="date" style="font-size:15px">${esc(x.exam)}</span>${x.date?`<span class="muted">${ago(x.date)}</span>`:""}</div>
+      ${x.summary?`<div class="lesson-c" style="font-weight:500">${esc(x.summary)}</div>`:""}
+      <dl class="kv" style="grid-template-columns:62px 1fr">
+        ${x.strengths?`<dt>잘한 점</dt><dd>${esc(x.strengths)}</dd>`:""}
+        ${x.weaknesses?`<dt>보완할 점</dt><dd>${esc(x.weaknesses)}</dd>`:""}
+        ${x.next?`<dt>다음 계획</dt><dd>${esc(x.next)}</dd>`:""}
+      </dl></div>`).join("") + `</div>`;
+}
+
+function renderPortal(){
+  const f = FEED, isParent = f.who === "parent", isStudent = !isParent;
+  const st = f.student || {};
+  const sub = [st.school, st.grade].filter(Boolean).join(" · ") || "앤서수학";
+  const latestHw = (f.lessons || []).find(l => l.status !== "결석" && l.homework);
+  const tabs = [["lessons","수업 일지"],["videos","복습영상"],["analyses","시험 분석"]];
+  let body = "";
+  if (TAB === "lessons") body = lessonsHtml(f.lessons||[], isParent);
+  if (TAB === "videos") body = videosHtml(f.videos||[], isStudent);
+  if (TAB === "analyses") body = analysesHtml(f.analyses||[]);
+  $app.innerHTML = header(isParent ? `${st.name} 학부모님` : `${st.name}`) + `
+    <div class="hero"><h1>${esc(st.name)}</h1><p>${esc(sub)}</p>${cycleHtml(f.cycle, isParent)}</div>
+    ${latestHw ? `<div class="card hw-now"><div class="lbl">이번 숙제 · ${md(latestHw.date).replace(/<[^>]+>/g," ")} 수업</div><div class="txt">${esc(latestHw.homework)}</div></div>` : ""}
+    ${annHtml(f.announcements||[])}
+    <div class="tabs" role="tablist">${tabs.map(([k,v])=>`<button class="tab" role="tab" aria-selected="${TAB===k}" data-tab="${k}">${v}</button>`).join("")}</div>
+    <div id="tabbody">${body}</div>${foot}`;
+  bindPortal();
+}
+
+function bindPortal(){
+  $app.querySelectorAll("[data-tab]").forEach(b => b.onclick = () => { TAB = b.dataset.tab; renderPortal(); });
+  $app.querySelectorAll("[data-ann]").forEach(card => {
+    const head = card.querySelector(".ann-head"), body = card.querySelector(".ann-body");
+    head.onclick = async () => {
+      const open = body.hidden; body.hidden = !open; head.setAttribute("aria-expanded", String(open));
+      if (open && card.classList.contains("unread")) {
+        card.classList.remove("unread"); card.querySelector(".new")?.remove();
+        const a = FEED.announcements.find(x => x.id === card.dataset.ann); if (a) a.read = true;
+        try { await sb.rpc("portal_mark_read", { p_token: TOKEN, p_ann: card.dataset.ann }); } catch {}
+      }
+    };
+  });
+  const pick = document.getElementById("v-pick");
+  if (pick) {
+    const file = document.getElementById("v-file");
+    pick.onclick = () => file.click();
+    file.onchange = () => file.files[0] && uploadVideo(file.files[0]);
+  }
+}
+
+async function uploadVideo(f){
+  const status = document.getElementById("v-status"), prog = document.getElementById("v-prog"), pick = document.getElementById("v-pick");
+  const mb = f.size / 1048576;
+  status.hidden = false;
+  if (mb > MAX_MB_NOW) { status.textContent = `영상이 ${mb.toFixed(0)}MB라서 너무 커. ${MAX_MB_NOW}MB 이하로 짧게 찍거나 화질을 낮춰서 다시 올려줘.`; return; }
+  pick.disabled = true; prog.hidden = false; status.textContent = "올리는 중… 화면을 닫지 마";
+  try {
+    const ext = (f.name.split(".").pop() || "mp4").toLowerCase();
+    const r = await fetch(`${SB_URL}/functions/v1/portal-video`, { method:"POST", headers:{ "content-type":"application/json", apikey: SB_KEY },
+      body: JSON.stringify({ action:"upload", token: TOKEN, ext }) });
+    const j = await r.json(); if (!r.ok) throw new Error(j.error || "업로드 준비 실패");
+    await new Promise((res, rej) => {
+      const x = new XMLHttpRequest();
+      x.open("PUT", j.signedUrl);
+      x.setRequestHeader("content-type", f.type || "video/mp4");
+      x.setRequestHeader("x-upsert", "false");
+      x.upload.onprogress = e => { if (e.lengthComputable) prog.firstElementChild.style.width = (e.loaded / e.total * 100) + "%"; };
+      x.onload = () => (x.status >= 200 && x.status < 300) ? res() : rej(new Error("업로드 실패 (" + x.status + ")"));
+      x.onerror = () => rej(new Error("인터넷 연결을 확인해 줘"));
+      x.send(f);
+    });
+    const { error } = await sb.rpc("portal_register_video", { p_token: TOKEN, p_path: j.path,
+      p_title: document.getElementById("v-title").value.trim(), p_size: f.size, p_memo: document.getElementById("v-memo").value.trim() });
+    if (error) throw error;
+    toast("영상 올렸어! 선생님이 확인할게");
+    const { data } = await sb.rpc("portal_feed", { p_token: TOKEN }); if (data) { FEED = data; renderPortal(); }
+  } catch (e) {
+    status.textContent = "실패했어: " + (e.message || e) + ". 다시 해보고 안 되면 선생님께 말해줘.";
+    pick.disabled = false;
+  }
+}
+
+/* ---------------- 원장 화면 ---------------- */
+let ADMIN = null, ADATA = null, ATAB = "ann";
+const SITE = location.origin + location.pathname;
+
+async function loadAdmin(){
+  ADMIN = q.get("admin");
+  const { data, error } = await sb.rpc("admin_overview", { p_admin: ADMIN });
+  if (error || !data) { $app.innerHTML = header() + `<div class="center">원장 링크가 올바르지 않아요.</div>`; return; }
+  ADATA = data; renderAdmin();
+}
+
+function renderAdmin(){
+  const d = ADATA;
+  const newVids = d.videos.filter(v => v.status === "제출됨").length;
+  const tabs = [["ann","공지"],["links","학생 링크"],["videos",`영상${newVids?` (${newVids})`:""}`]];
+  let body = "";
+  if (ATAB === "ann") body = adminAnn(d);
+  if (ATAB === "links") body = adminLinks(d);
+  if (ATAB === "videos") body = adminVideos(d);
+  $app.innerHTML = header("원장 화면") + `
+    <div class="hero"><h1>원장 화면</h1><p>재원생 ${d.students.length}명 · 노션 동기화 ${d.last_sync ? ago(d.last_sync.at) : "기록 없음"}</p></div>
+    <div class="admin-tabs" role="tablist">${tabs.map(([k,v])=>`<button class="tab" role="tab" aria-selected="${ATAB===k}" data-atab="${k}">${v}</button>`).join("")}</div>
+    <div>${body}</div>`;
+  bindAdmin();
+}
+
+function adminAnn(d){
+  const opts = d.students.map(s => `<option value="${s.id}">${esc(s.name)}</option>`).join("");
+  const grades = [...new Set(d.students.map(s => s.grade).filter(Boolean))].sort();
+  const list = d.announcements.length ? d.announcements.map(a => `
+    <div class="card"><div class="lesson-row"><div style="min-width:0"><div class="ann-title">${a.pinned?"📌 ":""}${esc(a.title)}</div>
+      <div class="ann-meta">${ago(a.at)} · ${a.target?esc(a.target)+" 개별":a.grade?esc(a.grade):"전체"} · ${a.audience==="parents"?"학부모만":a.audience==="students"?"학생만":"학부모+학생"}</div></div>
+      <button class="mini red" data-hide="${a.id}">내리기</button></div>
+      <div class="ann-body">${esc(a.body)}</div>
+      <div class="muted" style="margin-top:8px">읽음: 학부모 ${a.reads_parent} · 학생 ${a.reads_student}</div></div>`).join("")
+    : `<div class="empty">아직 올린 공지가 없어요.</div>`;
+  return `<div class="card"><div class="stack">
+      <label class="field">제목<input id="a-title" maxlength="80" placeholder="예: 10/30(목) 보강 안내"></label>
+      <label class="field">내용<textarea id="a-body" placeholder="학부모님·학생에게 보일 내용"></textarea></label>
+      <div class="row2">
+        <label class="field">누구에게<select id="a-aud"><option value="all">학부모+학생</option><option value="parents">학부모만</option><option value="students">학생만</option></select></label>
+        <label class="field">범위<select id="a-scope"><option value="">전체 학생</option>${grades.map(g=>`<option value="g:${esc(g)}">${esc(g)}만</option>`).join("")}<optgroup label="한 명에게">${opts}</optgroup></select></label>
+      </div>
+      <label style="display:flex;gap:8px;align-items:center;font-size:14px"><input type="checkbox" id="a-pin"> 맨 위에 고정</label>
+      <button class="btn" id="a-send">공지 올리기</button>
+    </div></div>
+    <div class="sec-title">최근 60일 공지</div><div class="stack">${list}</div>`;
+}
+
+function kakaoText(s, kind){
+  const url = `${SITE}?t=${kind==="parent"?s.parent_token:s.student_token}`;
+  return kind === "parent"
+    ? `[앤서수학] ${s.name} 학부모님, 수업 일지·회차·공지를 확인하실 수 있는 전용 링크입니다.\n${url}\n※ ${s.name} 전용 링크라 다른 분께는 공유하지 말아 주세요.`
+    : `${s.name} 전용 링크야. 숙제 확인이랑 복습영상 올리는 거 여기서 하면 돼\n${url}`;
+}
+
+function adminLinks(d){
+  return `<div class="muted" style="margin:0 2px 8px">링크를 누르면 카톡에 붙여넣을 문구까지 복사돼요. 링크가 새어나간 것 같으면 '새 링크'로 바꾸면 예전 링크는 바로 막혀요.</div>
+  <div class="tbl-wrap"><table class="tbl"><thead><tr><th>학생</th><th>회차</th><th>학부모</th><th>학생</th></tr></thead><tbody>` +
+  d.students.map(s => `<tr>
+    <td><b>${esc(s.name)}</b><div class="muted">${esc([s.school,s.grade].filter(Boolean).join(" ")||"")}</div></td>
+    <td style="white-space:nowrap">${s.cycle?`${s.cycle.used}/${s.cycle.total}`:"-"} ${s.cycle&&s.cycle.pay==="결제 필요"?`<span class="pill bad">결제</span>`:""}</td>
+    <td><div style="display:flex;gap:4px;flex-wrap:wrap"><button class="mini" data-copy="parent" data-id="${s.id}">복사</button><button class="mini" data-open="parent" data-id="${s.id}">보기</button><button class="mini red" data-rot="parent" data-id="${s.id}">새 링크</button></div></td>
+    <td><div style="display:flex;gap:4px;flex-wrap:wrap"><button class="mini" data-copy="student" data-id="${s.id}">복사</button><button class="mini" data-open="student" data-id="${s.id}">보기</button><button class="mini red" data-rot="student" data-id="${s.id}">새 링크</button></div></td>
+  </tr>`).join("") + `</tbody></table></div>`;
+}
+
+function adminVideos(d){
+  if (!d.videos.length) return `<div class="empty">아직 올라온 영상이 없어요.</div>`;
+  return `<div class="stack">` + d.videos.map(v => `
+    <div class="card" data-vid="${v.id}"><div class="lesson-row"><span class="date">${esc(v.student)} · ${md(v.date)}</span>
+      <span class="pill ${v.status==="확인 완료"?"ok":"warn"}">${esc(v.status)}</span></div>
+      <div class="lesson-c">${esc(v.title||"제목 없음")}</div>${v.memo?`<div class="muted">학생 메모: ${esc(v.memo)}</div>`:""}
+      ${v.path?`<button class="mini" data-play="${esc(v.path)}" style="margin-top:8px">▶ 재생</button><div class="player"></div>`:`<div class="muted">예전 드라이브 영상</div>`}
+      <label class="field" style="margin-top:10px">피드백 (학생·학부모에게 보여요)<textarea data-fb rows="3" style="min-height:70px">${esc(v.feedback||"")}</textarea></label>
+      <button class="btn ghost" data-save style="margin-top:8px">피드백 저장 · 확인 완료</button></div>`).join("") + `</div>`;
+}
+
+function bindAdmin(){
+  $app.querySelectorAll("[data-atab]").forEach(b => b.onclick = () => { ATAB = b.dataset.atab; renderAdmin(); });
+  const send = document.getElementById("a-send");
+  if (send) send.onclick = async () => {
+    const title = document.getElementById("a-title").value.trim(), body = document.getElementById("a-body").value.trim();
+    if (!title) return toast("제목을 적어 주세요");
+    const scope = document.getElementById("a-scope").value;
+    send.disabled = true;
+    const { error } = await sb.rpc("admin_post_announcement", { p_admin: ADMIN, p_title: title, p_body: body,
+      p_audience: document.getElementById("a-aud").value,
+      p_student: scope && !scope.startsWith("g:") ? scope : null,
+      p_grade: scope.startsWith("g:") ? scope.slice(2) : null,
+      p_pinned: document.getElementById("a-pin").checked });
+    if (error) { toast("올리지 못했어요: " + error.message); send.disabled = false; return; }
+    toast("공지를 올렸어요"); await loadAdmin();
+  };
+  $app.querySelectorAll("[data-hide]").forEach(b => b.onclick = async () => {
+    if (b.dataset.confirm !== "1") { b.dataset.confirm = "1"; b.textContent = "정말 내릴까요?"; return; }
+    await sb.rpc("admin_hide_announcement", { p_admin: ADMIN, p_id: b.dataset.hide }); toast("공지를 내렸어요"); await loadAdmin();
+  });
+  const byId = id => ADATA.students.find(s => s.id === id);
+  $app.querySelectorAll("[data-copy]").forEach(b => b.onclick = () => copy(kakaoText(byId(b.dataset.id), b.dataset.copy), "카톡 문구를 복사했어요"));
+  $app.querySelectorAll("[data-open]").forEach(b => b.onclick = () => { const s = byId(b.dataset.id); window.open(`${SITE}?t=${b.dataset.open==="parent"?s.parent_token:s.student_token}`, "_blank"); });
+  $app.querySelectorAll("[data-rot]").forEach(b => b.onclick = async () => {
+    if (b.dataset.confirm !== "1") { b.dataset.confirm = "1"; b.textContent = "예전 링크 막기?"; return; }
+    const { error } = await sb.rpc("admin_rotate_link", { p_admin: ADMIN, p_student: b.dataset.id, p_kind: b.dataset.rot });
+    toast(error ? "실패: " + error.message : "새 링크로 바꿨어요. 다시 보내 주세요"); await loadAdmin();
+  });
+  $app.querySelectorAll("[data-play]").forEach(b => b.onclick = async () => {
+    b.disabled = true;
+    const r = await fetch(`${SB_URL}/functions/v1/portal-video`, { method:"POST", headers:{ "content-type":"application/json", apikey: SB_KEY },
+      body: JSON.stringify({ action:"view", token: ADMIN, path: b.dataset.play }) });
+    const j = await r.json();
+    if (!r.ok) { toast("재생 실패: " + (j.error||r.status)); b.disabled = false; return; }
+    b.nextElementSibling.innerHTML = `<video controls playsinline src="${esc(j.url)}"></video>`;
+  });
+  $app.querySelectorAll("[data-save]").forEach(b => b.onclick = async () => {
+    const card = b.closest("[data-vid]");
+    const { error } = await sb.rpc("admin_video_feedback", { p_admin: ADMIN, p_id: card.dataset.vid, p_feedback: card.querySelector("[data-fb]").value, p_status: "확인 완료" });
+    toast(error ? "저장 실패: " + error.message : "저장했어요");
+    if (!error) await loadAdmin();
+  });
+}
+
+/* ---------------- 시작 ---------------- */
+if (q.get("admin")) loadAdmin();
+else if (q.get("t")) loadPortal();
+else $app.innerHTML = header() + `<div class="center">학원에서 받은 개인 링크로 들어와 주세요.<br><br>문의 ${PHONE}</div>`;
 </script>
 </body>
 </html>

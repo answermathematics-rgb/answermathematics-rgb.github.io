@@ -143,7 +143,7 @@ function cycleHtml(c, isParent){
   if (!c) return "";
   const total = Math.max(1, c.total|0), used = Math.min(total, c.used|0);
   let dots = ""; if (total <= 20) for (let i=0;i<total;i++) dots += `<span class="${i<used?"on":""}"></span>`;
-  const pay = isParent && c.pay ? `<span class="pill ${c.pay==="결제 필요"?"bad":c.pay==="매월 정산"?"navy":"ok"}">${esc(c.pay)}</span>` : "";
+  const pay = isParent && c.pay && c.pay !== "미표기" ? `<span class="pill ${c.pay==="결제 필요"?"bad":c.pay==="매월 정산"?"navy":"ok"}">${esc(c.pay)}</span>` : "";
   return `<div class="cycle"><div class="cycle-top"><span>이번 회차 <b>${used}</b> / ${total}회</span>${pay}</div>${dots?`<div class="dots">${dots}</div>`:""}</div>`;
 }
 
@@ -342,7 +342,7 @@ function adminLinks(d){
   <div class="tbl-wrap"><table class="tbl"><thead><tr><th>학생</th><th>회차</th><th>학부모</th><th>학생</th></tr></thead><tbody>` +
   d.students.map(s => `<tr>
     <td><b>${esc(s.name)}</b><div class="muted">${esc([s.school,s.grade].filter(Boolean).join(" ")||"")}</div></td>
-    <td style="white-space:nowrap">${s.cycle?`${s.cycle.used}/${s.cycle.total}`:"-"} ${s.cycle&&s.cycle.pay==="결제 필요"?`<span class="pill bad">결제</span>`:""}</td>
+    <td style="white-space:nowrap">${s.cycle?`${s.cycle.used}/${s.cycle.total}`:"-"} ${s.cycle&&s.cycle.pay==="결제 필요"?`<span class="pill bad">결제</span>`:s.cycle&&s.cycle.pay==="미표기"?`<span class="pill warn">결제?</span>`:""}</td>
     <td><div style="display:flex;gap:4px;flex-wrap:wrap"><button class="mini" data-copy="parent" data-id="${s.id}">복사</button><button class="mini" data-open="parent" data-id="${s.id}">보기</button><button class="mini red" data-rot="parent" data-id="${s.id}">새 링크</button></div></td>
     <td><div style="display:flex;gap:4px;flex-wrap:wrap"><button class="mini" data-copy="student" data-id="${s.id}">복사</button><button class="mini" data-open="student" data-id="${s.id}">보기</button><button class="mini red" data-rot="student" data-id="${s.id}">새 링크</button></div></td>
   </tr>`).join("") + `</tbody></table></div>`;

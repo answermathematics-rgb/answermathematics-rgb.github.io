@@ -440,6 +440,26 @@ function bindAdmin(){
   });
 }
 
+const ENGINE_NAME = { elevenlabs: "ElevenLabs 받아쓰기", assemblyai: "AssemblyAI 받아쓰기" };
+async function showAi(videoId, box){
+  const { data } = await sb.rpc("admin_video_analyses", { p_admin: ADMIN, p_video: videoId });
+  const rows = data || [];
+  if (!rows.length) { box.innerHTML = `<div class="muted" style="margin-top:8px">아직 결과가 없어요.</div>`; return false; }
+  box.innerHTML = `<div class="stack" style="margin-top:10px">` + rows.map(r => {
+    const name = r.stage === "transcript" ? (ENGINE_NAME[r.engine] || r.engine) : `분석: ${r.engine.replace("claude","Claude").replace("gpt","GPT")}`;
+    const meta = r.stage === "transcript" && r.pauses ? ` · 멈춤 ${r.pauses.pauses.length}번 · 군말 ${r.pauses.fillers}번` : "";
+    const body = r.status === "running" ? `<div class="muted">진행 중…</div>`
+      : r.status === "error" ? `<div class="muted" style="color:var(--bad)">${esc(r.error)}</div>`
+      : `<details ${r.stage==="analysis"?"open":""}><summary class="muted">${r.stage==="transcript"?"받아쓰기 보기":"분석 보기"}</summary><div class="feedback" style="background:var(--bg)">${esc(r.result)}</div></details>`;
+    return `<div class="card" style="padding:10px 12px"><div class="lesson-row"><b style="font-size:13.5px">${esc(name)}</b><span class="muted">${r.seconds?Math.round(r.seconds)+"초":""}${meta}</span></div>${body}</div>`;
+  }).join("") + `</div>`;
+  const tr = rows.filter(r => r.stage === "transcript");
+  const allTrDone = tr.length >= 2 && tr.every(r => r.status !== "running");
+  const noTr = tr.every(r => r.status === "error");
+  const an = rows.filter(r => r.stage === "analysis");
+  return allTrDone && (noTr || (an.length >= 2 && an.every(r => r.status !== "running")));
+}
+
 /* ---------------- 시작 ---------------- */
 if (q.get("admin")) loadAdmin();
 else if (q.get("t")) loadPortal();

@@ -370,7 +370,8 @@ function adminVideos(d){
       <div class="lesson-c">${esc(v.title||"제목 없음")}</div>${v.memo?`<div class="muted">학생 메모: ${esc(v.memo)}</div>`:""}
       ${v.path?`<button class="mini" data-play="${esc(v.path)}" data-parts="${v.parts||1}" style="margin-top:8px">▶ 재생</button><div class="player"></div>`:`<div class="muted">예전 드라이브 영상</div>`}
       <label class="field" style="margin-top:10px">피드백 (학생·학부모에게 보여요)<textarea data-fb rows="3" style="min-height:70px">${esc(v.feedback||"")}</textarea></label>
-      <button class="btn ghost" data-save style="margin-top:8px">피드백 저장 · 확인 완료</button></div>`).join("") + `</div>`;
+      <button class="btn ghost" data-save style="margin-top:8px">피드백 저장 · 확인 완료</button>
+      ${v.path?`<div style="display:flex;gap:6px;margin-top:8px"><button class="mini" data-ai-run="${v.id}">AI 분석 비교 돌리기</button><button class="mini" data-ai-show="${v.id}">결과 보기</button></div><div class="ai-box"></div>`:""}</div>`).join("") + `</div>`;
 }
 
 function bindAdmin(){
@@ -421,6 +422,16 @@ function bindAdmin(){
       box.innerHTML = `<video controls playsinline src="${url}"></video>`;
     } catch (e) { toast("재생 실패: " + e.message); b.disabled = false; }
   });
+  $app.querySelectorAll("[data-ai-run]").forEach(b => b.onclick = async () => {
+    b.disabled = true; b.textContent = "돌리는 중… (1~3분)";
+    const r = await fetch(`${SB_URL}/functions/v1/video-analyze`, { method:"POST", headers:{ "content-type":"application/json", apikey: SB_KEY },
+      body: JSON.stringify({ action:"run", token: ADMIN, video_id: b.dataset.aiRun }) });
+    if (!r.ok) { toast("시작 실패"); b.disabled = false; b.textContent = "AI 분석 비교 돌리기"; return; }
+    const box = b.closest("[data-vid]").querySelector(".ai-box");
+    const poll = async () => { const done = await showAi(b.dataset.aiRun, box); if (!done) setTimeout(poll, 5000); else { b.disabled = false; b.textContent = "다시 돌리기"; } };
+    setTimeout(poll, 4000);
+  });
+  $app.querySelectorAll("[data-ai-show]").forEach(b => b.onclick = () => showAi(b.dataset.aiShow, b.closest("[data-vid]").querySelector(".ai-box")));
   $app.querySelectorAll("[data-save]").forEach(b => b.onclick = async () => {
     const card = b.closest("[data-vid]");
     const { error } = await sb.rpc("admin_video_feedback", { p_admin: ADMIN, p_id: card.dataset.vid, p_feedback: card.querySelector("[data-fb]").value, p_status: "확인 완료" });

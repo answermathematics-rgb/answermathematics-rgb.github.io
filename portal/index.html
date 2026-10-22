@@ -179,7 +179,7 @@ function videosHtml(list, isStudent){
   const up = isStudent ? `
     <div class="card" style="margin-bottom:10px">
       <div style="font-weight:800;font-size:16px">복습영상 올리기</div>
-      <div class="muted" style="margin-top:2px">문제 푸는 모습을 찍어서 올려줘. 3분 안쪽이면 좋아.</div>
+      <div class="muted" style="margin-top:2px">문제 푸는 모습을 말로 설명하면서 찍어서 올려줘. 화면 녹화로 찍을 땐 <b>마이크 꼭 켜고</b>. 와이파이에서 올리기.</div>
       <div class="stack" style="margin-top:12px">
         <label class="field">어떤 문제? (예: 쎈 수열 212번)<input id="v-title" maxlength="80" placeholder="교재·단원·문제 번호"></label>
         <label class="field">선생님께 한마디 (선택)<input id="v-memo" maxlength="200" placeholder="막힌 부분이 있으면 적어줘"></label>
@@ -284,9 +284,14 @@ async function uploadVideo(f){
       }
       doneBytes += chunk.size;
     }
-    const { error } = await sb.rpc("portal_register_video2", { p_token: TOKEN, p_path: j.path,
+    const { data: vid, error } = await sb.rpc("portal_register_video2", { p_token: TOKEN, p_path: j.path,
       p_title: document.getElementById("v-title").value.trim(), p_size: f.size, p_memo: document.getElementById("v-memo").value.trim(), p_parts: n });
     if (error) throw error;
+    // 화면 캡처를 떠서 자동 분석 시작 (실패해도 업로드는 이미 끝남)
+    status.textContent = "마무리하는 중… 10초만 기다려줘";
+    let frames = [];
+    try { frames = await extractFrames(f, 4, 60); } catch {}
+    try { await startAuto(vid, TOKEN, frames); } catch {}
     toast("영상 올렸어! 선생님이 확인할게");
     const { data } = await sb.rpc("portal_feed", { p_token: TOKEN }); if (data) { FEED = data; renderPortal(); }
   } catch (e) {
@@ -371,7 +376,7 @@ function adminVideos(d){
       ${v.path?`<button class="mini" data-play="${esc(v.path)}" data-parts="${v.parts||1}" style="margin-top:8px">▶ 재생</button><div class="player"></div>`:`<div class="muted">예전 드라이브 영상</div>`}
       <label class="field" style="margin-top:10px">피드백 (학생·학부모에게 보여요)<textarea data-fb rows="3" style="min-height:70px">${esc(v.feedback||"")}</textarea></label>
       <button class="btn ghost" data-save style="margin-top:8px">피드백 저장 · 확인 완료</button>
-      ${v.path?`<div style="display:flex;gap:6px;margin-top:8px"><button class="mini" data-ai-run="${v.id}">AI 분석 비교 돌리기</button><button class="mini" data-ai-show="${v.id}">결과 보기</button></div><div class="ai-box"></div>`:""}</div>`).join("") + `</div>`;
+      ${v.path?`<div class="ai-box" data-ai-auto="${v.id}"></div><div style="display:flex;gap:6px;margin-top:8px"><button class="mini" data-ai-run="${v.id}">다시 분석</button><button class="mini" data-ai-show="${v.id}">받아쓰기·이전 결과까지 보기</button></div>`:""}</div>`).join("") + `</div>`;
 }
 
 function bindAdmin(){
@@ -423,14 +428,23 @@ function bindAdmin(){
     } catch (e) { toast("재생 실패: " + e.message); b.disabled = false; }
   });
   $app.querySelectorAll("[data-ai-run]").forEach(b => b.onclick = async () => {
-    b.disabled = true; b.textContent = "돌리는 중… (1~3분)";
-    const r = await fetch(`${SB_URL}/functions/v1/video-analyze`, { method:"POST", headers:{ "content-type":"application/json", apikey: SB_KEY },
-      body: JSON.stringify({ action:"run", token: ADMIN, video_id: b.dataset.aiRun }) });
-    if (!r.ok) { toast("시작 실패"); b.disabled = false; b.textContent = "AI 분석 비교 돌리기"; return; }
-    const box = b.closest("[data-vid]").querySelector(".ai-box");
-    const poll = async () => { const done = await showAi(b.dataset.aiRun, box); if (!done) setTimeout(poll, 5000); else { b.disabled = false; b.textContent = "다시 돌리기"; } };
-    setTimeout(poll, 4000);
+    const card = b.closest("[data-vid]"), box = card.querySelector(".ai-box");
+    const v = ADATA.videos.find(x => x.id === b.dataset.aiRun);
+    b.disabled = true; b.textContent = "영상 불러오는 중…";
+    try {
+      const vr = await (await fetch(`${SB_URL}/functions/v1/portal-video`, { method:"POST", headers:{ "content-type":"application/json", apikey: SB_KEY },
+        body: JSON.stringify({ action:"view", token: ADMIN, path: v.path, parts: v.parts || 1 }) })).json();
+      const blobs = []; for (const u of (vr.urls || [vr.url])) blobs.push(await (await fetch(u)).blob());
+      b.textContent = "화면 캡처 중…";
+      let frames = []; try { frames = await extractFrames(new Blob(blobs, { type: "video/mp4" }), 4, 60); } catch {}
+      b.textContent = "분석 중… (1~2분)";
+      await startAuto(v.id, ADMIN, frames);
+      box.innerHTML = `<div class="muted" style="margin-top:8px">AI 분석 중…</div>`;
+      setTimeout(() => showAstra(v.id, box), 6000);
+      b.disabled = false; b.textContent = "다시 분석";
+    } catch (e) { toast("분석 시작 실패: " + e.message); b.disabled = false; b.textContent = "AI 분석"; }
   });
+  [...$app.querySelectorAll("[data-ai-auto]")].slice(0, 20).forEach(box => showAstra(box.dataset.aiAuto, box));
   $app.querySelectorAll("[data-ai-show]").forEach(b => b.onclick = () => showAi(b.dataset.aiShow, b.closest("[data-vid]").querySelector(".ai-box")));
   $app.querySelectorAll("[data-save]").forEach(b => b.onclick = async () => {
     const card = b.closest("[data-vid]");
@@ -440,7 +454,46 @@ function bindAdmin(){
   });
 }
 
-const ENGINE_NAME = { elevenlabs: "ElevenLabs 받아쓰기", assemblyai: "AssemblyAI 받아쓰기" };
+const ENGINE_NAME = { elevenlabs: "받아쓰기 (ElevenLabs)", assemblyai: "받아쓰기 (AssemblyAI)", "gpt-6-astra + 화면": "AI 분석" };
+
+// 영상에서 일정 간격으로 화면을 캡처 (학생 폰·원장 브라우저 공통)
+async function extractFrames(src, step = 4, max = 60, width = 760){
+  const url = URL.createObjectURL(src);
+  const el = document.createElement("video");
+  el.muted = true; el.playsInline = true; el.preload = "auto"; el.src = url;
+  try {
+    await new Promise((res, rej) => { el.onloadedmetadata = res; el.onerror = () => rej(new Error("영상 읽기 실패")); setTimeout(() => rej(new Error("시간 초과")), 15000); });
+    const dur = el.duration; if (!isFinite(dur) || dur <= 0) return [];
+    let times = []; for (let t = 1; t < dur; t += step) times.push(t);
+    if (times.length > max) { const k = times.length / max; times = Array.from({ length: max }, (_, i) => times[Math.floor(i * k)]); }
+    const cv = document.createElement("canvas"); cv.width = width; cv.height = Math.round(width * (el.videoHeight || 9) / (el.videoWidth || 16));
+    const cx = cv.getContext("2d"); const out = [];
+    for (const t of times) {
+      el.currentTime = t;
+      await new Promise(r => { el.onseeked = r; setTimeout(r, 4000); });
+      cx.drawImage(el, 0, 0, cv.width, cv.height);
+      out.push({ t: Math.round(t * 10) / 10, b64: cv.toDataURL("image/jpeg", 0.7).split(",")[1] });
+    }
+    return out;
+  } finally { URL.revokeObjectURL(url); }
+}
+async function startAuto(videoId, token, frames){
+  const r = await fetch(`${SB_URL}/functions/v1/video-auto`, { method:"POST", headers:{ "content-type":"application/json", apikey: SB_KEY },
+    body: JSON.stringify({ token, video_id: videoId, frames }) });
+  if (!r.ok) throw new Error((await r.json().catch(() => ({}))).error || r.status);
+}
+// 원장 화면: 각 영상 카드에 최신 AI 분석만 바로 보여주기
+async function showAstra(videoId, box){
+  const { data } = await sb.rpc("admin_video_analyses", { p_admin: ADMIN, p_video: videoId });
+  const a = (data || []).find(r => r.engine === "gpt-6-astra + 화면");
+  const tr = (data || []).find(r => r.engine === "elevenlabs");
+  if (!a) { box.innerHTML = `<div class="muted" style="margin-top:8px">AI 분석 없음 — '다시 분석'을 누르면 돌아가요.</div>`; return; }
+  const meta = tr && tr.pauses ? `멈춤 ${tr.pauses.pauses.length}번 · 군말 ${tr.pauses.fillers}번` : "";
+  box.innerHTML = a.status === "running" ? `<div class="muted" style="margin-top:8px">AI 분석 중…</div>`
+    : a.status === "error" ? `<div class="muted" style="margin-top:8px;color:var(--bad)">분석 실패: ${esc(a.error)}</div>`
+    : `<details open style="margin-top:10px"><summary class="muted">AI 분석 ${meta ? "· " + meta : ""}</summary><div class="feedback" style="background:var(--bg)">${esc(a.result)}</div></details>`;
+  if (a.status === "running") setTimeout(() => showAstra(videoId, box), 6000);
+}
 async function showAi(videoId, box){
   const { data } = await sb.rpc("admin_video_analyses", { p_admin: ADMIN, p_video: videoId });
   const rows = data || [];

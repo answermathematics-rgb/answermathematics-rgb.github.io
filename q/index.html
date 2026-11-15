@@ -49,6 +49,13 @@
   .who b { color:var(--navy); font-size:18px; }
   .spinner { width:42px; height:42px; border:4px solid var(--line); border-top-color:var(--red); border-radius:50%; animation:s 0.8s linear infinite; }
   @keyframes s { to { transform:rotate(360deg); } }
+  .form { width:100%; max-width:420px; display:flex; flex-direction:column; gap:10px; text-align:left; }
+  .form input { width:100%; font-size:22px; padding:14px 16px; border:1.5px solid var(--line); border-radius:12px; background:#fff; outline:none; text-align:center; }
+  .form input:focus { border-color:var(--navy); }
+  .lb { font-size:14px; color:var(--muted); font-weight:700; margin-top:6px; }
+  .grades { display:grid; grid-template-columns:repeat(4,1fr); gap:8px; }
+  .grades button { border:1.5px solid var(--line); background:#fff; border-radius:10px; padding:12px 0; font-size:17px; font-weight:700; color:var(--navy); }
+  .grades button.on { background:var(--navy); color:#fff; border-color:var(--navy); }
   .dots { display:flex; gap:14px; justify-content:center; margin:6px 0 4px; }
   .dot { width:18px; height:18px; border-radius:50%; border:2px solid var(--navy); }
   .dot.on { background:var(--navy); }
@@ -66,12 +73,35 @@
 </head>
 <body>
 
-<!-- 1. 이름 고르기 -->
+<!-- 1. 이름 입력 -->
 <section class="screen on" id="sName">
-  <header><div class="bar"></div><h1>내 이름 눌러서 로그인</h1><span class="sub" id="clock"></span></header>
-  <div class="search"><input id="q" placeholder="이름 검색" autocomplete="off"></div>
-  <div class="chips" id="chips"></div>
-  <div class="grid" id="grid"><div class="muted" style="grid-column:1/-1;text-align:center;padding:40px">불러오는 중…</div></div>
+  <header><div class="bar"></div><h1>로그인</h1><span class="sub" id="clock"></span></header>
+  <div class="center" style="justify-content:flex-start;padding-top:40px">
+    <div class="big">내 이름 써줘</div>
+    <div class="form">
+      <input id="nameIn" placeholder="이름 (예: 김민준)" autocomplete="off" autocapitalize="off" spellcheck="false" maxlength="10">
+      <div class="err" id="nameErr"></div>
+      <button class="btn red" id="nameNext">다음</button>
+    </div>
+  </div>
+</section>
+
+<!-- 1-1. 처음 등록: 학교·학년 -->
+<section class="screen" id="sReg">
+  <header><div class="bar"></div><h1>처음 등록</h1></header>
+  <div class="center" style="justify-content:flex-start;padding-top:30px">
+    <div class="me" id="regName"></div>
+    <div class="muted">처음이네! 학교랑 학년 알려줘.</div>
+    <div class="form">
+      <label class="lb">학교</label>
+      <input id="schoolIn" placeholder="예: 대광고, 동대문중" autocomplete="off" spellcheck="false" maxlength="20">
+      <label class="lb">학년</label>
+      <div class="grades" id="grades"></div>
+      <div class="err" id="regErr"></div>
+      <button class="btn red" id="regNext">다음 · 비밀번호 만들기</button>
+      <button class="linkbtn" id="regBack">처음으로</button>
+    </div>
+  </div>
 </section>
 
 <!-- 1-2. 비밀번호 -->
@@ -83,7 +113,7 @@
     <div class="dots" id="dots"><i class="dot"></i><i class="dot"></i><i class="dot"></i><i class="dot"></i></div>
     <div class="err" id="pinErr"></div>
     <div class="pad" id="pad"></div>
-    <button class="linkbtn" id="pinBack">내 이름이 아니야</button>
+    <button class="linkbtn" id="pinBack">처음으로</button>
   </div>
 </section>
 
@@ -172,40 +202,37 @@ function resetIdle() { clearTimeout(idleT); idleT = setTimeout(() => {
 }, 90000); }
 ["pointerdown", "keydown"].forEach(e => document.addEventListener(e, resetIdle));
 
-// ───── 1. 이름 ─────
-let students = [], cur = null, filter = "전체";
-const schoolOf = (s) => (s.school || "기타").replace(/(고등학교|중학교|초등학교)$/, m => ({ "고등학교": "고", "중학교": "중", "초등학교": "초" }[m]));
-async function loadStudents() {
-  if (!TOKEN) { $("grid").innerHTML = '<div class="muted" style="grid-column:1/-1;text-align:center;padding:40px">등록 안 된 기기야.<br>선생님한테 말해줘.</div>'; return; }
+// ───── 1. 이름 입력 ─────
+let cur = null;
+const GRADES = ["초6", "중1", "중2", "중3", "고1", "고2", "고3"];
+let regGrade = "";
+$("grades").innerHTML = GRADES.map(g => `<button data-g="${g}">${g}</button>`).join("");
+$("grades").onclick = (e) => { const g = e.target.closest("button")?.dataset.g; if (!g) return; regGrade = g;
+  [...$("grades").children].forEach(b => b.classList.toggle("on", b.dataset.g === g)); };
+async function nameNext() {
+  const n = $("nameIn").value.replace(/\s/g, "");
+  if (n.length < 2) { $("nameErr").textContent = "이름을 끝까지 써줘"; return; }
+  if (!TOKEN) { $("nameErr").textContent = "등록 안 된 기기야. 선생님한테 말해줘"; return; }
+  $("nameNext").disabled = true; $("nameErr").textContent = "";
   try {
-    const { students: list } = await call("kiosk_students");
-    students = list;
-    try { localStorage.setItem("qs", JSON.stringify(list)); } catch (_) {}
-  } catch (e) {
-    try { students = JSON.parse(localStorage.getItem("qs") || "[]"); } catch (_) {}
-    if (!students.length) { $("grid").innerHTML = `<div class="muted" style="grid-column:1/-1;text-align:center;padding:40px">${e.message}<br>와이파이 확인해줘.</div>`; return; }
-  }
-  renderChips(); renderGrid();
+    const r = await call("kiosk_check", { name: n });
+    pinStudent = { name: r.name, has_pin: r.mode === "login", school: "", grade: "" };
+    $("nameIn").blur();
+    if (r.mode === "login") openPin();
+    else { $("regName").textContent = r.name; $("schoolIn").value = ""; regGrade = ""; [...$("grades").children].forEach(b => b.classList.remove("on")); $("regErr").textContent = ""; show("sReg"); }
+  } catch (e) { $("nameErr").textContent = e.message; }
+  finally { $("nameNext").disabled = false; }
 }
-function renderChips() {
-  const schools = ["전체", ...[...new Set(students.map(schoolOf))].sort((a, b) => a.localeCompare(b, "ko"))];
-  $("chips").innerHTML = schools.map(s => `<button class="chip ${s === filter ? "on" : ""}" data-s="${s}">${s}</button>`).join("");
-}
-$("chips").onclick = (e) => { const c = e.target.closest(".chip"); if (!c) return; filter = c.dataset.s; renderChips(); renderGrid(); };
-$("q").oninput = renderGrid;
-function renderGrid() {
-  const q = $("q").value.trim();
-  const list = students.filter(s => (filter === "전체" || schoolOf(s) === filter) && (!q || s.name.includes(q)))
-    .sort((a, b) => a.name.localeCompare(b.name, "ko"));
-  $("grid").innerHTML = list.length ? list.map(s => `<button class="name" data-id="${s.id}"><b>${s.name}</b><span>${schoolOf(s)}${s.grade ? " " + s.grade : ""}</span></button>`).join("")
-    : '<div class="muted" style="grid-column:1/-1;text-align:center;padding:40px">없어. 다시 검색해줘.</div>';
-}
-$("grid").onclick = (e) => {
-  const b = e.target.closest(".name"); if (!b) return;
-  pinStudent = students.find(s => s.id === b.dataset.id);
-  openPin();
+$("nameNext").onclick = nameNext;
+$("nameIn").addEventListener("keydown", (e) => { if (e.key === "Enter") nameNext(); });
+$("regBack").onclick = () => goNames();
+$("regNext").onclick = () => {
+  const sc = $("schoolIn").value.trim();
+  if (sc.length < 2) { $("regErr").textContent = "학교 이름 써줘"; return; }
+  if (!regGrade) { $("regErr").textContent = "학년 골라줘"; return; }
+  pinStudent.school = sc; pinStudent.grade = regGrade; $("schoolIn").blur(); openPin();
 };
-function goNames() { cur = null; pinStudent = null; $("q").value = ""; filter = "전체"; renderChips(); renderGrid(); show("sName"); window.scrollTo(0, 0); }
+function goNames() { cur = null; pinStudent = null; $("nameIn").value = ""; $("nameErr").textContent = ""; show("sName"); window.scrollTo(0, 0); }
 function showHome() { $("homeName").textContent = cur.name; $("whoName").textContent = cur.name; show("sHome"); }
 $("cancelBtn").onclick = () => showHome();
 $("askBtn").onclick = () => { $("file").value = ""; $("file").click(); };
@@ -241,15 +268,15 @@ $("pad").onclick = async (e) => {
   if (pinMode === "new2" && pinBuf !== pinFirst) { pinBuf = ""; pinFirst = ""; pinMode = "new1"; pinLabels(); $("pinErr").textContent = "두 번이 달라. 처음부터 다시 정해줘"; setTimeout(drawDots, 150); return; }
   pinBusy = true;
   try {
-    const r = await call("kiosk_login", { student_id: pinStudent.id, pin: pinBuf });
+    const r = await call("kiosk_login", { name: pinStudent.name, pin: pinBuf, school: pinStudent.school, grade: pinStudent.grade });
     saveSession(r.session);
-    cur = { id: pinStudent.id, name: r.name };
+    cur = { name: r.name };
     pinStudent.has_pin = true;
     showHome();
     if (r.created) toast("비밀번호 만들었어. 다음부터 이걸로 로그인해");
   } catch (err) {
     pinBuf = ""; drawDots(); $("pinErr").textContent = err.message;
-    if (/이미 설정/.test(err.message)) { pinStudent.has_pin = true; pinMode = "login"; pinLabels(); }
+    if (/이미 등록/.test(err.message)) { pinStudent.has_pin = true; pinMode = "login"; pinLabels(); }
   } finally { pinBusy = false; }
 };
 
@@ -371,7 +398,6 @@ $("sendBtn").onclick = async () => {
   } finally { busy = false; }
 };
 
-loadStudents();
 (async () => {
   if (!SESSION || !TOKEN) return;
   try {
@@ -380,7 +406,6 @@ loadStudents();
   } catch (_) {}
 })();
 // 학생 명단 30분마다 새로고침
-setInterval(() => { if ($("sName").classList.contains("on")) loadStudents(); }, 1800000);
 // 로그인 만료 확인 (10분마다) — 4시간 지나면 자동 로그아웃
 setInterval(async () => {
   if (!SESSION || !$("sHome").classList.contains("on")) return;

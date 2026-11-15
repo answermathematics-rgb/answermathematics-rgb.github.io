@@ -238,7 +238,7 @@ async function loadPins() {
   try {
     const { students } = await call("admin_students");
     $("pinList").innerHTML = students.map(s => `<div class="pr"><b>${esc(s.name)}</b>
-      <span>${s.locked ? "🔒 잠김 · " : ""}${s.has_pin ? "설정됨" : "아직 없음"}
+      <span>${s.locked ? "🔒 잠김 · " : ""}${s.has_pin ? (s.reg ? esc(s.reg) + " 등록" : "등록됨") : "미등록"}
       ${s.has_pin ? `<button class="undo" style="margin-left:8px" data-reset="${s.id}" data-name="${esc(s.name)}">초기화</button>` : ""}</span></div>`).join("");
   } catch (e) { $("pinList").innerHTML = `<div class="empty">${esc(e.message)}</div>`; }
 }

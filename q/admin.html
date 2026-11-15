@@ -42,6 +42,18 @@
   .opts { display:flex; gap:8px; margin:10px 0; }
   .opts select, .opts label { flex:1; font-size:14px; padding:10px; border:1px solid var(--line); border-radius:10px; background:#fff; display:flex; align-items:center; gap:6px; }
   .plist .pr { display:flex; justify-content:space-between; padding:10px 4px; border-bottom:1px solid var(--line); font-size:15px; }
+  .hs { width:100%; border-collapse:collapse; background:#fff; border:1px solid var(--line); border-radius:12px; overflow:hidden; font-size:14px; margin-bottom:6px; }
+  .hs th, .hs td { padding:9px 10px; border-bottom:1px solid var(--line); text-align:left; }
+  .hs th { background:#F1F3F6; font-size:12px; color:var(--muted); }
+  .hs td.n { text-align:right; font-weight:800; }
+  .hs tr.click { cursor:pointer; }
+  .day { font-size:13px; font-weight:800; color:var(--navy); margin:16px 4px 8px; }
+  .hrow { display:flex; gap:10px; align-items:flex-start; background:#fff; border:1px solid var(--line); border-radius:12px; padding:10px; margin-bottom:8px; }
+  .hrow .who { flex:none; width:64px; }
+  .hrow .who b { display:block; font-size:15px; }
+  .hrow .who span { font-size:11px; color:var(--muted); }
+  .hrow .thumbs { margin-top:0; flex:1; }
+  .hrow .thumb img { height:90px; }
   .plist .pr span { color:var(--muted); display:flex; align-items:center; }
   #viewer { position:fixed; inset:0; background:rgba(0,0,0,.9); display:none; align-items:center; justify-content:center; z-index:20; }
   #viewer img { max-width:96%; max-height:92%; background:#fff; }
@@ -81,7 +93,7 @@
 <body>
 <div class="top">
   <div class="head"><div class="bar"></div><h1>질문 대기열</h1><span class="live" id="live">…</span></div>
-  <div class="tabs"><button class="tab on" data-p="pQueue">대기열 <span id="cntQ"></span></button><button class="tab" data-p="pPrint">오답 출력 <span id="cntP"></span></button></div>
+  <div class="tabs"><button class="tab on" data-p="pQueue">대기열 <span id="cntQ"></span></button><button class="tab" data-p="pPrint">오답 출력 <span id="cntP"></span></button><button class="tab" data-p="pHist">질문 기록</button></div>
 </div>
 
 <div class="pane on" id="pQueue"></div>
@@ -99,6 +111,15 @@
   <div class="sec">공기계 비밀번호</div>
   <div class="muted" style="font-size:13px;color:var(--muted);margin:0 4px 8px">학생이 비밀번호를 까먹었거나 잠겼으면 초기화 → 다음 로그인 때 새로 만들어요.</div>
   <div class="plist" id="pinList"></div>
+</div>
+
+<div class="pane" id="pHist">
+  <div class="opts">
+    <select id="hStu"><option value="">전체 학생</option></select>
+    <select id="hDays"><option value="7">최근 7일</option><option value="30" selected>최근 30일</option><option value="90">최근 3개월</option><option value="3650">전체</option></select>
+  </div>
+  <div id="hSum"></div>
+  <div id="hList"></div>
 </div>
 
 <div id="viewer"><img id="vimg"></div>
@@ -139,6 +160,7 @@ document.querySelectorAll(".tab").forEach(t => t.onclick = () => {
   document.querySelectorAll(".tab").forEach(x => x.classList.toggle("on", x === t));
   document.querySelectorAll(".pane").forEach(p => p.classList.toggle("on", p.id === t.dataset.p));
   if (t.dataset.p === "pPrint") { loadPrint(); loadPins(); }
+  if (t.dataset.p === "pHist") loadHist();
 });
 
 if (!TOKEN) document.body.innerHTML = '<div class="empty">원장 링크로 한 번 열어주세요.</div>';
@@ -209,10 +231,10 @@ async function loadPrint() {
 }
 $("day").onchange = loadPrint; $("incl").onchange = loadPrint;
 
-function buildPrint() {
+function buildPrint(label) {
   const dayN = +$("day").value;
   const d = new Date(Date.now() - dayN * 864e5);
-  const ds = `${d.getMonth() + 1}월 ${d.getDate()}일`;
+  const ds = label || `${d.getMonth() + 1}월 ${d.getDate()}일`;
   let h = "";
   group(printItems).forEach(g => {
     const pages = [];
@@ -250,6 +272,62 @@ $("pinList").onclick = async (e) => {
   const ok = await ask(`${b.dataset.name} 비밀번호 초기화?`, "지금 로그인된 공기계도 로그아웃돼요. 다음 로그인 때 새 비밀번호를 만들어요.", [{ label: "취소", value: false }, { label: "초기화", value: true, cls: "red" }]);
   if (ok) { await call("admin_reset_pin", { student_id: b.dataset.reset }).catch(x => toast(x.message)); toast("초기화했어요"); loadPins(); }
 };
+// ───── 질문 기록 ─────
+let histItems = [], stuLoaded = false;
+async function loadHist() {
+  if (!stuLoaded) {
+    try { const { students } = await call("admin_students");
+      $("hStu").innerHTML = '<option value="">전체 학생</option>' + students.map(s => `<option value="${s.id}">${esc(s.name)}</option>`).join("");
+      stuLoaded = true; } catch (_) {}
+  }
+  $("hList").innerHTML = '<div class="empty">불러오는 중…</div>'; $("hSum").innerHTML = "";
+  try {
+    const sid = $("hStu").value;
+    const r = await call("admin_history", { days: +$("hDays").value, student_id: sid || undefined });
+    histItems = r.items; renderHist(sid);
+  } catch (e) { $("hList").innerHTML = `<div class="empty">${esc(e.message)}</div>`; }
+}
+const ymd = (iso) => new Date(new Date(iso).getTime() + 9 * 3600e3).toISOString().slice(0, 10);
+const dayLabel = (d) => { const x = new Date(d + "T00:00:00+09:00"); return `${x.getMonth() + 1}월 ${x.getDate()}일 (${"일월화수목금토"[x.getDay()]})`; };
+function renderHist(sid) {
+  if (!histItems.length) { $("hList").innerHTML = '<div class="empty">이 기간에 질문한 문제가 없어요.</div>'; return; }
+  if (!sid) {
+    // 학생별 요약
+    const m = new Map();
+    histItems.forEach(q => { const k = q.student_id; if (!m.has(k)) m.set(k, { name: q.students?.name || "", n: 0, days: new Set(), last: q.created_at }); const v = m.get(k); v.n++; v.days.add(ymd(q.created_at)); });
+    const rows = [...m.entries()].sort((a, b) => b[1].n - a[1].n);
+    $("hSum").innerHTML = `<table class="hs"><tr><th>학생</th><th style="text-align:right">질문 수</th><th style="text-align:right">질문한 날</th><th>최근</th></tr>`
+      + rows.map(([id, v]) => `<tr class="click" data-sid="${id}"><td><b>${esc(v.name)}</b></td><td class="n">${v.n}</td><td class="n">${v.days.size}일</td><td>${dayLabel(ymd(v.last)).replace(/ \(.\)/, "")}</td></tr>`).join("")
+      + `</table><div class="meta" style="margin:0 4px 6px">이름 누르면 그 학생 기록만 보여요</div>`;
+  } else {
+    const name = histItems[0].students?.name || "";
+    $("hSum").innerHTML = `<div class="card" style="display:flex;align-items:center;gap:10px"><div><div class="nm">${esc(name)}</div><div class="meta">${histItems.length}문제 · ${new Set(histItems.map(q => ymd(q.created_at))).size}일</div></div>
+      <button class="done" style="background:var(--red)" id="hPrint">이 기간 다시 출력</button></div>`;
+  }
+  let h = "", cur = "";
+  const byDay = new Map();
+  histItems.forEach(q => { const d = ymd(q.created_at); if (!byDay.has(d)) byDay.set(d, new Map()); const g = byDay.get(d); if (!g.has(q.student_id)) g.set(q.student_id, []); g.get(q.student_id).push(q); });
+  byDay.forEach((g, d) => {
+    h += `<div class="day">${dayLabel(d)}</div>`;
+    g.forEach(qs => {
+      const st = qs[0].students || {};
+      h += `<div class="hrow"><div class="who"><b>${esc(st.name)}</b><span>${qs.length}문제 · ${hm(qs[qs.length - 1].created_at)}</span></div>
+        <div class="thumbs">${qs.slice().reverse().map(q => `<div class="thumb"><img src="${esc(q.url)}" data-full="${esc(q.orig_url || q.url)}" loading="lazy"></div>`).join("")}</div></div>`;
+    });
+  });
+  $("hList").innerHTML = h;
+}
+$("hStu").onchange = loadHist; $("hDays").onchange = loadHist;
+$("hSum").onclick = async (e) => {
+  const tr = e.target.closest("[data-sid]"); if (tr) { $("hStu").value = tr.dataset.sid; loadHist(); return; }
+  if (e.target.id === "hPrint") {
+    printItems = histItems.slice().reverse();
+    await buildPrint(`최근 ${$("hDays").selectedOptions[0].text.replace("최근 ", "")}`);
+    window.print();
+  }
+};
+$("hList").onclick = (e) => { const f = e.target.dataset.full; if (f) { $("vimg").src = f; $("viewer").style.display = "flex"; } };
+
 $("testBtn").onclick = async () => { await call("admin_test_notify").then(() => toast("알림 보냈어요. 워치 확인해보세요")).catch(x => toast(x.message)); };
 
 if (TOKEN) { loadQueue(); setInterval(() => { if (!document.hidden) loadQueue(true); }, 5000); document.addEventListener("visibilitychange", () => { if (!document.hidden) loadQueue(true); }); }

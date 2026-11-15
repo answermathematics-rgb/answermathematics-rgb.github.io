@@ -41,7 +41,7 @@
   .opts { display:flex; gap:8px; margin:10px 0; }
   .opts select, .opts label { flex:1; font-size:14px; padding:10px; border:1px solid var(--line); border-radius:10px; background:#fff; display:flex; align-items:center; gap:6px; }
   .plist .pr { display:flex; justify-content:space-between; padding:10px 4px; border-bottom:1px solid var(--line); font-size:15px; }
-  .plist .pr span { color:var(--muted); }
+  .plist .pr span { color:var(--muted); display:flex; align-items:center; }
   #viewer { position:fixed; inset:0; background:rgba(0,0,0,.9); display:none; align-items:center; justify-content:center; z-index:20; }
   #viewer img { max-width:96%; max-height:92%; background:#fff; }
   #modal { position:fixed; inset:0; background:rgba(0,0,0,.45); display:none; align-items:flex-end; z-index:30; }
@@ -94,6 +94,9 @@
   <button class="btn red" id="printBtn" disabled>출력하기</button>
   <div style="height:8px"></div>
   <button class="btn ghost" id="testBtn">🔔 워치 알림 테스트</button>
+  <div class="sec">공기계 비밀번호</div>
+  <div class="muted" style="font-size:13px;color:var(--muted);margin:0 4px 8px">학생이 비밀번호를 까먹었거나 잠겼으면 초기화 → 다음 로그인 때 새로 만들어요.</div>
+  <div class="plist" id="pinList"></div>
 </div>
 
 <div id="viewer"><img id="vimg"></div>
@@ -133,7 +136,7 @@ const hm = (iso) => new Date(iso).toLocaleTimeString("ko-KR", { hour: "2-digit",
 document.querySelectorAll(".tab").forEach(t => t.onclick = () => {
   document.querySelectorAll(".tab").forEach(x => x.classList.toggle("on", x === t));
   document.querySelectorAll(".pane").forEach(p => p.classList.toggle("on", p.id === t.dataset.p));
-  if (t.dataset.p === "pPrint") loadPrint();
+  if (t.dataset.p === "pPrint") { loadPrint(); loadPins(); }
 });
 
 if (!TOKEN) document.body.innerHTML = '<div class="empty">원장 링크로 한 번 열어주세요.</div>';
@@ -230,6 +233,19 @@ $("printBtn").onclick = async () => {
   const ok = await ask("출력 잘 됐어요?", "'출력 완료'를 누르면 다음엔 새로 올라온 것만 출력돼요.", [{ label: "아직", value: false }, { label: "출력 완료", value: true, cls: "red" }]);
   if (ok) { await call("admin_mark_printed", { ids: printItems.map(q => q.id) }).catch(x => toast(x.message)); toast("출력 완료로 표시했어요"); loadQueue(true); }
   loadPrint();
+};
+async function loadPins() {
+  try {
+    const { students } = await call("admin_students");
+    $("pinList").innerHTML = students.map(s => `<div class="pr"><b>${esc(s.name)}</b>
+      <span>${s.locked ? "🔒 잠김 · " : ""}${s.has_pin ? "설정됨" : "아직 없음"}
+      ${s.has_pin ? `<button class="undo" style="margin-left:8px" data-reset="${s.id}" data-name="${esc(s.name)}">초기화</button>` : ""}</span></div>`).join("");
+  } catch (e) { $("pinList").innerHTML = `<div class="empty">${esc(e.message)}</div>`; }
+}
+$("pinList").onclick = async (e) => {
+  const b = e.target.closest("[data-reset]"); if (!b) return;
+  const ok = await ask(`${b.dataset.name} 비밀번호 초기화?`, "지금 로그인된 공기계도 로그아웃돼요. 다음 로그인 때 새 비밀번호를 만들어요.", [{ label: "취소", value: false }, { label: "초기화", value: true, cls: "red" }]);
+  if (ok) { await call("admin_reset_pin", { student_id: b.dataset.reset }).catch(x => toast(x.message)); toast("초기화했어요"); loadPins(); }
 };
 $("testBtn").onclick = async () => { await call("admin_test_notify").then(() => toast("알림 보냈어요. 워치 확인해보세요")).catch(x => toast(x.message)); };
 

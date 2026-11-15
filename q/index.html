@@ -49,6 +49,18 @@
   .who b { color:var(--navy); font-size:18px; }
   .spinner { width:42px; height:42px; border:4px solid var(--line); border-top-color:var(--red); border-radius:50%; animation:s 0.8s linear infinite; }
   @keyframes s { to { transform:rotate(360deg); } }
+  .dots { display:flex; gap:14px; justify-content:center; margin:6px 0 4px; }
+  .dot { width:18px; height:18px; border-radius:50%; border:2px solid var(--navy); }
+  .dot.on { background:var(--navy); }
+  .pad { display:grid; grid-template-columns:repeat(3,1fr); gap:10px; width:100%; max-width:340px; }
+  .key { border:0; background:#fff; border:1.5px solid var(--line); border-radius:14px; font-size:26px; font-weight:700; padding:16px 0; color:var(--navy); }
+  .key:active { background:#EEF0F3; }
+  .key.fn { font-size:16px; color:var(--muted); }
+  .err { color:var(--red); font-size:15px; min-height:20px; font-weight:600; }
+  .me { font-size:34px; font-weight:900; letter-spacing:-.5px; }
+  .tag { display:inline-block; background:#EEF0F3; border-radius:999px; padding:4px 12px; font-size:13px; color:var(--muted); }
+  .btn.huge { font-size:24px; padding:28px 22px; }
+  .linkbtn { border:0; background:none; color:var(--muted); font-size:15px; text-decoration:underline; padding:10px; }
   #toast { position:fixed; left:50%; bottom:24px; transform:translateX(-50%); background:var(--navy); color:#fff; padding:12px 18px; border-radius:12px; font-size:15px; display:none; max-width:90%; }
 </style>
 </head>
@@ -56,10 +68,37 @@
 
 <!-- 1. 이름 고르기 -->
 <section class="screen on" id="sName">
-  <header><div class="bar"></div><h1>질문할 사람 이름 눌러</h1><span class="sub" id="clock"></span></header>
+  <header><div class="bar"></div><h1>내 이름 눌러서 로그인</h1><span class="sub" id="clock"></span></header>
   <div class="search"><input id="q" placeholder="이름 검색" autocomplete="off"></div>
   <div class="chips" id="chips"></div>
   <div class="grid" id="grid"><div class="muted" style="grid-column:1/-1;text-align:center;padding:40px">불러오는 중…</div></div>
+</section>
+
+<!-- 1-2. 비밀번호 -->
+<section class="screen" id="sPin">
+  <header><div class="bar"></div><h1 id="pinTitle">비밀번호</h1></header>
+  <div class="center" style="gap:12px">
+    <div class="me" id="pinName"></div>
+    <div class="muted" id="pinMsg"></div>
+    <div class="dots" id="dots"><i class="dot"></i><i class="dot"></i><i class="dot"></i><i class="dot"></i></div>
+    <div class="err" id="pinErr"></div>
+    <div class="pad" id="pad"></div>
+    <button class="linkbtn" id="pinBack">내 이름이 아니야</button>
+  </div>
+</section>
+
+<!-- 1-3. 로그인된 홈 -->
+<section class="screen" id="sHome">
+  <header><div class="bar"></div><h1>앤서수학 질문</h1><span class="sub" id="clock2"></span></header>
+  <div class="center">
+    <span class="tag">이 공기계는 지금</span>
+    <div class="me" id="homeName"></div>
+    <div class="muted" id="homeInfo">질문 있으면 아래 버튼 눌러.</div>
+    <button class="btn red huge" id="askBtn">📷 질문하기</button>
+    <div style="height:30px"></div>
+    <button class="btn ghost" id="logoutBtn">공기계 반납 (로그아웃)</button>
+    <div class="muted" style="font-size:13px">내 이름이 아니면 반납 누르고 다시 로그인해.</div>
+  </div>
 </section>
 
 <!-- 2. 찍기 -->
@@ -70,7 +109,7 @@
     <div class="big">질문할 문제를<br>찍어줘</div>
     <div class="muted">문제만 크게, 그림자 없이.<br>풀이 쓰기 전 문제 그대로 찍어.</div>
     <button class="btn red" id="shootBtn">📷 카메라 열기</button>
-    <button class="btn ghost" id="cancelBtn">처음으로</button>
+    <button class="btn ghost" id="cancelBtn">취소</button>
   </div>
   <input type="file" id="file" accept="image/*" capture="environment" hidden>
 </section>
@@ -116,12 +155,21 @@ async function call(action, body = {}) {
   return j;
 }
 
+// 로그인 세션 (공기계에 저장, 4시간 뒤 만료)
+let SESSION = "";
+try { SESSION = localStorage.getItem("qsess") || ""; } catch (_) {}
+const saveSession = (t) => { SESSION = t; try { t ? localStorage.setItem("qsess", t) : localStorage.removeItem("qsess"); } catch (_) {} };
+
 // 시계
-setInterval(() => { const d = new Date(); $("clock").textContent = d.toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit" }); }, 1000);
+setInterval(() => { const d = new Date(); const t = d.toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit" }); $("clock").textContent = t; $("clock2").textContent = t; }, 1000);
 
 // 가만히 두면 처음 화면으로 (90초)
 let idleT;
-function resetIdle() { clearTimeout(idleT); idleT = setTimeout(() => { if (!$("sName").classList.contains("on") && !busy) goHome(); }, 90000); }
+// 가만히 두면: 로그인 전 화면(비밀번호 등)은 이름 화면으로, 로그인 후엔 홈으로
+function resetIdle() { clearTimeout(idleT); idleT = setTimeout(() => {
+  if (busy || $("sName").classList.contains("on") || $("sHome").classList.contains("on")) return;
+  if (cur && SESSION) showHome(); else goNames();
+}, 90000); }
 ["pointerdown", "keydown"].forEach(e => document.addEventListener(e, resetIdle));
 
 // ───── 1. 이름 ─────
@@ -154,12 +202,56 @@ function renderGrid() {
 }
 $("grid").onclick = (e) => {
   const b = e.target.closest(".name"); if (!b) return;
-  cur = students.find(s => s.id === b.dataset.id);
-  $("whoName").textContent = cur.name;
-  show("sShoot");
+  pinStudent = students.find(s => s.id === b.dataset.id);
+  openPin();
 };
-function goHome() { cur = null; $("q").value = ""; filter = "전체"; renderChips(); renderGrid(); show("sName"); window.scrollTo(0, 0); }
-$("cancelBtn").onclick = goHome;
+function goNames() { cur = null; pinStudent = null; $("q").value = ""; filter = "전체"; renderChips(); renderGrid(); show("sName"); window.scrollTo(0, 0); }
+function showHome() { $("homeName").textContent = cur.name; $("whoName").textContent = cur.name; show("sHome"); }
+$("cancelBtn").onclick = () => showHome();
+$("askBtn").onclick = () => { $("file").value = ""; $("file").click(); };
+$("logoutBtn").onclick = async () => {
+  const s = SESSION; saveSession(""); goNames();
+  if (s) call("kiosk_logout", { session: s }).catch(() => {});
+};
+
+// ───── 비밀번호 ─────
+let pinStudent = null, pinBuf = "", pinFirst = "", pinMode = "login", pinBusy = false;
+$("pad").innerHTML = [1,2,3,4,5,6,7,8,9].map(n => `<button class="key" data-k="${n}">${n}</button>`).join("")
+  + '<button class="key fn" data-k="clr">지우기</button><button class="key" data-k="0">0</button><button class="key fn" data-k="del">←</button>';
+function openPin() {
+  pinBuf = ""; pinFirst = ""; pinMode = pinStudent.has_pin ? "login" : "new1";
+  $("pinName").textContent = pinStudent.name; $("pinErr").textContent = "";
+  pinLabels(); drawDots(); show("sPin");
+}
+function pinLabels() {
+  $("pinTitle").textContent = pinMode === "login" ? "비밀번호 입력" : "비밀번호 만들기";
+  $("pinMsg").innerHTML = pinMode === "login" ? "내 비밀번호 4자리"
+    : pinMode === "new1" ? "처음이네! 앞으로 쓸 비밀번호 숫자 4자리 정해.<br>다른 애한테 보여주지 마."
+    : "한 번 더 똑같이 눌러줘";
+}
+function drawDots() { [...$("dots").children].forEach((d, i) => d.classList.toggle("on", i < pinBuf.length)); }
+$("pinBack").onclick = goNames;
+$("pad").onclick = async (e) => {
+  const k = e.target.closest(".key")?.dataset.k; if (!k || pinBusy) return;
+  if (k === "clr") pinBuf = ""; else if (k === "del") pinBuf = pinBuf.slice(0, -1);
+  else if (pinBuf.length < 4) pinBuf += k;
+  $("pinErr").textContent = ""; drawDots();
+  if (pinBuf.length < 4) return;
+  if (pinMode === "new1") { pinFirst = pinBuf; pinBuf = ""; pinMode = "new2"; pinLabels(); setTimeout(drawDots, 150); return; }
+  if (pinMode === "new2" && pinBuf !== pinFirst) { pinBuf = ""; pinFirst = ""; pinMode = "new1"; pinLabels(); $("pinErr").textContent = "두 번이 달라. 처음부터 다시 정해줘"; setTimeout(drawDots, 150); return; }
+  pinBusy = true;
+  try {
+    const r = await call("kiosk_login", { student_id: pinStudent.id, pin: pinBuf });
+    saveSession(r.session);
+    cur = { id: pinStudent.id, name: r.name };
+    pinStudent.has_pin = true;
+    showHome();
+    if (r.created) toast("비밀번호 만들었어. 다음부터 이걸로 로그인해");
+  } catch (err) {
+    pinBuf = ""; drawDots(); $("pinErr").textContent = err.message;
+    if (/이미 설정/.test(err.message)) { pinStudent.has_pin = true; pinMode = "login"; pinLabels(); }
+  } finally { pinBusy = false; }
+};
 
 // ───── 2. 찍기 ─────
 $("shootBtn").onclick = () => { $("file").value = ""; $("file").click(); };
@@ -256,31 +348,44 @@ $("sendBtn").onclick = async () => {
   show("sDone");
   try {
     const blob = await processCrop();
-    const { path, signedUrl } = await call("kiosk_upload_url", { student_id: cur.id });
+    const { path, signedUrl } = await call("kiosk_upload_url", { session: SESSION });
     const up = await fetch(signedUrl, { method: "PUT", headers: { "content-type": "image/jpeg", "x-upsert": "false" }, body: blob });
     if (!up.ok) throw new Error("사진 업로드 실패 (" + up.status + ")");
-    const { position } = await call("kiosk_submit", { student_id: cur.id, path });
+    const { position } = await call("kiosk_submit", { session: SESSION, path });
     $("doneBox").innerHTML = `
       <div class="who"><b>${cur.name}</b> 질문 접수</div>
       <div class="badge">${position}번째</div>
       <div class="big">선생님이 순서대로 갈게</div>
       <div class="muted">기다리는 동안 다른 문제 풀고 있어.</div>
       <button class="btn navy" id="moreBtn">📷 문제 하나 더 찍기</button>
-      <button class="btn ghost" id="endBtn">끝</button>`;
-    $("moreBtn").onclick = () => show("sShoot");
-    $("endBtn").onclick = goHome;
-    clearTimeout(window._auto); window._auto = setTimeout(() => { if ($("sDone").classList.contains("on")) goHome(); }, 20000);
+      <button class="btn ghost" id="endBtn">확인</button>`;
+    $("moreBtn").onclick = () => { $("file").value = ""; $("file").click(); };
+    $("endBtn").onclick = showHome;
+    clearTimeout(window._auto); window._auto = setTimeout(() => { if ($("sDone").classList.contains("on")) showHome(); }, 15000);
   } catch (e) {
     $("doneBox").innerHTML = `<div class="big">못 보냈어</div><div class="muted">${e.message}<br>와이파이 확인하고 다시 해줘.</div>
-      <button class="btn red" id="againBtn">다시 보내기</button><button class="btn ghost" id="endBtn">처음으로</button>`;
+      <button class="btn red" id="againBtn">다시 보내기</button><button class="btn ghost" id="endBtn">취소</button>`;
     $("againBtn").onclick = () => { show("sCrop"); };
-    $("endBtn").onclick = goHome;
+    $("endBtn").onclick = showHome;
+    if (/로그인/.test(e.message)) { saveSession(""); $("againBtn").style.display = "none"; $("endBtn").textContent = "다시 로그인"; $("endBtn").onclick = goNames; }
   } finally { busy = false; }
 };
 
 loadStudents();
+(async () => {
+  if (!SESSION || !TOKEN) return;
+  try {
+    const { student } = await call("kiosk_me", { session: SESSION });
+    if (student) { cur = student; showHome(); } else saveSession("");
+  } catch (_) {}
+})();
 // 학생 명단 30분마다 새로고침
 setInterval(() => { if ($("sName").classList.contains("on")) loadStudents(); }, 1800000);
+// 로그인 만료 확인 (10분마다) — 4시간 지나면 자동 로그아웃
+setInterval(async () => {
+  if (!SESSION || !$("sHome").classList.contains("on")) return;
+  try { const { student } = await call("kiosk_me", { session: SESSION }); if (!student) { saveSession(""); goNames(); } } catch (_) {}
+}, 600000);
 </script>
 </body>
 </html>

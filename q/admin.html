@@ -30,8 +30,9 @@
   .undo { margin-left:auto; border:1px solid var(--line); background:#fff; color:var(--muted); font-size:13px; padding:7px 12px; border-radius:8px; }
   .thumbs { display:flex; gap:8px; overflow-x:auto; margin-top:10px; }
   .thumb { position:relative; flex:none; }
-  .thumb img { height:110px; border-radius:8px; border:1px solid var(--line); display:block; background:#fafafa; }
+  .thumb img { height:150px; border-radius:8px; border:1px solid var(--line); display:block; background:#fafafa; }
   .thumb .x { position:absolute; top:4px; right:4px; width:24px; height:24px; border-radius:50%; border:0; background:rgba(0,0,0,.55); color:#fff; font-size:13px; }
+  .togg { border:0; background:none; padding:0; cursor:pointer; text-decoration:underline; }
   .sec { font-size:13px; color:var(--muted); font-weight:700; margin:18px 4px 8px; }
   .empty { text-align:center; color:var(--muted); padding:50px 10px; line-height:1.6; }
   .btn { border:0; border-radius:12px; font-size:17px; font-weight:800; padding:15px; width:100%; }
@@ -142,7 +143,7 @@ document.querySelectorAll(".tab").forEach(t => t.onclick = () => {
 if (!TOKEN) document.body.innerHTML = '<div class="empty">원장 링크로 한 번 열어주세요.</div>';
 
 // ───── 대기열 ─────
-let items = [];
+let items = [], showDone = false;
 function group(list) {
   const m = new Map();
   list.forEach(q => { if (!m.has(q.student_id)) m.set(q.student_id, { sid: q.student_id, st: q.students || {}, qs: [] }); m.get(q.student_id).qs.push(q); });
@@ -170,8 +171,8 @@ function renderQueue() {
       <button class="done" data-done="${g.sid}">완료</button></div>${thumbs(g, true)}</div>`;
   });
   if (done.length) {
-    h += `<div class="sec">오늘 완료 ${done.length}명</div>`;
-    done.forEach(g => {
+    h += `<button class="sec togg" id="doneToggle">오늘 완료 ${done.length}명 ${showDone ? "▾ 접기" : "▸ 보기"}</button>`;
+    if (showDone) done.forEach(g => {
       h += `<div class="card"><div class="crow"><div><div class="nm" style="font-size:16px">${esc(g.st.name)}</div><div class="meta">${g.qs.length}문제 · ${hm(g.qs[0].created_at)}</div></div>
         <button class="undo" data-undo="${g.sid}">되돌리기</button></div>${thumbs(g, false)}</div>`;
     });
@@ -181,6 +182,7 @@ function renderQueue() {
 $("pQueue").onclick = async (e) => {
   const t = e.target;
   if (t.dataset.done) { t.disabled = true; await call("admin_done", { student_id: t.dataset.done }).catch(x => toast(x.message)); loadQueue(); }
+  else if (t.id === "doneToggle") { showDone = !showDone; renderQueue(); }
   else if (t.dataset.undo) { await call("admin_undo", { student_id: t.dataset.undo }).catch(x => toast(x.message)); loadQueue(); }
   else if (t.dataset.del) {
     const ok = await ask("이 사진 지울까요?", "잘못 찍은 사진이면 지워요. 출력에서도 빠져요.", [{ label: "취소", value: false }, { label: "지우기", value: true, cls: "red" }]);

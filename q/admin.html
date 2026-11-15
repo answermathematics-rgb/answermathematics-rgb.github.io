@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#1E2A44">
+<title>질문 대기열 · 앤서수학</title>
+<style>
+  :root { --red:#B62A1D; --navy:#1E2A44; --bg:#F6F7F9; --line:#E3E6EB; --muted:#6B7280; --green:#1F8A5B; }
+  * { box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  body { margin:0; background:var(--bg); color:var(--navy); font-family:-apple-system,"Pretendard","Noto Sans KR","Malgun Gothic",sans-serif; }
+  .top { position:sticky; top:0; z-index:5; background:#fff; border-bottom:1px solid var(--line); }
+  .head { display:flex; align-items:center; gap:10px; padding:14px 16px 8px; }
+  .head .bar { width:5px; height:22px; background:var(--red); border-radius:2px; }
+  .head h1 { margin:0; font-size:18px; font-weight:800; }
+  .head .live { margin-left:auto; font-size:12px; color:var(--muted); }
+  .tabs { display:flex; padding:0 12px; }
+  .tab { flex:1; border:0; background:none; padding:10px 0 12px; font-size:15px; font-weight:700; color:var(--muted); border-bottom:3px solid transparent; }
+  .tab.on { color:var(--navy); border-bottom-color:var(--red); }
+  .pane { display:none; padding:12px 12px 90px; }
+  .pane.on { display:block; }
+  .card { background:#fff; border:1px solid var(--line); border-radius:14px; padding:12px; margin-bottom:10px; }
+  .card.first { border:2px solid var(--red); }
+  .crow { display:flex; align-items:center; gap:10px; }
+  .num { flex:none; width:34px; height:34px; border-radius:50%; background:var(--navy); color:#fff; display:flex; align-items:center; justify-content:center; font-weight:800; }
+  .card.first .num { background:var(--red); }
+  .nm { font-size:18px; font-weight:800; }
+  .meta { font-size:12px; color:var(--muted); margin-top:2px; }
+  .done { margin-left:auto; border:0; background:var(--green); color:#fff; font-weight:700; font-size:15px; padding:10px 16px; border-radius:10px; }
+  .undo { margin-left:auto; border:1px solid var(--line); background:#fff; color:var(--muted); font-size:13px; padding:7px 12px; border-radius:8px; }
+  .thumbs { display:flex; gap:8px; overflow-x:auto; margin-top:10px; }
+  .thumb { position:relative; flex:none; }
+  .thumb img { height:110px; border-radius:8px; border:1px solid var(--line); display:block; background:#fafafa; }
+  .thumb .x { position:absolute; top:4px; right:4px; width:24px; height:24px; border-radius:50%; border:0; background:rgba(0,0,0,.55); color:#fff; font-size:13px; }
+  .sec { font-size:13px; color:var(--muted); font-weight:700; margin:18px 4px 8px; }
+  .empty { text-align:center; color:var(--muted); padding:50px 10px; line-height:1.6; }
+  .btn { border:0; border-radius:12px; font-size:17px; font-weight:800; padding:15px; width:100%; }
+  .btn.red { background:var(--red); color:#fff; }
+  .btn.ghost { background:#fff; border:1px solid var(--line); color:var(--navy); font-size:15px; font-weight:700; }
+  .btn:disabled { opacity:.45; }
+  .opts { display:flex; gap:8px; margin:10px 0; }
+  .opts select, .opts label { flex:1; font-size:14px; padding:10px; border:1px solid var(--line); border-radius:10px; background:#fff; display:flex; align-items:center; gap:6px; }
+  .plist .pr { display:flex; justify-content:space-between; padding:10px 4px; border-bottom:1px solid var(--line); font-size:15px; }
+  .plist .pr span { color:var(--muted); }
+  #viewer { position:fixed; inset:0; background:rgba(0,0,0,.9); display:none; align-items:center; justify-content:center; z-index:20; }
+  #viewer img { max-width:96%; max-height:92%; background:#fff; }
+  #modal { position:fixed; inset:0; background:rgba(0,0,0,.45); display:none; align-items:flex-end; z-index:30; }
+  #modal .box { background:#fff; width:100%; border-radius:18px 18px 0 0; padding:20px 16px 26px; }
+  #modal .t { font-size:18px; font-weight:800; margin-bottom:6px; }
+  #modal .d { color:var(--muted); font-size:14px; margin-bottom:16px; line-height:1.5; }
+  #modal .row { display:flex; gap:8px; }
+  #toast { position:fixed; left:50%; bottom:20px; transform:translateX(-50%); background:var(--navy); color:#fff; padding:11px 16px; border-radius:10px; font-size:14px; display:none; z-index:40; }
+
+  /* ───── 출력물 ───── */
+  #printArea { display:none; }
+  @page { size:A4; margin:10mm; }
+  @media print {
+    body { background:#fff; }
+    .top, .pane, #viewer, #modal, #toast { display:none !important; }
+    #printArea { display:block; }
+    .page { height:277mm; display:flex; flex-direction:column; page-break-after:always; break-after:page; }
+    .page:last-child { page-break-after:auto; break-after:auto; }
+    .ph { display:flex; align-items:flex-end; gap:8px; border-bottom:1.5px solid var(--navy); padding-bottom:5px; margin-bottom:6mm; }
+    .ph .bar { width:4px; height:20px; background:var(--red); }
+    .ph .brand { font-size:9pt; letter-spacing:2px; font-weight:800; color:var(--navy); }
+    .ph .ttl { font-size:13pt; font-weight:800; margin-left:4px; }
+    .ph .info { margin-left:auto; font-size:11pt; }
+    .ph .info b { font-size:14pt; }
+    .slot { flex:1; display:flex; flex-direction:column; min-height:0; }
+    .slot + .slot { border-top:1px dashed #bbb; padding-top:5mm; }
+    .slot .qn { font-weight:800; font-size:14pt; margin-bottom:3mm; color:#000; }
+    .slot img { max-width:100%; max-height:95mm; object-fit:contain; align-self:flex-start; }
+    .slot.solo img { max-height:150mm; }
+    .slot .space { flex:1; }
+    .pf { font-size:8pt; color:#999; text-align:right; }
+  }
+</style>
+</head>
+<body>
+<div class="top">
+  <div class="head"><div class="bar"></div><h1>질문 대기열</h1><span class="live" id="live">…</span></div>
+  <div class="tabs"><button class="tab on" data-p="pQueue">대기열 <span id="cntQ"></span></button><button class="tab" data-p="pPrint">오답 출력 <span id="cntP"></span></button></div>
+</div>
+
+<div class="pane on" id="pQueue"></div>
+
+<div class="pane" id="pPrint">
+  <div class="opts">
+    <select id="day"><option value="0">오늘</option><option value="1">어제</option><option value="2">그저께</option></select>
+    <label><input type="checkbox" id="incl"> 이미 출력한 것도</label>
+  </div>
+  <div class="plist" id="plist"></div>
+  <div style="height:14px"></div>
+  <button class="btn red" id="printBtn" disabled>출력하기</button>
+  <div style="height:8px"></div>
+  <button class="btn ghost" id="testBtn">🔔 워치 알림 테스트</button>
+</div>
+
+<div id="viewer"><img id="vimg"></div>
+<div id="modal"><div class="box"><div class="t" id="mt"></div><div class="d" id="md"></div><div class="row" id="mr"></div></div></div>
+<div id="toast"></div>
+<div id="printArea"></div>
+
+<script>
+const FN = "https://hddsyoaymvpfcloqthyv.supabase.co/functions/v1/qna";
+const ANON = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhkZHN5b2F5bXZwZmNsb3F0aHl2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODExODUwNzcsImV4cCI6MjA5Njc2MTA3N30._x8RtDqIACVr2AC7u5VXbntbmderTw4sV4t3zkp6dC0";
+const params = new URLSearchParams(location.search);
+let TOKEN = params.get("t") || "";
+try { if (TOKEN) localStorage.setItem("qa", TOKEN); else TOKEN = localStorage.getItem("qa") || ""; } catch (_) {}
+if (params.get("t")) history.replaceState(null, "", location.pathname);
+
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s ?? "").replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+const toast = (m) => { const t = $("toast"); t.textContent = m; t.style.display = "block"; clearTimeout(toast._t); toast._t = setTimeout(() => t.style.display = "none", 3000); };
+async function call(action, body = {}) {
+  const r = await fetch(FN, { method: "POST", headers: { "content-type": "application/json", apikey: ANON, authorization: "Bearer " + ANON },
+    body: JSON.stringify({ action, token: TOKEN, ...body }) });
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(j.error || "오류 " + r.status);
+  return j;
+}
+function ask(title, desc, buttons) {
+  return new Promise(res => {
+    $("mt").textContent = title; $("md").textContent = desc;
+    $("mr").innerHTML = buttons.map((b, i) => `<button class="btn ${b.cls || "ghost"}" data-i="${i}">${b.label}</button>`).join("");
+    $("modal").style.display = "flex";
+    $("mr").onclick = (e) => { const b = e.target.closest("button"); if (!b) return; $("modal").style.display = "none"; res(buttons[+b.dataset.i].value); };
+  });
+}
+const ago = (iso) => { const m = Math.floor((Date.now() - new Date(iso)) / 60000); return m < 1 ? "방금" : m + "분 전"; };
+const hm = (iso) => new Date(iso).toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit" });
+
+document.querySelectorAll(".tab").forEach(t => t.onclick = () => {
+  document.querySelectorAll(".tab").forEach(x => x.classList.toggle("on", x === t));
+  document.querySelectorAll(".pane").forEach(p => p.classList.toggle("on", p.id === t.dataset.p));
+  if (t.dataset.p === "pPrint") loadPrint();
+});
+
+if (!TOKEN) document.body.innerHTML = '<div class="empty">원장 링크로 한 번 열어주세요.</div>';
+
+// ───── 대기열 ─────
+let items = [];
+function group(list) {
+  const m = new Map();
+  list.forEach(q => { if (!m.has(q.student_id)) m.set(q.student_id, { sid: q.student_id, st: q.students || {}, qs: [] }); m.get(q.student_id).qs.push(q); });
+  return [...m.values()];
+}
+async function loadQueue(silent) {
+  try {
+    const r = await call("admin_queue");
+    items = r.items; renderQueue();
+    $("live").textContent = "업데이트 " + new Date().toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+  } catch (e) { $("live").textContent = "연결 끊김"; if (!silent) toast(e.message); }
+}
+function renderQueue() {
+  const waiting = group(items.filter(q => q.status === "waiting"));
+  const done = group(items.filter(q => q.status === "done")).reverse();
+  $("cntQ").textContent = waiting.length ? `(${waiting.length})` : "";
+  const unprinted = items.filter(q => !q.printed_at).length;
+  $("cntP").textContent = unprinted ? `(${unprinted})` : "";
+  const thumbs = (g, del) => `<div class="thumbs">${g.qs.map(q => `<div class="thumb"><img src="${esc(q.url)}" data-full="${esc(q.url)}" loading="lazy">${del ? `<button class="x" data-del="${q.id}">✕</button>` : ""}</div>`).join("")}</div>`;
+  let h = "";
+  if (!waiting.length) h += '<div class="empty">대기 중인 질문 없음 ✨<br><span style="font-size:13px">학생이 공기계로 찍으면 여기 뜨고 워치로 알림이 가요.</span></div>';
+  waiting.forEach((g, i) => {
+    h += `<div class="card ${i === 0 ? "first" : ""}"><div class="crow"><div class="num">${i + 1}</div>
+      <div><div class="nm">${esc(g.st.name)}</div><div class="meta">${esc(g.st.school || "")} · ${g.qs.length}문제 · ${ago(g.qs[0].created_at)}</div></div>
+      <button class="done" data-done="${g.sid}">완료</button></div>${thumbs(g, true)}</div>`;
+  });
+  if (done.length) {
+    h += `<div class="sec">오늘 완료 ${done.length}명</div>`;
+    done.forEach(g => {
+      h += `<div class="card"><div class="crow"><div><div class="nm" style="font-size:16px">${esc(g.st.name)}</div><div class="meta">${g.qs.length}문제 · ${hm(g.qs[0].created_at)}</div></div>
+        <button class="undo" data-undo="${g.sid}">되돌리기</button></div>${thumbs(g, false)}</div>`;
+    });
+  }
+  $("pQueue").innerHTML = h;
+}
+$("pQueue").onclick = async (e) => {
+  const t = e.target;
+  if (t.dataset.done) { t.disabled = true; await call("admin_done", { student_id: t.dataset.done }).catch(x => toast(x.message)); loadQueue(); }
+  else if (t.dataset.undo) { await call("admin_undo", { student_id: t.dataset.undo }).catch(x => toast(x.message)); loadQueue(); }
+  else if (t.dataset.del) {
+    const ok = await ask("이 사진 지울까요?", "잘못 찍은 사진이면 지워요. 출력에서도 빠져요.", [{ label: "취소", value: false }, { label: "지우기", value: true, cls: "red" }]);
+    if (ok) { await call("admin_delete", { id: t.dataset.del }).catch(x => toast(x.message)); loadQueue(); }
+  }
+  else if (t.dataset.full) { $("vimg").src = t.dataset.full; $("viewer").style.display = "flex"; }
+};
+$("viewer").onclick = () => $("viewer").style.display = "none";
+
+// ───── 출력 ─────
+let printItems = [];
+async function loadPrint() {
+  $("plist").innerHTML = '<div class="empty">불러오는 중…</div>'; $("printBtn").disabled = true;
+  try {
+    const r = await call("admin_print_list", { days_ago: +$("day").value, include_printed: $("incl").checked });
+    printItems = r.items;
+    const gs = group(printItems);
+    $("plist").innerHTML = gs.length ? gs.map(g => `<div class="pr"><b>${esc(g.st.name)}</b><span>${g.qs.length}문제 · ${Math.ceil(g.qs.length / 2)}장</span></div>`).join("")
+      : '<div class="empty">출력할 질문 문제가 없어요.</div>';
+    $("printBtn").disabled = !gs.length;
+    $("printBtn").textContent = gs.length ? `출력하기 · ${gs.length}명 ${printItems.length}문제` : "출력하기";
+  } catch (e) { $("plist").innerHTML = `<div class="empty">${esc(e.message)}</div>`; }
+}
+$("day").onchange = loadPrint; $("incl").onchange = loadPrint;
+
+function buildPrint() {
+  const dayN = +$("day").value;
+  const d = new Date(Date.now() - dayN * 864e5);
+  const ds = `${d.getMonth() + 1}월 ${d.getDate()}일`;
+  let h = "";
+  group(printItems).forEach(g => {
+    const pages = [];
+    for (let i = 0; i < g.qs.length; i += 2) pages.push(g.qs.slice(i, i + 2));
+    pages.forEach((pg, pi) => {
+      h += `<div class="page"><div class="ph"><div class="bar"></div><div class="brand">ANSWER MATHEMATICS</div><div class="ttl">질문 문제 다시 풀기</div>
+        <div class="info"><b>${esc(g.st.name)}</b> · ${ds}${pages.length > 1 ? ` · ${pi + 1}/${pages.length}` : ""}</div></div>`;
+      pg.forEach((q, k) => {
+        h += `<div class="slot ${pg.length === 1 ? "solo" : ""}"><div class="qn">${pi * 2 + k + 1}</div><img src="${esc(q.url)}"><div class="space"></div></div>`;
+      });
+      h += `<div class="pf">앤서수학</div></div>`;
+    });
+  });
+  $("printArea").innerHTML = h;
+  return Promise.all([...$("printArea").querySelectorAll("img")].map(im => im.complete ? 0 : new Promise(r => { im.onload = im.onerror = r; })));
+}
+$("printBtn").onclick = async () => {
+  $("printBtn").disabled = true; $("printBtn").textContent = "준비 중…";
+  await buildPrint();
+  window.print();
+  const ok = await ask("출력 잘 됐어요?", "'출력 완료'를 누르면 다음엔 새로 올라온 것만 출력돼요.", [{ label: "아직", value: false }, { label: "출력 완료", value: true, cls: "red" }]);
+  if (ok) { await call("admin_mark_printed", { ids: printItems.map(q => q.id) }).catch(x => toast(x.message)); toast("출력 완료로 표시했어요"); loadQueue(true); }
+  loadPrint();
+};
+$("testBtn").onclick = async () => { await call("admin_test_notify").then(() => toast("알림 보냈어요. 워치 확인해보세요")).catch(x => toast(x.message)); };
+
+if (TOKEN) { loadQueue(); setInterval(() => { if (!document.hidden) loadQueue(true); }, 5000); document.addEventListener("visibilitychange", () => { if (!document.hidden) loadQueue(true); }); }
+</script>
+</body>
+</html>

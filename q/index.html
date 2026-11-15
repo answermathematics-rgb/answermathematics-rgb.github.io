@@ -4,6 +4,9 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
 <meta name="theme-color" content="#B62A1D">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
 <title>앤서수학 · 질문하기</title>
 <style>
   :root { --red:#B62A1D; --navy:#1E2A44; --bg:#F6F7F9; --line:#E3E6EB; --muted:#6B7280; }
@@ -148,7 +151,7 @@
 <section class="screen" id="sCrop">
   <div id="cropWrap"><canvas id="cropCanvas"></canvas></div>
   <div class="cropBar">
-    <div class="hint">손가락으로 <b>문제 부분만</b> 네모로 그어줘</div>
+    <div class="hint">손가락으로 <b>문제 하나만</b> 네모로 그어줘 · 두 문제면 하나씩 따로</div>
     <div class="row">
       <button class="btn ghost" id="retakeBtn">다시 찍기</button>
       <button class="btn red" id="sendBtn">보내기</button>
@@ -344,6 +347,16 @@ cv.addEventListener("pointerup", () => {
   if (n.w < 30 * DPR || n.h < 30 * DPR) { sel = { x: 0, y: 0, w: cv.width, h: cv.height }; draw(); toast("너무 작아. 문제 전체를 네모로 그어줘."); }
 });
 
+// 원본(컬러) — 문제 복원·분석용으로 따로 보관
+function cropOriginal() {
+  const n = norm(sel);
+  const sx = n.x / scale, sy = n.y / scale, sw = n.w / scale, sh = n.h / scale;
+  const k = Math.min(1, 2400 / Math.max(sw, sh));
+  const c = document.createElement("canvas"); c.width = Math.round(sw * k); c.height = Math.round(sh * k);
+  const g = c.getContext("2d"); g.imageSmoothingQuality = "high"; g.drawImage(img, sx, sy, sw, sh, 0, 0, c.width, c.height);
+  return new Promise(r => c.toBlob(r, "image/jpeg", 0.9));
+}
+
 // 잘라서 스캔한 것처럼 정리 (그림자 빼고 흰 바탕·진한 글씨)
 function processCrop() {
   const n = norm(sel);
@@ -377,18 +390,21 @@ $("sendBtn").onclick = async () => {
   $("doneBox").innerHTML = '<div class="spinner"></div><div class="muted">보내는 중…</div>';
   show("sDone");
   try {
-    const blob = await processCrop();
-    const { path, signedUrl } = await call("kiosk_upload_url", { session: SESSION });
-    const up = await fetch(signedUrl, { method: "PUT", headers: { "content-type": "image/jpeg", "x-upsert": "false" }, body: blob });
+    const [blob, oblob] = await Promise.all([processCrop(), cropOriginal()]);
+    const { path, signedUrl, origPath, origSignedUrl } = await call("kiosk_upload_url", { session: SESSION });
+    const put = (u, b) => fetch(u, { method: "PUT", headers: { "content-type": "image/jpeg", "x-upsert": "false" }, body: b });
+    const [up, oup] = await Promise.all([put(signedUrl, blob), origSignedUrl ? put(origSignedUrl, oblob).catch(() => null) : Promise.resolve(null)]);
     if (!up.ok) throw new Error("사진 업로드 실패 (" + up.status + ")");
-    const { position } = await call("kiosk_submit", { session: SESSION, path });
+    const { position } = await call("kiosk_submit", { session: SESSION, path, orig_path: oup && oup.ok ? origPath : "" });
     $("doneBox").innerHTML = `
       <div class="who"><b>${cur.name}</b> 질문 접수</div>
       <div class="badge">${position}번째</div>
       <div class="big">선생님이 순서대로 갈게</div>
       <div class="muted">기다리는 동안 다른 문제 풀고 있어.</div>
-      <button class="btn navy" id="moreBtn">📷 문제 하나 더 찍기</button>
+      <button class="btn navy" id="sameBtn">✂️ 같은 사진에서 다른 문제 자르기</button>
+      <button class="btn ghost" id="moreBtn">📷 새로 찍기</button>
       <button class="btn ghost" id="endBtn">확인</button>`;
+    $("sameBtn").onclick = () => { sel = { x: 0, y: 0, w: cv.width, h: cv.height }; draw(); show("sCrop"); toast("이번엔 다른 문제를 네모로 그어줘"); };
     $("moreBtn").onclick = () => { $("file").value = ""; $("file").click(); };
     $("endBtn").onclick = showHome;
     clearTimeout(window._auto); window._auto = setTimeout(() => { if ($("sDone").classList.contains("on")) showHome(); }, 15000);

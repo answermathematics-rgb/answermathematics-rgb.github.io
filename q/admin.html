@@ -62,9 +62,10 @@
     .page { height:277mm; display:flex; flex-direction:column; page-break-after:always; break-after:page; }
     .page:last-child { page-break-after:auto; break-after:auto; }
     .ph { display:flex; align-items:flex-end; gap:8px; border-bottom:1.5px solid var(--navy); padding-bottom:5px; margin-bottom:6mm; }
-    .ph .bar { width:4px; height:20px; background:var(--red); }
-    .ph .brand { font-size:9pt; letter-spacing:2px; font-weight:800; color:var(--navy); }
-    .ph .ttl { font-size:13pt; font-weight:800; margin-left:4px; }
+    .ph .lg { height:28px; width:auto; margin-right:2px; }
+    .ph .bar { width:4px; height:22px; background:var(--red); }
+    .ph .brand { font-size:7.5pt; letter-spacing:2px; font-weight:700; color:#8A93A3; margin-left:6px; padding-bottom:3px; }
+    .ph .ttl { font-size:16pt; font-weight:900; margin-left:4px; color:var(--navy); letter-spacing:-.3px; }
     .ph .info { margin-left:auto; font-size:11pt; }
     .ph .info b { font-size:14pt; }
     .slot { flex:1; display:flex; flex-direction:column; min-height:0; }
@@ -162,7 +163,7 @@ function renderQueue() {
   $("cntQ").textContent = waiting.length ? `(${waiting.length})` : "";
   const unprinted = items.filter(q => !q.printed_at).length;
   $("cntP").textContent = unprinted ? `(${unprinted})` : "";
-  const thumbs = (g, del) => `<div class="thumbs">${g.qs.map(q => `<div class="thumb"><img src="${esc(q.url)}" data-full="${esc(q.url)}" loading="lazy">${del ? `<button class="x" data-del="${q.id}">✕</button>` : ""}</div>`).join("")}</div>`;
+  const thumbs = (g, del) => `<div class="thumbs">${g.qs.map(q => `<div class="thumb"><img src="${esc(q.url)}" data-full="${esc(q.orig_url || q.url)}" loading="lazy">${del ? `<button class="x" data-del="${q.id}">✕</button>` : ""}</div>`).join("")}</div>`;
   let h = "";
   if (!waiting.length) h += '<div class="empty">대기 중인 질문 없음 ✨<br><span style="font-size:13px">학생이 공기계로 찍으면 여기 뜨고 워치로 알림이 가요.</span></div>';
   waiting.forEach((g, i) => {
@@ -217,12 +218,12 @@ function buildPrint() {
     const pages = [];
     for (let i = 0; i < g.qs.length; i += 2) pages.push(g.qs.slice(i, i + 2));
     pages.forEach((pg, pi) => {
-      h += `<div class="page"><div class="ph"><div class="bar"></div><div class="brand">ANSWER MATHEMATICS</div><div class="ttl">질문 문제 다시 풀기</div>
+      h += `<div class="page"><div class="ph"><img class="lg" src="logo.png" onerror="this.remove()"><div class="bar"></div><div class="ttl">오답 정리</div><div class="brand">ANSWER MATHEMATICS</div>
         <div class="info"><b>${esc(g.st.name)}</b> · ${ds}${pages.length > 1 ? ` · ${pi + 1}/${pages.length}` : ""}</div></div>`;
       pg.forEach((q, k) => {
         h += `<div class="slot ${pg.length === 1 ? "solo" : ""}"><div class="qn">${pi * 2 + k + 1}</div><img src="${esc(q.url)}"><div class="space"></div></div>`;
       });
-      h += `<div class="pf">앤서수학</div></div>`;
+      h += `<div class="pf"><img src="logo-ko.png" onerror="this.replaceWith('앤서수학')" style="height:12px"></div></div>`;
     });
   });
   $("printArea").innerHTML = h;

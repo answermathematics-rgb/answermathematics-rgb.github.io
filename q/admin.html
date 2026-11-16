@@ -26,11 +26,14 @@
   .card.first .num { background:var(--red); }
   .nm { font-size:18px; font-weight:800; }
   .meta { font-size:12px; color:var(--muted); margin-top:2px; }
-  .done { margin-left:auto; border:0; background:var(--green); color:#fff; font-weight:700; font-size:15px; padding:10px 16px; border-radius:10px; }
-  .undo { margin-left:auto; border:1px solid var(--line); background:#fff; color:var(--muted); font-size:13px; padding:7px 12px; border-radius:8px; }
+  .done { flex:none; white-space:nowrap; margin-left:auto; border:0; background:var(--green); color:#fff; font-weight:700; font-size:15px; padding:10px 16px; border-radius:10px; }
+  .undo { flex:none; white-space:nowrap; margin-left:auto; border:1px solid var(--line); background:#fff; color:var(--muted); font-size:13px; padding:7px 12px; border-radius:8px; }
   .thumbs { display:flex; gap:8px; overflow-x:auto; margin-top:10px; }
   .thumb { position:relative; flex:none; }
   .thumb img { height:150px; border-radius:8px; border:1px solid var(--line); display:block; background:#fafafa; }
+  .qimg { position:relative; margin-top:10px; }
+  .qimg img { width:100%; max-height:260px; object-fit:contain; border:1px solid var(--line); border-radius:10px; background:#fff; display:block; }
+  .qimg .x { position:absolute; top:6px; right:6px; width:28px; height:28px; border-radius:50%; border:0; background:rgba(0,0,0,.55); color:#fff; }
   .thumb .x { position:absolute; top:4px; right:4px; width:24px; height:24px; border-radius:50%; border:0; background:rgba(0,0,0,.55); color:#fff; font-size:13px; }
   .togg { border:0; background:none; padding:0; cursor:pointer; text-decoration:underline; }
   .sec { font-size:13px; color:var(--muted); font-weight:700; margin:18px 4px 8px; }
@@ -180,33 +183,40 @@ async function loadQueue(silent) {
   } catch (e) { $("live").textContent = "연결 끊김"; if (!silent) toast(e.message); }
 }
 function renderQueue() {
-  const waiting = group(items.filter(q => q.status === "waiting"));
-  const done = group(items.filter(q => q.status === "done")).reverse();
+  // 문제 올린 순서대로 한 문제씩 (학생별로 묶지 않음)
+  const waiting = items.filter(q => q.status === "waiting");
+  const done = items.filter(q => q.status === "done").sort((x, y) => new Date(y.done_at || 0) - new Date(x.done_at || 0));
   $("cntQ").textContent = waiting.length ? `(${waiting.length})` : "";
   const unprinted = items.filter(q => !q.printed_at).length;
   $("cntP").textContent = unprinted ? `(${unprinted})` : "";
-  const thumbs = (g, del) => `<div class="thumbs">${g.qs.map(q => `<div class="thumb"><img src="${esc(q.url)}" data-full="${esc(q.orig_url || q.url)}" loading="lazy">${del ? `<button class="x" data-del="${q.id}">✕</button>` : ""}</div>`).join("")}</div>`;
+  // 같은 학생의 몇 번째 질문인지 (오늘 기준)
+  const nth = {}; const seen = {};
+  items.forEach(q => { seen[q.student_id] = (seen[q.student_id] || 0) + 1; nth[q.id] = seen[q.student_id]; });
   let h = "";
   if (!waiting.length) h += '<div class="empty">대기 중인 질문 없음 ✨<br><span style="font-size:13px">학생이 공기계로 찍으면 여기 뜨고 워치로 알림이 가요.</span></div>';
-  waiting.forEach((g, i) => {
+  waiting.forEach((q, i) => {
+    const st = q.students || {};
     h += `<div class="card ${i === 0 ? "first" : ""}"><div class="crow"><div class="num">${i + 1}</div>
-      <div><div class="nm">${esc(g.st.name)}</div><div class="meta">${esc(g.st.school || "")} · ${g.qs.length}문제 · ${ago(g.qs[0].created_at)}</div></div>
-      <button class="done" data-done="${g.sid}">완료</button></div>${thumbs(g, true)}</div>`;
+      <div><div class="nm">${esc(st.name)}</div><div class="meta">${esc(st.school || "")} · 오늘 ${nth[q.id]}번째 질문 · ${hm(q.created_at)} (${ago(q.created_at)})</div></div>
+      <button class="done" data-done="${q.id}">완료</button></div>
+      <div class="qimg"><img src="${esc(q.url)}" data-full="${esc(q.orig_url || q.url)}" loading="lazy"><button class="x" data-del="${q.id}">✕</button></div></div>`;
   });
   if (done.length) {
-    h += `<button class="sec togg" id="doneToggle">오늘 완료 ${done.length}명 ${showDone ? "▾ 접기" : "▸ 보기"}</button>`;
-    if (showDone) done.forEach(g => {
-      h += `<div class="card"><div class="crow"><div><div class="nm" style="font-size:16px">${esc(g.st.name)}</div><div class="meta">${g.qs.length}문제 · ${hm(g.qs[0].created_at)}</div></div>
-        <button class="undo" data-undo="${g.sid}">되돌리기</button></div>${thumbs(g, false)}</div>`;
+    h += `<button class="sec togg" id="doneToggle">오늘 완료 ${done.length}문제 ${showDone ? "▾ 접기" : "▸ 보기"}</button>`;
+    if (showDone) done.forEach(q => {
+      const st = q.students || {};
+      h += `<div class="card"><div class="crow"><div class="thumb"><img src="${esc(q.url)}" data-full="${esc(q.orig_url || q.url)}" loading="lazy" style="height:56px"></div>
+        <div><div class="nm" style="font-size:16px">${esc(st.name)}</div><div class="meta">${hm(q.created_at)} 질문 · ${q.done_at ? hm(q.done_at) + " 완료" : ""}</div></div>
+        <button class="undo" data-undo="${q.id}">되돌리기</button></div></div>`;
     });
   }
   $("pQueue").innerHTML = h;
 }
 $("pQueue").onclick = async (e) => {
   const t = e.target;
-  if (t.dataset.done) { t.disabled = true; await call("admin_done", { student_id: t.dataset.done }).catch(x => toast(x.message)); loadQueue(); }
+  if (t.dataset.done) { t.disabled = true; await call("admin_done", { id: t.dataset.done }).catch(x => toast(x.message)); loadQueue(); }
   else if (t.id === "doneToggle") { showDone = !showDone; renderQueue(); }
-  else if (t.dataset.undo) { await call("admin_undo", { student_id: t.dataset.undo }).catch(x => toast(x.message)); loadQueue(); }
+  else if (t.dataset.undo) { await call("admin_undo", { id: t.dataset.undo }).catch(x => toast(x.message)); loadQueue(); }
   else if (t.dataset.del) {
     const ok = await ask("이 사진 지울까요?", "잘못 찍은 사진이면 지워요. 출력에서도 빠져요.", [{ label: "취소", value: false }, { label: "지우기", value: true, cls: "red" }]);
     if (ok) { await call("admin_delete", { id: t.dataset.del }).catch(x => toast(x.message)); loadQueue(); }

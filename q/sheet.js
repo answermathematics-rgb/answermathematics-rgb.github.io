@@ -21,7 +21,7 @@
   .sh-q .body .katex { font-size:1.05em; }
   .sh-q .box { border:1px solid #333; border-radius:2mm; padding:2.5mm 3.5mm; margin:2mm 0; }
   .sh-q .fig { margin:3mm 0 1mm; text-align:center; }
-  .sh-q .fig img { max-width:70%; max-height:60mm; object-fit:contain; }
+  .sh-q .fig img { width:62mm; max-width:70%; max-height:62mm; object-fit:contain; }
   .sh-q .photo img { max-width:100%; max-height:95mm; object-fit:contain; }
   .sh-q .choices { display:grid; gap:1.5mm 4mm; margin-top:3mm; font-size:11pt; }
   .sh-q .choices.c5 { grid-template-columns:repeat(5,1fr); }
@@ -79,7 +79,11 @@
     // 그림 잘라두기
     const figs = {};
     await Promise.all(items.map(async (q) => {
-      if (!usePhoto(q) && q.typed?.figure?.present && q.typed.figure.bbox) figs[q.id] = await cropFigure(q.orig_url || q.url, q.typed.figure.bbox);
+      const f = q.typed?.figure;
+      if (usePhoto(q) || !f?.present) return;
+      // AI가 다시 그린 그림(SVG)이 있으면 그걸로, 없으면 원본 사진에서 잘라서
+      if (f.svg && !f.use_crop) figs[q.id] = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(f.svg);
+      else if (f.bbox) figs[q.id] = await cropFigure(q.orig_url || q.url, f.bbox);
     }));
     let h = '<div class="sheet-root">';
     groupByStudent(items).forEach((g) => {

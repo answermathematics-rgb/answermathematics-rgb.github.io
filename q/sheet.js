@@ -21,7 +21,7 @@
   .sh-q .body .katex { font-size:1.05em; }
   .sh-q .box { border:1px solid #333; border-radius:2mm; padding:2.5mm 3.5mm; margin:2mm 0; }
   .sh-q .fig { margin:3mm 0 1mm; text-align:center; }
-  .sh-q .fig img { width:62mm; max-width:70%; max-height:62mm; object-fit:contain; }
+  .sh-q .fig img { width:74mm; max-width:80%; max-height:72mm; object-fit:contain; }
   .sh-q .photo img { max-width:100%; max-height:95mm; object-fit:contain; }
   .sh-q .choices { display:grid; gap:1.5mm 4mm; margin-top:3mm; font-size:11pt; }
   .sh-q .choices.c5 { grid-template-columns:repeat(5,1fr); }

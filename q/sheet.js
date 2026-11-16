@@ -37,7 +37,8 @@
   // AI가 줄바꿈을 글자 그대로 "\n"으로 준 경우도 줄바꿈으로 (단 \neq 같은 수식 명령은 그대로)
   const fixNl = (s) => String(s || "").replace(/\\n(?![a-zA-Z])/g, "\n");
   function bodyHtml(text) {
-    let h = esc(fixNl(text));
+    // 분수는 시험지처럼 크게 (\frac → \dfrac)
+    let h = esc(fixNl(text).replace(/\\frac(?=[\s{])/g, "\\dfrac"));
     h = h.replace(/\[\[box\]\]\s*/g, '<div class="box">').replace(/\s*\[\[\/box\]?\]?/g, "</div>");
     h = h.replace(/\n*(\$\$[\s\S]*?\$\$)\n*/g, "$1");
     h = h.replace(/\n/g, "<br>");

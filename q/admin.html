@@ -228,10 +228,26 @@ $("viewer").onclick = () => $("viewer").style.display = "none";
 // ───── 출력 ─────
 let printItems = [];
 let allPrint = [];
+// 폰 브라우저는 버튼을 누른 '바로 그 순간'에만 인쇄창을 열어줌.
+// 사진 불러오느라 시간이 지나면 인쇄가 조용히 막혀서, 준비가 끝나면 '인쇄하기'를 한 번 더 누르게 함
+function confirmPrint(desc) {
+  return new Promise(res => {
+    $("mt").textContent = "인쇄 준비 완료"; $("md").textContent = desc;
+    $("mr").innerHTML = '<button class="btn ghost" id="pCancel">취소</button><button class="btn red" id="pGo">🖨 인쇄하기</button>';
+    $("modal").style.display = "flex";
+    $("mr").onclick = null;
+    $("pGo").onclick = () => { $("modal").style.display = "none"; window.print(); res(true); };
+    $("pCancel").onclick = () => { $("modal").style.display = "none"; res(false); };
+  });
+}
 async function printSet(list) {
   printItems = list;
+  toast("사진 불러오는 중…");
   await buildPrint();
-  window.print();
+  const pages = $("printArea").querySelectorAll(".page").length;
+  const go = await confirmPrint(`${[...new Set(list.map(q => q.students?.name))].join(", ")} · ${list.length}문제 · ${pages}장`);
+  if (!go) { loadPrint(); return; }
+  await new Promise(r => setTimeout(r, 800));
   const names = [...new Set(list.map(q => q.students?.name))].join(", ");
   const ok = await ask("출력 잘 됐어요?", `${names} · '출력 완료'를 누르면 다음엔 새로 올라온 것만 출력돼요.`, [{ label: "아직", value: false }, { label: "출력 완료", value: true, cls: "red" }]);
   if (ok) { await call("admin_mark_printed", { ids: list.map(q => q.id) }).catch(x => toast(x.message)); toast("출력 완료로 표시했어요"); loadQueue(true); }
@@ -344,8 +360,9 @@ $("hSum").onclick = async (e) => {
   const tr = e.target.closest("[data-sid]"); if (tr) { $("hStu").value = tr.dataset.sid; loadHist(); return; }
   if (e.target.id === "hPrint") {
     printItems = histItems.slice().reverse();
+    toast("사진 불러오는 중…");
     await buildPrint(`최근 ${$("hDays").selectedOptions[0].text.replace("최근 ", "")}`);
-    window.print();
+    await confirmPrint(`${printItems.length}문제 · ${$("printArea").querySelectorAll(".page").length}장`);
   }
 };
 $("hList").onclick = (e) => { const f = e.target.dataset.full; if (f) { $("vimg").src = f; $("viewer").style.display = "flex"; } };

@@ -130,7 +130,10 @@
 <div id="toast"></div>
 <div id="printArea"></div>
 
-<script src="jspdf.umd.min.js"></script>
+<link rel="stylesheet" href="katex/katex.min.css">
+<script src="katex/katex.min.js"></script>
+<script src="katex/auto-render.min.js"></script>
+<script src="sheet.js"></script>
 <script>
 const FN = "https://hddsyoaymvpfcloqthyv.supabase.co/functions/v1/qna";
 const ANON = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhkZHN5b2F5bXZwZmNsb3F0aHl2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODExODUwNzcsImV4cCI6MjA5Njc2MTA3N30._x8RtDqIACVr2AC7u5VXbntbmderTw4sV4t3zkp6dC0";
@@ -229,85 +232,39 @@ $("viewer").onclick = () => $("viewer").style.display = "none";
 // ───── 출력 ─────
 let printItems = [];
 let allPrint = [];
-// ───── 출력: PDF로 만들어서 인쇄 ─────
-// 폰 브라우저에서는 웹페이지 인쇄(window.print)가 막히거나 안 되는 경우가 많아서,
-// 오답 정리지를 PDF로 만든 다음 폰의 공유/인쇄(삼성 프린터)로 보냄
-const loadImg = (src, cors) => new Promise((res) => { const im = new Image(); if (cors) im.crossOrigin = "anonymous"; im.onload = () => res(im); im.onerror = () => res(null); im.src = src; });
-async function renderPages(list, label) {
-  const W = 1240, H = 1754, M = 59; // A4 150dpi, 여백 10mm
-  const [logo, logoKo] = await Promise.all([loadImg("logo.png"), loadImg("logo-ko.png")]);
-  const imgs = await Promise.all(list.map(q => loadImg(q.url, true)));
-  const d = new Date(Date.now() - (+$("day").value || 0) * 864e5);
-  const ds = label || `${d.getMonth() + 1}월 ${d.getDate()}일`;
-  const FONT = '"Pretendard","Noto Sans KR","Malgun Gothic",sans-serif';
-  const canvases = [];
-  group(list).forEach(g => {
-    const qs = g.qs, pages = [];
-    for (let i = 0; i < qs.length; i += 2) pages.push(qs.slice(i, i + 2));
-    pages.forEach((pg, pi) => {
-      const c = document.createElement("canvas"); c.width = W; c.height = H;
-      const x = c.getContext("2d"); x.fillStyle = "#fff"; x.fillRect(0, 0, W, H);
-      // 머리말: 로고 + 레드 세로바 + 오답 정리 + 이름·날짜
-      let hx = M; const hy = M;
-      if (logo) { const lh = 66, lw = logo.width * lh / logo.height; x.drawImage(logo, hx, hy, lw, lh); hx += lw + 18; }
-      x.fillStyle = "#B62A1D"; x.fillRect(hx, hy + 8, 7, 52); hx += 25;
-      x.fillStyle = "#1E2A44"; x.font = `900 46px ${FONT}`; x.textBaseline = "middle"; x.fillText("오답 정리", hx, hy + 35);
-      x.textAlign = "right";
-      const tail = ` · ${ds}${pages.length > 1 ? ` · ${pi + 1}/${pages.length}` : ""}`;
-      x.font = `400 30px ${FONT}`; const tw = x.measureText(tail).width; x.fillText(tail, W - M, hy + 37);
-      x.font = `800 40px ${FONT}`; x.fillText(g.st.name || "", W - M - tw, hy + 35);
-      x.textAlign = "left";
-      x.fillStyle = "#1E2A44"; x.fillRect(M, hy + 84, W - 2 * M, 3);
-      // 문제 칸
-      const top = hy + 120, bottom = H - M - 60, slotH = (bottom - top) / (pg.length === 1 ? 1 : 2);
-      pg.forEach((q, k) => {
-        const sy = top + k * slotH;
-        if (k > 0) { x.strokeStyle = "#bbb"; x.setLineDash([10, 8]); x.lineWidth = 2; x.beginPath(); x.moveTo(M, sy - 20); x.lineTo(W - M, sy - 20); x.stroke(); x.setLineDash([]); }
-        x.fillStyle = "#000"; x.font = `800 40px ${FONT}`; x.textBaseline = "top"; x.fillText(String(pi * 2 + k + 1), M, sy);
-        const im = imgs[list.indexOf(q)];
-        if (im) {
-          const maxW = W - 2 * M, maxH = (pg.length === 1 ? slotH * 0.62 : slotH * 0.62);
-          const r = Math.min(maxW / im.width, maxH / im.height);
-          x.drawImage(im, M, sy + 58, im.width * r, im.height * r);
-        } else { x.fillStyle = "#999"; x.font = `400 28px ${FONT}`; x.fillText("(사진을 못 불러왔어요)", M, sy + 60); }
-      });
-      if (logoKo) { const fh = 44, fw = logoKo.width * fh / logoKo.height; x.drawImage(logoKo, W - M - fw, H - M - fh, fw, fh); }
-      canvases.push(c);
-    });
-  });
-  return canvases;
-}
-async function makePdf(list, label) {
-  const canvases = await renderPages(list, label);
-  const doc = new window.jspdf.jsPDF({ unit: "mm", format: "a4", compress: true });
-  canvases.forEach((c, i) => { if (i) doc.addPage(); doc.addImage(c.toDataURL("image/jpeg", 0.9), "JPEG", 0, 0, 210, 297); });
-  const names = [...new Set(list.map(q => q.students?.name))];
-  const d = new Date(); const fn = `오답정리_${names.length === 1 ? names[0] : names.length + "명"}_${d.getMonth() + 1}월${d.getDate()}일.pdf`;
-  const blob = doc.output("blob");
-  return { blob, file: new File([blob], fn, { type: "application/pdf" }), pages: canvases.length, names };
-}
-function showPdf(pdf) {
-  return new Promise(res => {
-    const url = URL.createObjectURL(pdf.blob);
-    const canShare = !!(navigator.canShare && navigator.canShare({ files: [pdf.file] }));
-    $("mt").textContent = "오답 정리 PDF 준비 완료";
-    $("md").textContent = `${pdf.names.join(", ")} · ${pdf.pages}장 — ${canShare ? "'인쇄'를 누르고 목록에서 프린터(삼성 프린트/인쇄)를 고르세요." : "PDF를 열어서 인쇄하세요."}`;
-    $("mr").innerHTML = (canShare ? '<button class="btn red" id="pShare">🖨 인쇄</button>' : "") +
-      `<a class="btn ${canShare ? "ghost" : "red"}" id="pOpen" href="${url}" target="_blank" download="${esc(pdf.file.name)}" style="text-align:center;text-decoration:none">PDF 열기</a>` +
-      '<button class="btn ghost" id="pClose">닫기</button>';
-    $("mr").onclick = null; $("modal").style.display = "flex";
-    if (canShare) $("pShare").onclick = () => { navigator.share({ files: [pdf.file], title: pdf.file.name }).catch(() => {}); };
-    $("pClose").onclick = () => { $("modal").style.display = "none"; res(); };
-  });
-}
+// 출력: 학원 PC '앤서수학 프린트' 화면으로 보냄 → PC가 바로 인쇄(창 없이). PC가 꺼져 있으면 이 기기에서 인쇄
 async function printSet(list, label, markAfter = true) {
   if (!list.length) return;
-  toast("오답 정리 PDF 만드는 중…");
-  let pdf;
-  try { pdf = await makePdf(list, label); } catch (e) { toast("PDF 만들기 실패: " + e.message); loadPrint(); return; }
-  await showPdf(pdf);
+  const names = [...new Set(list.map(q => q.students?.name))].join(", ");
+  try {
+    const st0 = await call("admin_print_job_status", { job_id: "" });
+    const alive = st0.printer_seen && (Date.now() - new Date(st0.printer_seen).getTime() < 20000);
+    if (!alive) { await localPrint(list, label, markAfter, "학원 PC의 '앤서수학 프린트' 창이 꺼져 있어요."); return; }
+    const { job_id } = await call("admin_print_job", { ids: list.map(q => q.id), label: label || "" });
+    toast(`🖨 ${names} — 학원 PC로 보냈어요`);
+    for (let i = 0; i < 40; i++) {
+      await new Promise(r => setTimeout(r, 1500));
+      const st = await call("admin_print_job_status", { job_id });
+      if (st.job?.status === "done") { toast(`✅ ${names} 인쇄 완료`); loadQueue(true); break; }
+      if (st.job?.status === "error") { toast("인쇄 실패: " + (st.job.error || "")); break; }
+    }
+  } catch (e) { toast(e.message); }
+  loadPrint();
+}
+// 이 기기에서 직접 인쇄 (PC 관리자 화면에서는 잘 됨)
+async function localPrint(list, label, markAfter, why) {
+  toast("오답 정리지 만드는 중…");
+  await AnswerSheet.build($("printArea"), list, { label });
+  await new Promise(res => {
+    $("mt").textContent = "이 기기에서 인쇄할까요?";
+    $("md").textContent = `${why || ""} 이 기기에서 바로 인쇄하려면 '인쇄하기'를 누르세요.`;
+    $("mr").innerHTML = '<button class="btn ghost" id="pCancel">취소</button><button class="btn red" id="pGo">🖨 인쇄하기</button>';
+    $("mr").onclick = null; $("modal").style.display = "flex";
+    $("pGo").onclick = () => { $("modal").style.display = "none"; window.print(); res(true); };
+    $("pCancel").onclick = () => { $("modal").style.display = "none"; res(false); };
+  });
   if (markAfter) {
-    const ok = await ask("출력 잘 됐어요?", `${pdf.names.join(", ")} · '출력 완료'를 누르면 다음엔 새로 올라온 것만 출력돼요.`, [{ label: "아직", value: false }, { label: "출력 완료", value: true, cls: "red" }]);
+    const ok = await ask("출력 잘 됐어요?", "'출력 완료'를 누르면 다음엔 새로 올라온 것만 출력돼요.", [{ label: "아직", value: false }, { label: "출력 완료", value: true, cls: "red" }]);
     if (ok) { await call("admin_mark_printed", { ids: list.map(q => q.id) }).catch(x => toast(x.message)); toast("출력 완료로 표시했어요"); loadQueue(true); }
   }
   loadPrint();

@@ -172,8 +172,11 @@ const ANON = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZ
 
 // 기기 토큰: 처음 한 번 ?k=… 로 열면 기기에 저장
 const params = new URLSearchParams(location.search);
+// 원장님 결정(11/16): 기기 등록 없이 어떤 폰이든 바로 열리게 — 공기계용 키를 내장. 학생은 이름+비밀번호로만 들어옴
+const KIOSK_KEY = "89ad2154eb42658b74307011dc22c0b81b33945a4db024e8";
 let TOKEN = params.get("k") || "";
 try { if (TOKEN) localStorage.setItem("qk", TOKEN); else TOKEN = localStorage.getItem("qk") || ""; } catch (_) {}
+if (!TOKEN) TOKEN = KIOSK_KEY;
 // 주소에 k를 남겨둠 → 이 화면을 홈 화면에 추가해도 기기 등록이 같이 따라감
 
 const $ = (id) => document.getElementById(id);

@@ -82,7 +82,7 @@
   <div class="center" style="justify-content:flex-start;padding-top:40px">
     <div class="big">이름 입력</div>
     <div class="form">
-      <input id="nameIn" placeholder="이름 (예: 김민준)" autocomplete="off" autocapitalize="off" spellcheck="false" maxlength="10">
+      <input id="nameIn" placeholder="이름 (예: 김민준)" autocomplete="off" autocapitalize="off" spellcheck="false" maxlength="10" enterkeyhint="go">
       <div class="err" id="nameErr"></div>
       <button class="btn red" id="nameNext">다음</button>
     </div>
@@ -97,7 +97,7 @@
     <div class="muted">처음이네! 학교랑 학년 알려줘.</div>
     <div class="form">
       <label class="lb">학교</label>
-      <input id="schoolIn" placeholder="예: 대광고, 동대문중" autocomplete="off" spellcheck="false" maxlength="20">
+      <input id="schoolIn" placeholder="예: 대광고, 동대문중" autocomplete="off" spellcheck="false" maxlength="20" enterkeyhint="done">
       <label class="lb">학년</label>
       <div class="grades" id="grades"></div>
       <div class="err" id="regErr"></div>
@@ -215,11 +215,13 @@ let regGrade = "";
 $("grades").innerHTML = GRADES.map(g => `<button data-g="${g}">${g}</button>`).join("");
 $("grades").onclick = (e) => { const g = e.target.closest("button")?.dataset.g; if (!g) return; regGrade = g;
   [...$("grades").children].forEach(b => b.classList.toggle("on", b.dataset.g === g)); };
+let nameBusy = false;
 async function nameNext() {
-  const n = $("nameIn").value.replace(/\s/g, "");
+  if (nameBusy) return;
+  const n = $("nameIn").value.normalize("NFC").replace(/\s/g, "");
   if (n.length < 2) { $("nameErr").textContent = "이름을 끝까지 써줘"; return; }
   if (!TOKEN) { $("nameErr").textContent = "등록 안 된 기기야. 선생님한테 QR 다시 찍어달라고 해줘"; return; }
-  $("nameNext").disabled = true; $("nameErr").textContent = "";
+  nameBusy = true; $("nameNext").disabled = true; $("nameNext").textContent = "확인 중…"; $("nameErr").textContent = "";
   try {
     const r = await call("kiosk_check", { name: n });
     pinStudent = { name: r.name, has_pin: r.mode === "login", school: "", grade: "" };
@@ -227,17 +229,25 @@ async function nameNext() {
     if (r.mode === "login") openPin();
     else { $("regName").textContent = r.name; $("schoolIn").value = ""; regGrade = ""; [...$("grades").children].forEach(b => b.classList.remove("on")); $("regErr").textContent = ""; show("sReg"); }
   } catch (e) { $("nameErr").textContent = e.message; }
-  finally { $("nameNext").disabled = false; }
+  finally { nameBusy = false; $("nameNext").disabled = false; $("nameNext").textContent = "다음"; }
 }
-$("nameNext").onclick = nameNext;
-$("nameIn").addEventListener("keydown", (e) => { if (e.key === "Enter") nameNext(); });
+// 폰에서 한글 입력 중에 버튼을 누르면 키보드가 내려가면서 화면이 움직여 터치가 빗나가는 문제 방지:
+// 손가락이 닿는 순간(pointerdown) 바로 처리하고, 키보드는 그대로 둠
+function fastTap(el, fn) {
+  let last = 0;
+  el.addEventListener("pointerdown", (e) => { e.preventDefault(); last = Date.now(); fn(); });
+  el.addEventListener("click", () => { if (Date.now() - last > 800) fn(); });
+}
+fastTap($("nameNext"), nameNext);
+$("nameIn").addEventListener("keydown", (e) => { if (e.key === "Enter" || e.keyCode === 13) { e.preventDefault(); nameNext(); } });
 $("regBack").onclick = () => goNames();
-$("regNext").onclick = () => {
+function regNext() {
   const sc = $("schoolIn").value.trim();
   if (sc.length < 2) { $("regErr").textContent = "학교 이름 써줘"; return; }
   if (!regGrade) { $("regErr").textContent = "학년 골라줘"; return; }
   pinStudent.school = sc; pinStudent.grade = regGrade; $("schoolIn").blur(); openPin();
-};
+}
+fastTap($("regNext"), regNext);
 function goNames() { cur = null; pinStudent = null; $("nameIn").value = ""; $("nameErr").textContent = ""; show("sName"); window.scrollTo(0, 0); }
 function showHome() { $("homeName").textContent = cur.name; $("whoName").textContent = cur.name; show("sHome"); }
 $("cancelBtn").onclick = () => showHome();

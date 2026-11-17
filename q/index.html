@@ -323,23 +323,37 @@ $("file").onchange = async () => {
 let img = null, scale = 1, sel = null, DPR = 1;
 const cv = $("cropCanvas"), cx = cv.getContext("2d");
 async function loadPhoto(file) {
-  const bmp = await createImageBitmap(file, { imageOrientation: "from-image" }).catch(async () => {
+  const src = await createImageBitmap(file, { imageOrientation: "from-image" }).catch(async () => {
     const im = new Image(); im.src = URL.createObjectURL(file); await im.decode(); return im;
   });
-  img = bmp;
-  requestAnimationFrame(() => {
-    const wrap = $("cropWrap");
-    const W = wrap.clientWidth - 16, H = wrap.clientHeight - 16;
-    DPR = Math.min(3, window.devicePixelRatio || 1);
-    const cssScale = Math.min(W / img.width, H / img.height, 1);
-    scale = cssScale * DPR;   // 화면 해상도에 맞춰 선명하게
-    cv.width = Math.round(img.width * scale); cv.height = Math.round(img.height * scale);
-    cv.style.width = Math.round(img.width * cssScale) + "px"; cv.style.height = Math.round(img.height * cssScale) + "px";
-    // 기본 선택: 사진 전체 (아무것도 안 건드리고 보내도 안 잘리게)
-    sel = { x: 0, y: 0, w: cv.width, h: cv.height };
-    draw();
-  });
+  // 사진을 먼저 평범한 캔버스 한 장으로 옮겨 둠 → 화면에 보이는 것과 잘라내는 것이 항상 같은 그림
+  // (폰마다 사진 회전정보 처리 방식이 달라 '부분 자르기'만 엉뚱한 곳을 자르는 경우가 있음)
+  const k = Math.min(1, 3200 / Math.max(src.width, src.height));
+  const base = document.createElement("canvas");
+  base.width = Math.round(src.width * k); base.height = Math.round(src.height * k);
+  const bg = base.getContext("2d"); bg.imageSmoothingQuality = "high"; bg.drawImage(src, 0, 0, base.width, base.height);
+  try { src.close && src.close(); } catch (_) {}
+  img = base;
+  sel = null;
+  requestAnimationFrame(layoutCrop);
 }
+// 화면 크기에 맞춰 자르기 화면 배치 (화면 회전·키보드 등으로 크기가 바뀌어도 선택 영역 유지)
+function layoutCrop() {
+  if (!img) return;
+  const wrap = $("cropWrap");
+  const W = wrap.clientWidth - 16, H = wrap.clientHeight - 16;
+  if (W < 50 || H < 50) return;
+  const r = sel && cv.width ? { x0: norm(sel).x / cv.width, y0: norm(sel).y / cv.height, x1: (norm(sel).x + norm(sel).w) / cv.width, y1: (norm(sel).y + norm(sel).h) / cv.height } : { x0: 0, y0: 0, x1: 1, y1: 1 };
+  DPR = Math.min(3, window.devicePixelRatio || 1);
+  const cssScale = Math.min(W / img.width, H / img.height, 1);
+  scale = cssScale * DPR;
+  cv.width = Math.round(img.width * scale); cv.height = Math.round(img.height * scale);
+  cv.style.width = Math.round(img.width * cssScale) + "px"; cv.style.height = Math.round(img.height * cssScale) + "px";
+  // 기본 선택: 사진 전체 (아무것도 안 건드리고 보내도 안 잘리게)
+  sel = { x: r.x0 * cv.width, y: r.y0 * cv.height, w: (r.x1 - r.x0) * cv.width, h: (r.y1 - r.y0) * cv.height };
+  draw();
+}
+window.addEventListener("resize", () => { if ($("sCrop").classList.contains("on")) requestAnimationFrame(layoutCrop); });
 function draw() {
   cx.clearRect(0, 0, cv.width, cv.height);
   cx.imageSmoothingQuality = "high"; cx.drawImage(img, 0, 0, cv.width, cv.height);
@@ -352,12 +366,18 @@ function draw() {
   [[n.x, n.y], [n.x + n.w, n.y], [n.x, n.y + n.h], [n.x + n.w, n.y + n.h]].forEach(([a, b]) => { cx.beginPath(); cx.arc(a, b, 9 * DPR, 0, 7); cx.fill(); });
 }
 const norm = (r) => ({ x: Math.min(r.x, r.x + r.w), y: Math.min(r.y, r.y + r.h), w: Math.abs(r.w), h: Math.abs(r.h) });
-const pos = (e) => { const b = cv.getBoundingClientRect(); return { x: (e.clientX - b.left) * cv.width / b.width, y: (e.clientY - b.top) * cv.height / b.height }; };
+// 손가락 위치 → 캔버스 좌표. 브라우저가 이 캔버스 기준으로 계산해 주는 offsetX 사용 (화면 확대돼 있어도 정확)
+const pos = (e) => {
+  const cw = cv.clientWidth || cv.getBoundingClientRect().width, ch = cv.clientHeight || cv.getBoundingClientRect().height;
+  let x = e.offsetX, y = e.offsetY;
+  if (typeof x !== "number" || e.target !== cv) { const b = cv.getBoundingClientRect(); x = e.clientX - b.left; y = e.clientY - b.top; }
+  return { x: x * cv.width / cw, y: y * cv.height / ch };
+};
 // 자르기: 모서리·테두리를 끌면 크기 조절, 네모 안을 끌면 이동. (빈 곳을 눌러도 새 네모가 생기지 않음 → 실수로 잘리는 일 방지)
 let drag = null;
 cv.addEventListener("pointerdown", (e) => {
   cv.setPointerCapture(e.pointerId);
-  const p = pos(e), n = norm(sel), R = 30 * cv.width / cv.getBoundingClientRect().width;
+  const p = pos(e), n = norm(sel), R = 30 * cv.width / (cv.clientWidth || 1);
   const near = (a, b) => Math.abs(a - b) < R;
   const inX = p.x > n.x - R && p.x < n.x + n.w + R, inY = p.y > n.y - R && p.y < n.y + n.h + R;
   const L = near(p.x, n.x) && inY, Rt = near(p.x, n.x + n.w) && inY, T = near(p.y, n.y) && inX, B = near(p.y, n.y + n.h) && inX;
@@ -492,7 +512,7 @@ $("confirmSendBtn").onclick = async () => {
       <button class="btn navy" id="sameBtn">✂️ 같은 사진에서 다른 문제 자르기</button>
       <button class="btn ghost" id="moreBtn">📷 새로 찍기</button>
       <button class="btn ghost" id="endBtn">확인</button>`;
-    $("sameBtn").onclick = () => { sel = { x: 0, y: 0, w: cv.width, h: cv.height }; draw(); show("sCrop"); toast("이번엔 다른 문제를 네모로 그어줘"); };
+    $("sameBtn").onclick = () => { sel = { x: 0, y: 0, w: cv.width, h: cv.height }; draw(); show("sCrop"); toast("이번엔 다른 문제에 네모를 맞춰줘"); };
     $("moreBtn").onclick = () => { $("file").value = ""; $("file").click(); };
     $("endBtn").onclick = showHome;
     clearTimeout(window._auto);

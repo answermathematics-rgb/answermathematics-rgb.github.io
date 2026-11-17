@@ -186,6 +186,46 @@
 const FN = "https://hddsyoaymvpfcloqthyv.supabase.co/functions/v1/qna";
 const ANON = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhkZHN5b2F5bXZwZmNsb3F0aHl2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODExODUwNzcsImV4cCI6MjA5Njc2MTA3N30._x8RtDqIACVr2AC7u5VXbntbmderTw4sV4t3zkp6dC0";
 
+// ───── 오류·멈춤 기록 (하얀 화면 원인 찾기용) ─────
+// 5초마다 지금 화면을 폰에 적어 둠 → 다음에 열렸을 때 직전 페이지가 정상 종료 안 됐으면(죽었으면) 서버에 기록
+const LOG_URL = "https://hddsyoaymvpfcloqthyv.supabase.co/functions/v1/qna-log";
+const logQ = [];
+function klog(kind, info = {}) {
+  try {
+    const scr = (document.querySelector(".screen.on") || {}).id || "";
+    logQ.push({ kind, screen: scr, name: (window.cur && cur.name) || "", info: { ...info, t: new Date().toISOString() } });
+    clearTimeout(klog._t); klog._t = setTimeout(flushLog, 1500);
+  } catch (_) {}
+}
+function flushLog() {
+  if (!logQ.length) return;
+  const events = logQ.splice(0, 20);
+  try { fetch(LOG_URL, { method: "POST", keepalive: true, headers: { "content-type": "application/json", apikey: ANON, authorization: "Bearer " + ANON },
+    body: JSON.stringify({ token: KIOSK_KEY_LOG, events }) }).catch(() => {}); } catch (_) {}
+}
+const KIOSK_KEY_LOG = "89ad2154eb42658b74307011dc22c0b81b33945a4db024e8";
+const memInfo = () => { const m = performance.memory; return { usedMB: m ? Math.round(m.usedJSHeapSize / 1048576) : null, devMem: navigator.deviceMemory || null }; };
+window.addEventListener("error", (e) => klog("js_error", { msg: String(e.message || e.error || "").slice(0, 300), src: (e.filename || "").slice(-40) + ":" + e.lineno, ...memInfo() }));
+window.addEventListener("unhandledrejection", (e) => klog("promise_error", { msg: String(e.reason && (e.reason.message || e.reason) || "").slice(0, 300) }));
+(function () {
+  let prev = null; try { prev = JSON.parse(localStorage.getItem("qhb") || "null"); } catch (_) {}
+  if (prev && prev.state !== "closed" && Date.now() - prev.t < 12 * 3600e3) {
+    // 직전 페이지가 닫히지 않고 사라짐: visible이면 쓰는 도중 죽은 것, hidden이면 화면 꺼짐·카메라 중에 폰이 꺼버린 것
+    setTimeout(() => klog(prev.state === "visible" ? "died_while_visible" : "killed_in_background",
+      { lastScreen: prev.screen, lastName: prev.name, lastUsedMB: prev.usedMB, gapSec: Math.round((Date.now() - prev.t) / 1000), uptimeMin: prev.up }), 500);
+  }
+  const boot = Date.now();
+  let closed = false;
+  const beat = (state) => { if (closed) return; if (state === "closed") closed = true; try { localStorage.setItem("qhb", JSON.stringify({ t: Date.now(), state, screen: (document.querySelector(".screen.on") || {}).id || "",
+    name: (window.cur && cur.name) || "", usedMB: memInfo().usedMB, up: Math.round((Date.now() - boot) / 60000) })); } catch (_) {} };
+  beat(document.visibilityState);
+  setInterval(() => beat(document.visibilityState), 5000);
+  document.addEventListener("visibilitychange", () => { beat(document.visibilityState); if (document.visibilityState === "hidden") flushLog(); });
+  window.addEventListener("pagehide", () => { beat("closed"); flushLog(); });
+  window.addEventListener("pageshow", (e) => { if (e.persisted) { closed = false; beat(document.visibilityState); } });
+  setTimeout(() => klog("open", { standalone: matchMedia("(display-mode: standalone)").matches, ua: navigator.userAgent.slice(0, 160), ...memInfo() }), 800);
+})();
+
 // 기기 토큰: 처음 한 번 ?k=… 로 열면 기기에 저장
 const params = new URLSearchParams(location.search);
 // 원장님 결정(11/16): 기기 등록 없이 어떤 폰이든 바로 열리게 — 공기계용 키를 내장. 학생은 이름+비밀번호로만 들어옴
@@ -230,7 +270,7 @@ function resetIdle() { clearTimeout(idleT); idleT = setTimeout(() => {
 ["pointerdown", "keydown"].forEach(e => document.addEventListener(e, resetIdle));
 
 // ───── 1. 이름 입력 ─────
-let cur = null;
+let cur = null; Object.defineProperty(window, "cur", { get: () => cur });
 const GRADES = ["초6", "중1", "중2", "중3", "고1", "고2", "고3"];
 let regGrade = "";
 $("grades").innerHTML = GRADES.map(g => `<button data-g="${g}">${g}</button>`).join("");
@@ -270,7 +310,13 @@ function regNext() {
 }
 fastTap($("regNext"), regNext);
 function goNames() { cur = null; pinStudent = null; $("nameIn").value = ""; $("nameErr").textContent = ""; show("sName"); window.scrollTo(0, 0); }
-function showHome() { $("homeName").textContent = cur.name; $("whoName").textContent = cur.name; show("sHome"); }
+// 홈으로 돌아가면 사진 메모리 전부 반납 (오래 켜 두는 공기계가 메모리 부족으로 하얗게 죽지 않게)
+function freePhoto() {
+  try { if (typeof img !== "undefined" && img && img.width) { img.width = 0; img.height = 0; } img = null; } catch (_) {}
+  try { cv.width = 0; cv.height = 0; } catch (_) {}
+  try { pending = null; const ci = $("confirmImg"); if (ci.src.startsWith("blob:")) URL.revokeObjectURL(ci.src); ci.removeAttribute("src"); } catch (_) {}
+}
+function showHome() { freePhoto(); $("homeName").textContent = cur.name; $("whoName").textContent = cur.name; show("sHome"); }
 $("cancelBtn").onclick = () => showHome();
 $("askBtn").onclick = () => { openCamera(); };
 $("logoutBtn").onclick = async () => {
@@ -325,7 +371,9 @@ $("retakeBtn").onclick = openCamera;
 $("file").onchange = async () => {
   try { sessionStorage.removeItem("camOpen"); } catch (_) {}
   const f = $("file").files[0]; if (!f) return;
-  try { await loadPhoto(f); show("sCrop"); } catch (e) { toast("사진을 못 읽었어. 다시 찍어줘."); }
+  const t0 = Date.now();
+  try { await loadPhoto(f); show("sCrop"); klog("photo", { fileMB: +(f.size / 1048576).toFixed(1), w: img && img.width, h: img && img.height, ms: Date.now() - t0, ...memInfo() }); }
+  catch (e) { klog("photo_fail", { msg: String(e && e.message || e).slice(0, 200), fileMB: +(f.size / 1048576).toFixed(1), ...memInfo() }); toast("사진을 못 읽었어. 다시 찍어줘."); }
 };
 
 // ───── 3. 자르기 ─────
@@ -358,7 +406,7 @@ function layoutCrop() {
   const W = wrap.clientWidth - 16, H = wrap.clientHeight - 16;
   if (W < 50 || H < 50) return;
   const r = sel && cv.width ? { x0: norm(sel).x / cv.width, y0: norm(sel).y / cv.height, x1: (norm(sel).x + norm(sel).w) / cv.width, y1: (norm(sel).y + norm(sel).h) / cv.height } : { x0: 0, y0: 0, x1: 1, y1: 1 };
-  DPR = Math.min(3, window.devicePixelRatio || 1);
+  DPR = Math.min(2, window.devicePixelRatio || 1);
   const cssScale = Math.min(W / img.width, H / img.height, 1);
   scale = cssScale * DPR;
   cv.width = Math.round(img.width * scale); cv.height = Math.round(img.height * scale);
@@ -493,7 +541,8 @@ let busy = false, pending = null;
 // 보내기 → 잘린 모습을 한 번 보여주고 확인받기
 $("sendBtn").onclick = async () => {
   if (busy || !cur) return;
-  const [blob, oblob] = await Promise.all([processCrop(), cropOriginal()]);
+  const blob = await processCrop();       // 한 장씩 차례로 (동시에 하면 메모리 두 배)
+  const oblob = await cropOriginal();
   pending = { blob, oblob, crop: cropRatio() };
   try { URL.revokeObjectURL($("confirmImg").src); } catch (_) {}
   $("confirmImg").src = URL.createObjectURL(oblob);
@@ -529,7 +578,9 @@ $("confirmSendBtn").onclick = async () => {
     $("endBtn").onclick = showHome;
     clearTimeout(window._auto);
     checkPhoto(qid);
+    klog("sent", memInfo());
   } catch (e) {
+    klog("send_fail", { msg: String(e.message).slice(0, 200) });
     $("doneBox").innerHTML = `<div class="big">못 보냈어</div><div class="muted">${e.message}<br>와이파이 확인하고 다시 해줘.</div>
       <button class="btn red" id="againBtn">다시 보내기</button><button class="btn ghost" id="endBtn">취소</button>`;
     $("againBtn").onclick = () => { show("sCrop"); };

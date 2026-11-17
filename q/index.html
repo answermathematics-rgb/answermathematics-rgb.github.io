@@ -271,7 +271,7 @@ fastTap($("regNext"), regNext);
 function goNames() { cur = null; pinStudent = null; $("nameIn").value = ""; $("nameErr").textContent = ""; show("sName"); window.scrollTo(0, 0); }
 function showHome() { $("homeName").textContent = cur.name; $("whoName").textContent = cur.name; show("sHome"); }
 $("cancelBtn").onclick = () => showHome();
-$("askBtn").onclick = () => { $("file").value = ""; $("file").click(); };
+$("askBtn").onclick = () => { openCamera(); };
 $("logoutBtn").onclick = async () => {
   const s = SESSION; saveSession(""); goNames();
   if (s) call("kiosk_logout", { session: s }).catch(() => {});
@@ -317,9 +317,12 @@ $("pad").onclick = async (e) => {
 };
 
 // ───── 2. 찍기 ─────
-$("shootBtn").onclick = () => { $("file").value = ""; $("file").click(); };
-$("retakeBtn").onclick = () => { $("file").value = ""; $("file").click(); };
+// 카메라 여는 동안 폰 메모리가 부족하면 이 페이지가 꺼졌다 다시 열림 → 표시해 두고 돌아왔을 때 안내
+const openCamera = () => { try { sessionStorage.setItem("camOpen", String(Date.now())); } catch (_) {} $("file").value = ""; $("file").click(); };
+$("shootBtn").onclick = openCamera;
+$("retakeBtn").onclick = openCamera;
 $("file").onchange = async () => {
+  try { sessionStorage.removeItem("camOpen"); } catch (_) {}
   const f = $("file").files[0]; if (!f) return;
   try { await loadPhoto(f); show("sCrop"); } catch (e) { toast("사진을 못 읽었어. 다시 찍어줘."); }
 };
@@ -327,17 +330,22 @@ $("file").onchange = async () => {
 // ───── 3. 자르기 ─────
 let img = null, scale = 1, sel = null, DPR = 1;
 const cv = $("cropCanvas"), cx = cv.getContext("2d");
+const MAXPX = 2400;  // 폰 사진(1200만~5000만 화소)을 그대로 펼치면 메모리가 터져 화면이 하얗게 죽음 → 처음부터 줄여서 읽기
 async function loadPhoto(file) {
-  const src = await createImageBitmap(file, { imageOrientation: "from-image" }).catch(async () => {
-    const im = new Image(); im.src = URL.createObjectURL(file); await im.decode(); return im;
-  });
+  // 이전 사진 메모리 비우기
+  if (img && img.width) { img.width = 0; img.height = 0; } img = null;
+  let url = null;
+  const src = await createImageBitmap(file, { imageOrientation: "from-image", resizeWidth: MAXPX, resizeQuality: "high" })
+    .catch(() => createImageBitmap(file, { imageOrientation: "from-image" }))
+    .catch(async () => { url = URL.createObjectURL(file); const im = new Image(); im.src = url; await im.decode(); return im; });
   // 사진을 먼저 평범한 캔버스 한 장으로 옮겨 둠 → 화면에 보이는 것과 잘라내는 것이 항상 같은 그림
   // (폰마다 사진 회전정보 처리 방식이 달라 '부분 자르기'만 엉뚱한 곳을 자르는 경우가 있음)
-  const k = Math.min(1, 3200 / Math.max(src.width, src.height));
+  const k = Math.min(1, MAXPX / Math.max(src.width, src.height));
   const base = document.createElement("canvas");
   base.width = Math.round(src.width * k); base.height = Math.round(src.height * k);
   const bg = base.getContext("2d"); bg.imageSmoothingQuality = "high"; bg.drawImage(src, 0, 0, base.width, base.height);
   try { src.close && src.close(); } catch (_) {}
+  if (url) URL.revokeObjectURL(url);
   img = base;
   sel = null;
   requestAnimationFrame(layoutCrop);
@@ -410,10 +418,7 @@ cv.addEventListener("pointercancel", () => { drag = null; });
 
 // 자르기 전 전체 사진 (AI가 잘린 부분을 전체에서 다시 읽을 수 있게)
 function fullPhoto() {
-  const k = Math.min(1, 2400 / Math.max(img.width, img.height));
-  const c = document.createElement("canvas"); c.width = Math.round(img.width * k); c.height = Math.round(img.height * k);
-  const g = c.getContext("2d"); g.imageSmoothingQuality = "high"; g.drawImage(img, 0, 0, c.width, c.height);
-  return new Promise(r => c.toBlob(r, "image/jpeg", 0.85));
+  return new Promise(r => img.toBlob(r, "image/jpeg", 0.85));  // 이미 2400 이하로 줄여 둔 사진
 }
 const cropRatio = () => { const n = norm(sel); return [n.x / cv.width, n.y / cv.height, (n.x + n.w) / cv.width, (n.y + n.h) / cv.height]; };
 
@@ -451,7 +456,8 @@ function processCrop() {
     d[i] = d[i + 1] = d[i + 2] = o;
   }
   g.putImageData(D, 0, 0);
-  return new Promise(r => c.toBlob(r, "image/jpeg", 0.92));
+  sm.width = sm.height = 0; bg.width = bg.height = 0;  // 임시 캔버스 메모리 바로 반납
+  return new Promise(r => c.toBlob((b) => { c.width = c.height = 0; r(b); }, "image/jpeg", 0.92));
 }
 
 // AI가 방금 사진을 다 읽었는지 확인 → 잘렸으면 바로 다시 찍게
@@ -473,7 +479,7 @@ async function checkPhoto(qid) {
       <button class="btn ghost" id="keepIt">그냥 둘래</button>`;
     $("retakeNow").onclick = async () => {
       try { await call("kiosk_retake", { session: SESSION, id: qid }); } catch (_) {}
-      $("file").value = ""; $("file").click();
+      openCamera();
     };
     $("keepIt").onclick = showHome;
     return;
@@ -518,7 +524,7 @@ $("confirmSendBtn").onclick = async () => {
       <button class="btn ghost" id="moreBtn">📷 새로 찍기</button>
       <button class="btn ghost" id="endBtn">확인</button>`;
     $("sameBtn").onclick = () => { sel = { x: 0, y: 0, w: cv.width, h: cv.height }; draw(); show("sCrop"); toast("이번엔 다른 문제에 네모를 맞춰줘"); };
-    $("moreBtn").onclick = () => { $("file").value = ""; $("file").click(); };
+    $("moreBtn").onclick = () => { openCamera(); };
     $("endBtn").onclick = showHome;
     clearTimeout(window._auto);
     checkPhoto(qid);
@@ -557,12 +563,16 @@ document.addEventListener("visibilitychange", async () => {
 });
 
 (async () => {
+  let camLost = false;
+  try { const t = Number(sessionStorage.getItem("camOpen") || 0); camLost = t && Date.now() - t < 10 * 60e3; sessionStorage.removeItem("camOpen"); } catch (_) {}
   if (!SESSION || !TOKEN) return;
   try {
     const { student } = await call("kiosk_me", { session: SESSION });
-    if (student) { cur = student; showHome(); } else saveSession("");
+    if (student) { cur = student; showHome(); if (camLost) toast("사진이 안 넘어왔어. 📷 질문하기 눌러서 다시 찍어줘"); } else saveSession("");
   } catch (_) {}
 })();
+// 페이지를 폰에 저장해 두기 → 다시 열릴 때 하얀 화면 없이 바로 뜸
+if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(() => {});
 // 학생 명단 30분마다 새로고침
 // 로그인 만료 확인 (10분마다) — 4시간 지나면 자동 로그아웃
 setInterval(async () => {

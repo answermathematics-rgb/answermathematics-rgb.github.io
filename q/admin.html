@@ -201,7 +201,7 @@ function renderQueue() {
   waiting.forEach((q, i) => {
     const st = q.students || {};
     h += `<div class="card ${i === 0 ? "first" : ""}"><div class="crow"><div class="num">${i + 1}</div>
-      <div><div class="nm">${esc(st.name)}</div><div class="meta">${esc(st.school || "")} · 오늘 ${nth[q.id]}번째 질문 · ${hm(q.created_at)} (${ago(q.created_at)})</div></div>
+      <div><div class="nm">${esc(st.name)}</div><div class="meta">${esc(st.school || "")} · 오늘 ${nth[q.id]}번째 질문 · ${hm(q.created_at)} (${ago(q.created_at)})${q.typed?.cut ? ' · <b style="color:var(--red)">⚠️ 사진 잘림</b>' : ""}</div></div>
       <button class="done" data-done="${q.id}">완료</button></div>
       <div class="qimg"><img src="${esc(q.url)}" data-full="${esc(q.orig_url || q.url)}" loading="lazy"><button class="x" data-del="${q.id}">✕</button></div></div>`;
   });
@@ -275,7 +275,7 @@ async function loadPrint() {
     const r = await call("admin_print_list", { days_ago: +$("day").value, include_printed: $("incl").checked });
     printItems = r.items; allPrint = r.items;
     const gs = group(printItems);
-    $("plist").innerHTML = gs.length ? gs.map(g => `<div class="pr"><b>${esc(g.st.name)}</b><span>${g.qs.length}문제 · ${Math.ceil(g.qs.length / 2)}장
+    $("plist").innerHTML = gs.length ? gs.map(g => `<div class="pr"><b>${esc(g.st.name)}</b><span>${g.qs.length}문제${g.qs.some(q => q.typed?.cut) ? ` · <b style="color:var(--red)">⚠️ 잘림 ${g.qs.filter(q => q.typed?.cut).length}</b>` : ""}
       <button class="done" style="margin-left:10px;padding:8px 14px;font-size:14px;background:var(--navy)" data-sp="${g.sid}">이 학생만 출력</button>
       <button class="undo" style="margin-left:6px;padding:8px 12px;font-size:14px" data-mk="${g.sid}" data-name="${esc(g.st.name)}">완료</button></span></div>`).join("")
       : '<div class="empty">출력할 질문 문제가 없어요.</div>';

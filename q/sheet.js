@@ -83,7 +83,7 @@
       if (usePhoto(q) || !f?.present) return;
       // AI가 다시 그린 그림(SVG)이 있으면 그걸로, 없으면 원본 사진에서 잘라서
       if (f.svg && !f.use_crop) figs[q.id] = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(f.svg);
-      else if (f.bbox) figs[q.id] = await cropFigure(q.orig_url || q.url, f.bbox);
+      else if (f.bbox) figs[q.id] = await cropFigure(q.typed.img === "full" && q.full_url ? q.full_url : (q.orig_url || q.url), f.bbox);
     }));
     let h = '<div class="sheet-root">';
     groupByStudent(items).forEach((g) => {

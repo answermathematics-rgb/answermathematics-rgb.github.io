@@ -198,9 +198,12 @@ const $ = (id) => document.getElementById(id);
 const show = (id) => { document.querySelectorAll(".screen").forEach(s => s.classList.toggle("on", s.id === id)); resetIdle(); };
 const toast = (m) => { const t = $("toast"); t.textContent = m; t.style.display = "block"; clearTimeout(toast._t); toast._t = setTimeout(() => t.style.display = "none", 3500); };
 
+// 응답이 안 오면 20초 뒤 포기 (화면 꺼졌다 켜졌을 때 버튼이 영영 안 눌리는 '먹통' 방지)
+const fetchT = (url, opt, ms) => { const ac = new AbortController(); const t = setTimeout(() => ac.abort(), ms);
+  return fetch(url, { ...opt, signal: ac.signal }).catch((e) => { throw new Error(e.name === "AbortError" ? "인터넷이 느려. 와이파이 확인하고 다시 해줘" : "인터넷 연결이 안 돼. 와이파이 확인해줘"); }).finally(() => clearTimeout(t)); };
 async function call(action, body = {}) {
-  const r = await fetch(FN, { method: "POST", headers: { "content-type": "application/json", apikey: ANON, authorization: "Bearer " + ANON },
-    body: JSON.stringify({ action, token: TOKEN, ...body }) });
+  const r = await fetchT(FN, { method: "POST", headers: { "content-type": "application/json", apikey: ANON, authorization: "Bearer " + ANON },
+    body: JSON.stringify({ action, token: TOKEN, ...body }) }, 20000);
   const j = await r.json().catch(() => ({}));
   if (!r.ok) throw new Error(j.error || "오류 " + r.status);
   return j;
@@ -217,6 +220,8 @@ setInterval(() => { const d = new Date(); const t = d.toLocaleTimeString("ko-KR"
 // 가만히 두면 처음 화면으로 (90초)
 let idleT;
 // 가만히 두면: 로그인 전 화면(비밀번호 등)은 이름 화면으로, 로그인 후엔 홈으로
+// 화면을 만지고 있으면 대기 시간 다시 셈 (자르는 중에 홈으로 튕기지 않게)
+["pointerdown", "keydown"].forEach((ev) => document.addEventListener(ev, () => resetIdle(), { capture: true, passive: true }));
 function resetIdle() { clearTimeout(idleT); idleT = setTimeout(() => {
   if (busy || $("sName").classList.contains("on") || $("sHome").classList.contains("on")) return;
   if (cur && SESSION) showHome(); else goNames();
@@ -496,7 +501,7 @@ $("confirmSendBtn").onclick = async () => {
     const { blob, oblob, crop } = pending;
     const fblob = await fullPhoto();
     const { path, signedUrl, origPath, origSignedUrl, fullPath, fullSignedUrl } = await call("kiosk_upload_url", { session: SESSION });
-    const put = (u, b) => fetch(u, { method: "PUT", headers: { "content-type": "image/jpeg", "x-upsert": "false" }, body: b });
+    const put = (u, b) => fetchT(u, { method: "PUT", headers: { "content-type": "image/jpeg", "x-upsert": "false" }, body: b }, 60000);
     const [up, oup, fup] = await Promise.all([put(signedUrl, blob),
       origSignedUrl ? put(origSignedUrl, oblob).catch(() => null) : Promise.resolve(null),
       fullSignedUrl ? put(fullSignedUrl, fblob).catch(() => null) : Promise.resolve(null)]);
@@ -525,6 +530,31 @@ $("confirmSendBtn").onclick = async () => {
     if (/로그인/.test(e.message)) { saveSession(""); $("againBtn").style.display = "none"; $("endBtn").textContent = "다시 로그인"; $("endBtn").onclick = goNames; }
   } finally { busy = false; }
 };
+
+// 학생이 쓰는 동안은 화면이 안 꺼지게 (꺼지면 폰 잠금화면이 뜨거나 페이지가 멈춤)
+let wake = null;
+async function keepAwake() {
+  try {
+    const want = !!(cur && SESSION) && document.visibilityState === "visible";
+    if (want && !wake && navigator.wakeLock) { wake = await navigator.wakeLock.request("screen"); wake.addEventListener("release", () => { wake = null; }); }
+    if (!want && wake) { await wake.release(); wake = null; }
+  } catch (_) { wake = null; }
+}
+setInterval(keepAwake, 5000);
+// 화면 다시 켰을 때: 멈춘 화면 복구 + 로그인 상태 다시 확인
+document.addEventListener("visibilitychange", async () => {
+  if (document.visibilityState !== "visible") return;
+  keepAwake();
+  if ($("sCrop").classList.contains("on")) requestAnimationFrame(layoutCrop);  // 지워진 사진 다시 그리기
+  if (busy) return;
+  if (SESSION) {
+    try {
+      const { student } = await call("kiosk_me", { session: SESSION });
+      if (!student) { saveSession(""); goNames(); }
+      else { cur = student; if (!document.querySelector(".screen.on") || $("sName").classList.contains("on")) showHome(); }
+    } catch (_) {}
+  }
+});
 
 (async () => {
   if (!SESSION || !TOKEN) return;

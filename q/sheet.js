@@ -5,32 +5,36 @@
   const CSS = `
   .sheet-root, .sheet-root * { -webkit-print-color-adjust:exact; print-color-adjust:exact; }
   .sheet-root { font-family: "Pretendard","Noto Sans KR","Malgun Gothic",sans-serif; color:#111; }
-  .sheet-student { break-before: page; page-break-before: always; }
-  .sheet-student:first-child { break-before: auto; page-break-before: auto; }
+  /* 한 장 = 머리말 + 2×2 네 문제 + 꼬리말 (A4, 여백 10mm 기준 190×277mm) */
+  .sh-page { height:268mm; display:flex; flex-direction:column; break-after:page; page-break-after:always; overflow:hidden; }
+  .sh-page:last-child { break-after:auto; page-break-after:auto; }
+  .sh-grid { flex:1; display:grid; grid-template-columns:1fr 1fr; grid-template-rows:1fr 1fr; min-height:0; }
+  .sh-grid .sh-q:nth-child(odd) { border-right:1px dashed #bbb; padding-right:4mm; }
+  .sh-grid .sh-q:nth-child(even) { padding-left:4mm; }
+  .sh-grid .sh-q:nth-child(n+3) { border-top:1px dashed #bbb; padding-top:4mm; }
+  .sh-pfoot { display:flex; justify-content:flex-end; align-items:center; height:9mm; }
+  .sh-pfoot img { height:6.5mm; }
+  @media screen { .sh-page { border:1px solid #ddd; margin-bottom:6mm; padding:4mm; height:auto; min-height:268mm; } }
   .sh-head { display:flex; align-items:center; gap:3mm; border-bottom:1.5px solid #1E2A44; padding-bottom:3mm; margin-bottom:5mm; }
   .sh-head .lg { height:11mm; }
   .sh-head .bar { width:1.2mm; height:9mm; background:#B62A1D; }
   .sh-head .ttl { font-size:20pt; font-weight:900; color:#1E2A44; letter-spacing:-.3px; }
   .sh-head .info { margin-left:auto; font-size:11pt; color:#1E2A44; }
   .sh-head .info b { font-size:14pt; }
-  .sh-q { break-inside: avoid; page-break-inside: avoid; min-height:118mm; padding-bottom:4mm; position:relative; }
-  .sh-q + .sh-q { border-top:1px dashed #bbb; padding-top:5mm; }
+  .sh-q { position:relative; min-width:0; min-height:0; overflow:hidden; padding-bottom:2mm; }
   .sh-q .qn { font-weight:800; font-size:13pt; color:#000; margin-bottom:2.5mm; }
   .sh-q .qn small { font-weight:400; font-size:8.5pt; color:#999; margin-left:2mm; }
-  .sh-q .body { font-size:11pt; line-height:1.85; word-break:keep-all; }
+  .sh-q .body { font-size:10.5pt; line-height:1.75; word-break:keep-all; }
   .sh-q .body .katex { font-size:1.05em; }
   .sh-q .box { border:1px solid #333; border-radius:2mm; padding:2.5mm 3.5mm; margin:2mm 0; }
   .sh-q .fig { margin:3mm 0 1mm; text-align:center; }
-  .sh-q .fig img { width:74mm; max-width:80%; max-height:72mm; object-fit:contain; }
-  .sh-q .photo img { max-width:100%; max-height:95mm; object-fit:contain; }
-  .sh-q .choices { display:grid; gap:1.5mm 4mm; margin-top:3mm; font-size:11pt; }
+  .sh-q .fig img { width:58mm; max-width:90%; max-height:46mm; object-fit:contain; }
+  .sh-q .photo img { max-width:100%; max-height:80mm; object-fit:contain; }
+  .sh-q .choices { display:grid; gap:1.2mm 3mm; margin-top:2.5mm; font-size:10.5pt; }
   .sh-q .choices.c5 { grid-template-columns:repeat(5,1fr); }
   .sh-q .choices.c3 { grid-template-columns:repeat(3,1fr); }
   .sh-q .choices.c2 { grid-template-columns:repeat(2,1fr); }
   .sh-q .choices.c1 { grid-template-columns:1fr; }
-  .sh-foot { position:fixed; right:0; bottom:0; }
-  .sh-foot img { height:7mm; }
-  @media screen { .sheet-root .sh-foot { position:static; text-align:right; margin-top:4mm; } }
   `;
   const CIRC = ["①", "②", "③", "④", "⑤", "⑥", "⑦", "⑧"];
   const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
@@ -62,7 +66,7 @@
   function choicesHtml(ch) {
     if (!ch || !ch.length) return "";
     const plainLen = Math.max(...ch.map((c) => String(c).replace(/\$|\\[a-z]+|[{}]/g, "").length));
-    const cls = plainLen <= 9 ? "c5" : plainLen <= 18 ? "c3" : plainLen <= 32 ? "c2" : "c1";
+    const cls = plainLen <= 5 ? "c5" : plainLen <= 10 ? "c3" : plainLen <= 18 ? "c2" : "c1"; // 반 폭 칸 기준
     return `<div class="choices ${cls}">${ch.map((c, i) => `<div>${CIRC[i] || i + 1} ${bodyHtml(c)}</div>`).join("")}</div>`;
   }
   function groupByStudent(items) {
@@ -86,24 +90,28 @@
       else if (f.bbox) figs[q.id] = await cropFigure(q.typed.img === "full" && q.full_url ? q.full_url : (q.orig_url || q.url), f.bbox);
     }));
     let h = '<div class="sheet-root">';
+    const PER = 4; // 한 장에 4문제 (2×2)
     groupByStudent(items).forEach((g) => {
-      h += `<div class="sheet-student"><div class="sh-head"><img class="lg" src="${base}logo.png"><div class="bar"></div><div class="ttl">오답 정리</div>
-        <div class="info"><b>${esc(g.name)}</b> · ${esc(ds)} · ${g.qs.length}문제</div></div>`;
-      g.qs.forEach((q, i) => {
-        const t = q.typed || {};
-        const src = t.number ? `<small>원래 ${esc(t.number)}번</small>` : "";
-        h += `<div class="sh-q"><div class="qn">${i + 1}${src}</div>`;
-        if (usePhoto(q)) h += `<div class="photo"><img src="${esc(q.url)}" crossorigin="anonymous"></div>`;
-        else {
-          h += `<div class="body">${bodyHtml(t.body)}</div>`;
-          if (figs[q.id]) h += `<div class="fig"><img src="${figs[q.id]}"></div>`;
-          h += choicesHtml(t.choices);
-        }
-        h += "</div>";
-      });
-      h += "</div>";
+      const pages = Math.ceil(g.qs.length / PER);
+      for (let p = 0; p < pages; p++) {
+        h += `<div class="sh-page"><div class="sh-head"><img class="lg" src="${base}logo.png"><div class="bar"></div><div class="ttl">오답 정리</div>
+          <div class="info"><b>${esc(g.name)}</b> · ${esc(ds)} · ${g.qs.length}문제${pages > 1 ? ` (${p + 1}/${pages})` : ""}</div></div><div class="sh-grid">`;
+        g.qs.slice(p * PER, p * PER + PER).forEach((q, j) => {
+          const i = p * PER + j, t = q.typed || {};
+          const src = t.number ? `<small>원래 ${esc(t.number)}번</small>` : "";
+          h += `<div class="sh-q"><div class="qn">${i + 1}${src}</div>`;
+          if (usePhoto(q)) h += `<div class="photo"><img src="${esc(q.url)}" crossorigin="anonymous"></div>`;
+          else {
+            h += `<div class="body">${bodyHtml(t.body)}</div>`;
+            if (figs[q.id]) h += `<div class="fig"><img src="${figs[q.id]}"></div>`;
+            h += choicesHtml(t.choices);
+          }
+          h += "</div>";
+        });
+        h += `</div><div class="sh-pfoot"><img src="${base}logo-ko.png"></div></div>`;
+      }
     });
-    h += `<div class="sh-foot"><img src="${base}logo-ko.png"></div></div>`;
+    h += "</div>";
     container.innerHTML = h;
     if (window.renderMathInElement) {
       window.renderMathInElement(container, { delimiters: [{ left: "$$", right: "$$", display: true }, { left: "$", right: "$", display: false }], throwOnError: false, strict: "ignore" });

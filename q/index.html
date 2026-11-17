@@ -71,6 +71,8 @@
   .tag { display:inline-block; background:#EEF0F3; border-radius:999px; padding:4px 12px; font-size:13px; color:var(--muted); }
   .btn.huge { font-size:24px; padding:28px 22px; }
   .linkbtn { border:0; background:none; color:var(--muted); font-size:15px; text-decoration:underline; padding:10px; }
+  .chk { font-size:14px; color:var(--muted); display:flex; align-items:center; gap:8px; min-height:22px; }
+  .spinner.sm { width:16px; height:16px; border-width:3px; }
   #toast { position:fixed; left:50%; bottom:24px; transform:translateX(-50%); background:var(--navy); color:#fff; padding:12px 18px; border-radius:12px; font-size:15px; display:none; max-width:90%; }
 </style>
 </head>
@@ -126,7 +128,7 @@
   <div class="center">
     <span class="tag">이 공기계는 지금</span>
     <div class="me" id="homeName"></div>
-    <div class="muted" id="homeInfo">질문 있으면 아래 버튼 눌러.</div>
+    <div class="muted" id="homeInfo">질문 있으면 아래 버튼 눌러.<br><b>문제 전체(번호·보기까지)가 다 나오게</b> 찍어줘.</div>
     <button class="btn red huge" id="askBtn">📷 질문하기</button>
     <div style="height:30px"></div>
     <button class="btn ghost" id="logoutBtn">공기계 반납 (로그아웃)</button>
@@ -151,7 +153,7 @@
 <section class="screen" id="sCrop">
   <div id="cropWrap"><canvas id="cropCanvas"></canvas></div>
   <div class="cropBar">
-    <div class="hint">손가락으로 <b>문제 하나만</b> 네모로 그어줘 · 두 문제면 하나씩 따로</div>
+    <div class="hint">손가락으로 <b>문제 하나 전체</b>(번호·글·보기 다)를 네모로 그어줘 · 잘리면 출력 못 해</div>
     <div class="row">
       <button class="btn ghost" id="retakeBtn">다시 찍기</button>
       <button class="btn red" id="sendBtn">보내기</button>
@@ -397,6 +399,34 @@ function processCrop() {
   return new Promise(r => c.toBlob(r, "image/jpeg", 0.92));
 }
 
+// AI가 방금 사진을 다 읽었는지 확인 → 잘렸으면 바로 다시 찍게
+async function checkPhoto(qid) {
+  const autoHome = () => { clearTimeout(window._auto); window._auto = setTimeout(() => { if ($("sDone").classList.contains("on")) showHome(); }, 12000); };
+  if (!qid) { autoHome(); return; }
+  for (let i = 0; i < 25; i++) {
+    await new Promise(r => setTimeout(r, 2000));
+    if (!$("chk")) return;
+    let r; try { r = await call("kiosk_q_status", { session: SESSION, id: qid }); } catch (_) { continue; }
+    if (r.ocr_status === "error") break;
+    if (r.ocr_status !== "done") continue;
+    if (!r.bad) { $("chk").innerHTML = "✅ 문제 잘 찍혔어"; autoHome(); return; }
+    // 잘림 → 다시 찍기 안내
+    $("doneBox").innerHTML = `
+      <div class="big" style="color:var(--red)">문제가 잘렸어</div>
+      <div class="muted">문제 글이나 보기가 사진 밖으로 잘려서 선생님이 출력을 못 해.<br><b>문제 전체가 화면에 다 들어오게</b> 조금 떨어져서 다시 찍어줘.</div>
+      <button class="btn red" id="retakeNow">📷 다시 찍기</button>
+      <button class="btn ghost" id="keepIt">그냥 둘래</button>`;
+    $("retakeNow").onclick = async () => {
+      try { await call("kiosk_retake", { session: SESSION, id: qid }); } catch (_) {}
+      $("file").value = ""; $("file").click();
+    };
+    $("keepIt").onclick = showHome;
+    return;
+  }
+  if ($("chk")) $("chk").textContent = "";
+  autoHome();
+}
+
 let busy = false;
 $("sendBtn").onclick = async () => {
   if (busy || !cur) return; busy = true;
@@ -408,19 +438,21 @@ $("sendBtn").onclick = async () => {
     const put = (u, b) => fetch(u, { method: "PUT", headers: { "content-type": "image/jpeg", "x-upsert": "false" }, body: b });
     const [up, oup] = await Promise.all([put(signedUrl, blob), origSignedUrl ? put(origSignedUrl, oblob).catch(() => null) : Promise.resolve(null)]);
     if (!up.ok) throw new Error("사진 업로드 실패 (" + up.status + ")");
-    const { position } = await call("kiosk_submit", { session: SESSION, path, orig_path: oup && oup.ok ? origPath : "" });
+    const { position, id: qid } = await call("kiosk_submit", { session: SESSION, path, orig_path: oup && oup.ok ? origPath : "" });
     $("doneBox").innerHTML = `
       <div class="who"><b>${cur.name}</b> 질문 접수</div>
       <div class="badge">${position}번째</div>
       <div class="big">선생님이 순서대로 갈게</div>
       <div class="muted">기다리는 동안 다른 문제 풀고 있어.</div>
+      <div class="chk" id="chk"><span class="spinner sm"></span> 문제가 잘 찍혔는지 확인하는 중…</div>
       <button class="btn navy" id="sameBtn">✂️ 같은 사진에서 다른 문제 자르기</button>
       <button class="btn ghost" id="moreBtn">📷 새로 찍기</button>
       <button class="btn ghost" id="endBtn">확인</button>`;
     $("sameBtn").onclick = () => { sel = { x: 0, y: 0, w: cv.width, h: cv.height }; draw(); show("sCrop"); toast("이번엔 다른 문제를 네모로 그어줘"); };
     $("moreBtn").onclick = () => { $("file").value = ""; $("file").click(); };
     $("endBtn").onclick = showHome;
-    clearTimeout(window._auto); window._auto = setTimeout(() => { if ($("sDone").classList.contains("on")) showHome(); }, 15000);
+    clearTimeout(window._auto);
+    checkPhoto(qid);
   } catch (e) {
     $("doneBox").innerHTML = `<div class="big">못 보냈어</div><div class="muted">${e.message}<br>와이파이 확인하고 다시 해줘.</div>
       <button class="btn red" id="againBtn">다시 보내기</button><button class="btn ghost" id="endBtn">취소</button>`;

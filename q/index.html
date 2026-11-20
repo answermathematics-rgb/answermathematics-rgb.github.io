@@ -309,6 +309,18 @@ function regNext() {
   pinStudent.school = sc; pinStudent.grade = regGrade; $("schoolIn").blur(); openPin();
 }
 fastTap($("regNext"), regNext);
+// ───── 폰 뒤로가기 버튼 ─────
+// 그냥 두면 앱이 꺼지거나 이전 페이지로 나가버려서 오류처럼 보임 → 앱 안에서 한 단계 뒤로만 가게
+try { history.replaceState({ q: 0 }, ""); history.pushState({ q: 1 }, ""); } catch (_) {}
+window.addEventListener("popstate", () => {
+  try { history.pushState({ q: 1 }, ""); } catch (_) {}
+  const on = (document.querySelector(".screen.on") || {}).id;
+  if (busy) return;                                   // 보내는 중엔 무시
+  if (on === "sConfirm") show("sCrop");
+  else if (on === "sCrop" || on === "sShoot" || on === "sDone") { if (cur) showHome(); else goNames(); }
+  else if (on === "sReg" || on === "sPin") goNames();
+  // 로그인·홈 화면에서는 아무것도 안 함 (앱이 꺼지지 않게)
+});
 function goNames() { cur = null; pinStudent = null; $("nameIn").value = ""; $("nameErr").textContent = ""; show("sName"); window.scrollTo(0, 0); }
 // 홈으로 돌아가면 사진 메모리 전부 반납 (오래 켜 두는 공기계가 메모리 부족으로 하얗게 죽지 않게)
 function freePhoto() {
@@ -404,7 +416,8 @@ function layoutCrop() {
   if (!img) return;
   const wrap = $("cropWrap");
   const W = wrap.clientWidth - 16, H = wrap.clientHeight - 16;
-  if (W < 50 || H < 50) return;
+  // 화면 배치가 아직 안 끝났으면(카메라에서 막 돌아온 직후 등) 잠깐 뒤에 다시
+  if (W < 50 || H < 50) { clearTimeout(layoutCrop._t); layoutCrop._t = setTimeout(layoutCrop, 120); return; }
   const r = sel && cv.width ? { x0: norm(sel).x / cv.width, y0: norm(sel).y / cv.height, x1: (norm(sel).x + norm(sel).w) / cv.width, y1: (norm(sel).y + norm(sel).h) / cv.height } : { x0: 0, y0: 0, x1: 1, y1: 1 };
   DPR = Math.min(2, window.devicePixelRatio || 1);
   const cssScale = Math.min(W / img.width, H / img.height, 1);
@@ -438,6 +451,7 @@ const pos = (e) => {
 // 자르기: 모서리·테두리를 끌면 크기 조절, 네모 안을 끌면 이동. (빈 곳을 눌러도 새 네모가 생기지 않음 → 실수로 잘리는 일 방지)
 let drag = null;
 cv.addEventListener("pointerdown", (e) => {
+  if (!img || !sel) { requestAnimationFrame(layoutCrop); return; }  // 사진 배치 전 터치 무시
   cv.setPointerCapture(e.pointerId);
   const p = pos(e), n = norm(sel), R = 30 * cv.width / (cv.clientWidth || 1);
   const near = (a, b) => Math.abs(a - b) < R;
@@ -448,7 +462,7 @@ cv.addEventListener("pointerdown", (e) => {
   else drag = null;
 });
 cv.addEventListener("pointermove", (e) => {
-  if (!drag) return;
+  if (!drag || !sel) return;
   const p = pos(e), s0 = drag.start, MIN = 60 * DPR;
   p.x = Math.max(0, Math.min(cv.width, p.x)); p.y = Math.max(0, Math.min(cv.height, p.y));
   if (drag.mode === "move") {

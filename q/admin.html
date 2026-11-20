@@ -74,6 +74,10 @@
 
   /* ───── 출력물 ───── */
   #printArea { display:none; }
+  /* PDF 만들 때만 쓰는 숨은 조판 영역 (A4 여백 10mm 안쪽 190×277mm) */
+  #pdfArea { position:fixed; left:-20000px; top:0; width:190mm; background:#fff; }
+  #pdfArea .sh-page { border:0 !important; margin:0 !important; padding:0 !important; height:277mm !important; min-height:0 !important; background:#fff; }
+  .pbtn.pdf, .pdfb { background:#fff !important; color:var(--navy) !important; border:1.5px solid var(--navy) !important; }
   @page { size:A4; margin:10mm; }
   @media print {
     body { background:#fff; }
@@ -116,6 +120,8 @@
   <div style="height:14px"></div>
   <button class="btn red" id="printBtn" disabled>출력하기</button>
   <div style="height:8px"></div>
+  <button class="btn ghost" id="pdfAllBtn">⬇ 전체 PDF 다운로드</button>
+  <div style="height:8px"></div>
   <button class="btn ghost" id="testBtn">🔔 워치 알림 테스트</button>
   <div class="sec">공기계 비밀번호</div>
   <div class="muted" style="font-size:13px;color:var(--muted);margin:0 4px 8px">학생이 비밀번호를 까먹었거나 잠겼으면 초기화 → 다음 로그인 때 새로 만들어요.</div>
@@ -135,6 +141,7 @@
 <div id="modal"><div class="box"><div class="t" id="mt"></div><div class="d" id="md"></div><div class="row" id="mr"></div></div></div>
 <div id="toast"></div>
 <div id="printArea"></div>
+<div id="pdfArea"></div>
 
 <link rel="stylesheet" href="katex/katex.min.css">
 <script src="katex/katex.min.js"></script>
@@ -275,6 +282,31 @@ async function localPrint(list, label, markAfter, why) {
   }
   loadPrint();
 }
+// ───── PDF 다운로드: 인쇄하는 것과 똑같은 오답 정리지를 PDF 파일로 ─────
+const loadJs = (src) => new Promise((res, rej) => { if (document.querySelector(`script[src="${src}"]`)) return res(); const s = document.createElement("script"); s.src = src; s.onload = res; s.onerror = () => rej(new Error("PDF 도구를 못 불러왔어요")); document.head.appendChild(s); });
+async function downloadPdf(list, label, fileBase) {
+  if (!list.length) return;
+  toast("PDF 만드는 중… (문제 많으면 몇 초 걸려요)");
+  try {
+    await Promise.all([loadJs("vendor/html2canvas.min.js"), loadJs("vendor/jspdf.umd.min.js")]);
+    const area = $("pdfArea");
+    await AnswerSheet.build(area, list, { label });
+    await Promise.all([...area.querySelectorAll("img")].map(im => im.complete ? 0 : new Promise(r => { im.onload = im.onerror = r; })));
+    if (document.fonts && document.fonts.ready) await document.fonts.ready;
+    const pdf = new jspdf.jsPDF({ unit: "mm", format: "a4" });
+    const pages = [...area.querySelectorAll(".sh-page")];
+    for (let i = 0; i < pages.length; i++) {
+      const c = await html2canvas(pages[i], { scale: 2.5, useCORS: true, backgroundColor: "#ffffff", logging: false });
+      if (i) pdf.addPage();
+      pdf.addImage(c.toDataURL("image/jpeg", 0.9), "JPEG", 10, 10, 190, 277);
+      c.width = c.height = 0;
+    }
+    pdf.save(`${fileBase || "질문"}.pdf`);
+    toast("PDF 받았어요 (다운로드 폴더)");
+  } catch (e) { toast("PDF 만들기 실패: " + e.message); }
+  finally { $("pdfArea").innerHTML = ""; }
+}
+const fileDay = (d) => (d || todayKst()).slice(5).replace("-", "");
 // 출력 탭 날짜: 오늘(한국 시간) 기준 며칠 전인지
 const todayKst = () => new Date(Date.now() + 9 * 3600e3).toISOString().slice(0, 10);
 const daysAgoOf = (d) => Math.max(0, Math.round((new Date(todayKst() + "T00:00:00Z") - new Date(d + "T00:00:00Z")) / 864e5));
@@ -297,6 +329,7 @@ async function loadPrint() {
     const gs = group(printItems);
     $("plist").innerHTML = gs.length ? gs.map(g => `<div class="pr"><b>${esc(g.st.name)}</b><span>${g.qs.length}문제${g.qs.some(q => q.typed?.cut) ? ` · <b style="color:var(--red)">⚠️ 잘림 ${g.qs.filter(q => q.typed?.cut).length}</b>` : ""}
       <button class="done" style="margin-left:10px;padding:8px 14px;font-size:14px;background:var(--navy)" data-sp="${g.sid}">이 학생만 출력</button>
+      <button class="done pdfb" style="margin-left:6px;padding:8px 12px;font-size:14px" data-pdf="${g.sid}" data-name="${esc(g.st.name)}">PDF</button>
       <button class="undo" style="margin-left:6px;padding:8px 12px;font-size:14px" data-mk="${g.sid}" data-name="${esc(g.st.name)}">완료</button></span></div>`).join("")
       : '<div class="empty">출력할 질문 문제가 없어요.</div>';
     $("printBtn").disabled = !gs.length;
@@ -329,6 +362,7 @@ $("printBtn").onclick = async () => {
   $("printBtn").disabled = true; $("printBtn").textContent = "준비 중…";
   await printSet(allPrint, printLabel());
 };
+$("pdfAllBtn").onclick = async () => { if (!allPrint || !allPrint.length) return toast("받을 문제가 없어요"); $("pdfAllBtn").disabled = true; await downloadPdf(allPrint, printLabel(), `${fileDay($("day").value)}_전체_질문`); $("pdfAllBtn").disabled = false; };
 $("plist").onclick = async (e) => {
   // 완료: 이미 출력한 학생은 목록에서 빼기 (출력 완료로 표시)
   const mk = e.target.closest("[data-mk]");
@@ -339,6 +373,8 @@ $("plist").onclick = async (e) => {
     toast(`${mk.dataset.name} 출력 완료로 표시했어요`); loadPrint(); loadQueue(true);
     return;
   }
+  const pdfB = e.target.closest("[data-pdf]");
+  if (pdfB) { pdfB.disabled = true; await downloadPdf(allPrint.filter(q => q.student_id === pdfB.dataset.pdf), printLabel(), `${fileDay($("day").value)}_${pdfB.dataset.name}_질문`); pdfB.disabled = false; return; }
   const b = e.target.closest("[data-sp]"); if (!b) return;
   b.disabled = true; b.textContent = "준비 중…";
   await printSet(allPrint.filter(q => q.student_id === b.dataset.sp), printLabel());
@@ -393,12 +429,12 @@ function renderHist(sid) {
   histItems.forEach(q => { const d = ymd(q.created_at); if (!byDay.has(d)) byDay.set(d, new Map()); const g = byDay.get(d); if (!g.has(q.student_id)) g.set(q.student_id, []); g.get(q.student_id).push(q); });
   byDay.forEach((g, d) => {
     const nAll = [...g.values()].reduce((a, qs) => a + qs.length, 0);
-    h += `<div class="day"><span>${dayLabel(d)}</span>${g.size > 1 ? `<button class="pbtn" data-pd="${d}">이 날 전체 출력 · ${g.size}명 ${nAll}문제</button>` : ""}</div>`;
+    h += `<div class="day"><span>${dayLabel(d)}</span><span>${g.size > 1 ? `<button class="pbtn" data-pd="${d}">이 날 전체 출력 · ${g.size}명 ${nAll}문제</button>` : ""} <button class="pbtn pdf" data-pd="${d}" data-pdfmode="1">PDF</button></span></div>`;
     g.forEach((qs, sid2) => {
       const st = qs[0].students || {};
       h += `<div class="hrow"><div class="who"><b>${esc(st.name)}</b><span>${qs.length}문제 · ${hm(qs[qs.length - 1].created_at)}</span></div>
         <div class="thumbs">${qs.slice().reverse().map(q => `<div class="thumb"><img src="${esc(q.url)}" data-full="${esc(q.orig_url || q.url)}" loading="lazy"></div>`).join("")}</div>
-        <button class="pbtn" data-pd="${d}" data-ps="${sid2}">출력</button></div>`;
+        <div style="display:flex;flex-direction:column;gap:6px;align-self:center"><button class="pbtn" data-pd="${d}" data-ps="${sid2}">출력</button><button class="pbtn pdf" data-pd="${d}" data-ps="${sid2}" data-pdfmode="1">PDF</button></div></div>`;
     });
   });
   $("hList").innerHTML = h;
@@ -416,8 +452,11 @@ $("hList").onclick = async (e) => {
   if (pb) {
     const d = pb.dataset.pd, sid = pb.dataset.ps;
     const list = histItems.filter(q => ymd(q.created_at) === d && (!sid || q.student_id === sid)).sort((a, b) => a.created_at < b.created_at ? -1 : 1);
-    const t = pb.textContent; pb.disabled = true; pb.textContent = "보내는 중…";
-    await printSet(list, shortDay(d), false);
+    const t = pb.textContent; pb.disabled = true; pb.textContent = pb.dataset.pdfmode ? "만드는 중…" : "보내는 중…";
+    if (pb.dataset.pdfmode) {
+      const who = sid ? (list[0]?.students?.name || "") : "전체";
+      await downloadPdf(list, shortDay(d), `${d.slice(5).replace("-", "")}_${who}_질문`);
+    } else await printSet(list, shortDay(d), false);
     pb.disabled = false; pb.textContent = t;
     return;
   }

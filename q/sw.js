@@ -1,5 +1,5 @@
 // 공기계 페이지 저장: 항상 최신 페이지를 먼저 받아오고, 인터넷이 느리거나 끊기면 저장된 페이지를 바로 보여줌
-const CACHE = "q-kiosk-v3";
+const CACHE = "q-kiosk-v4";
 const FILES = ["./", "./index.html", "./manifest.webmanifest", "./logo.png", "./icon-192.png"];
 self.addEventListener("install", (e) => { self.skipWaiting(); e.waitUntil(caches.open(CACHE).then((c) => c.addAll(FILES)).catch(() => {})); });
 self.addEventListener("activate", (e) => { e.waitUntil(self.clients.claim()); });

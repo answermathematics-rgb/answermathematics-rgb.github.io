@@ -44,6 +44,17 @@
   .btn:disabled { opacity:.5; }
   .row { display:flex; gap:10px; width:100%; max-width:420px; }
   .row .btn { flex:1; }
+  /* 앱 안 카메라 (카메라 앱으로 넘어가면 저사양 폰이 이 페이지를 꺼버려서 하얀 화면·렉이 생김) */
+  #sCam { background:#000; }
+  #camWrap { position:relative; flex:1; overflow:hidden; background:#000; display:flex; align-items:center; justify-content:center; }
+  #camVideo { width:100%; height:100%; object-fit:contain; background:#000; }
+  #camGuide { position:absolute; left:6%; right:6%; top:10%; bottom:10%; border:2px dashed rgba(255,255,255,.55); border-radius:12px; pointer-events:none; }
+  #camMsg { position:absolute; left:0; right:0; top:14px; text-align:center; color:#fff; font-size:15px; text-shadow:0 1px 3px #000; }
+  .camBar { display:flex; align-items:center; justify-content:space-between; padding:14px 22px 22px; background:#000; }
+  .camBar button.side { background:none; border:0; color:#fff; font-size:16px; padding:10px; min-width:84px; }
+  #shutter { width:76px; height:76px; border-radius:50%; border:5px solid #fff; background:#B62A1D; }
+  #shutter:active { transform:scale(.94); }
+  #shutter:disabled { opacity:.5; }
   #cropWrap { position:relative; flex:1; display:flex; align-items:center; justify-content:center; padding:8px; touch-action:none; overflow:hidden; background:#111; }
   #cropCanvas { max-width:100%; max-height:100%; touch-action:none; }
   .cropBar { padding:12px 18px 18px; background:#fff; display:flex; flex-direction:column; gap:10px; align-items:center; }
@@ -148,6 +159,16 @@
     <button class="btn ghost" id="cancelBtn">취소</button>
   </div>
   <input type="file" id="file" accept="image/*" capture="environment" hidden>
+</section>
+
+<!-- 2-1. 앱 안 카메라 -->
+<section class="screen" id="sCam">
+  <div id="camWrap"><video id="camVideo" playsinline autoplay muted></video><div id="camGuide"></div><div id="camMsg">문제 하나가 점선 안에 크게 들어오게 찍어줘</div></div>
+  <div class="camBar">
+    <button class="side" id="camCancel">취소</button>
+    <button id="shutter" aria-label="찍기"></button>
+    <button class="side" id="camNative">기본 카메라</button>
+  </div>
 </section>
 
 <!-- 3. 자르기 -->
@@ -317,6 +338,7 @@ window.addEventListener("popstate", () => {
   const on = (document.querySelector(".screen.on") || {}).id;
   if (busy) return;                                   // 보내는 중엔 무시
   if (on === "sConfirm") show("sCrop");
+  else if (on === "sCam") { stopCam(); if (cur) showHome(); else goNames(); }
   else if (on === "sCrop" || on === "sShoot" || on === "sDone") { if (cur) showHome(); else goNames(); }
   else if (on === "sReg" || on === "sPin") goNames();
   // 로그인·홈 화면에서는 아무것도 안 함 (앱이 꺼지지 않게)
@@ -328,7 +350,7 @@ function freePhoto() {
   try { cv.width = 0; cv.height = 0; } catch (_) {}
   try { pending = null; const ci = $("confirmImg"); if (ci.src.startsWith("blob:")) URL.revokeObjectURL(ci.src); ci.removeAttribute("src"); } catch (_) {}
 }
-function showHome() { freePhoto(); $("homeName").textContent = cur.name; $("whoName").textContent = cur.name; show("sHome"); }
+function showHome() { try { stopCam(); } catch (_) {} freePhoto(); $("homeName").textContent = cur.name; $("whoName").textContent = cur.name; show("sHome"); }
 $("cancelBtn").onclick = () => showHome();
 $("askBtn").onclick = () => { openCamera(); };
 $("logoutBtn").onclick = async () => {
@@ -377,7 +399,48 @@ $("pad").onclick = async (e) => {
 
 // ───── 2. 찍기 ─────
 // 카메라 여는 동안 폰 메모리가 부족하면 이 페이지가 꺼졌다 다시 열림 → 표시해 두고 돌아왔을 때 안내
-const openCamera = () => { try { sessionStorage.setItem("camOpen", String(Date.now())); } catch (_) {} $("file").value = ""; $("file").click(); };
+// 폰 기본 카메라 앱 (앱 안 카메라가 안 될 때만)
+const openNativeCamera = () => { stopCam(); try { sessionStorage.setItem("camOpen", String(Date.now())); } catch (_) {} $("file").value = ""; $("file").click(); };
+// 앱 안 카메라: 페이지를 떠나지 않고 찍음 → 카메라 앱 갔다 오다 페이지가 꺼지는 일 없음
+let camStream = null;
+function stopCam() { try { camStream && camStream.getTracks().forEach(t => t.stop()); } catch (_) {} camStream = null; try { $("camVideo").srcObject = null; } catch (_) {} }
+async function openCamera() {
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) return openNativeCamera();
+  show("sCam"); $("shutter").disabled = true; $("camMsg").textContent = "카메라 켜는 중…";
+  try {
+    stopCam();
+    camStream = await navigator.mediaDevices.getUserMedia({ audio: false,
+      video: { facingMode: { ideal: "environment" }, width: { ideal: 2560 }, height: { ideal: 1920 } } });
+    const v = $("camVideo"); v.srcObject = camStream; await v.play().catch(() => {});
+    $("camMsg").textContent = "문제 하나가 점선 안에 크게 들어오게 찍어줘";
+    $("shutter").disabled = false;
+    klog("cam_open", { w: v.videoWidth, h: v.videoHeight });
+  } catch (e) {
+    klog("cam_fail", { msg: String(e && (e.name || e.message) || e).slice(0, 120) });
+    stopCam(); openNativeCamera();
+  }
+}
+$("camCancel").onclick = () => { stopCam(); if (cur) showHome(); else goNames(); };
+$("camNative").onclick = () => openNativeCamera();
+$("shutter").onclick = async () => {
+  if (!camStream) return;
+  $("shutter").disabled = true;
+  const v = $("camVideo"), track = camStream.getVideoTracks()[0], t0 = Date.now();
+  let blob = null;
+  try {   // 지원하면 카메라 최대 화질로 한 장
+    if (window.ImageCapture && track) blob = await Promise.race([new ImageCapture(track).takePhoto(), new Promise(r => setTimeout(() => r(null), 5000))]);
+  } catch (_) { blob = null; }
+  if (!blob) {   // 안 되면 지금 화면을 그대로
+    const c = document.createElement("canvas"); c.width = v.videoWidth; c.height = v.videoHeight;
+    c.getContext("2d").drawImage(v, 0, 0);
+    blob = await new Promise(r => c.toBlob(r, "image/jpeg", 0.92)); c.width = c.height = 0;
+  }
+  stopCam();
+  try { await loadPhoto(blob); show("sCrop"); klog("photo", { src: "incam", fileMB: +(blob.size / 1048576).toFixed(1), w: img && img.width, h: img && img.height, ms: Date.now() - t0, ...memInfo() }); }
+  catch (e) { klog("photo_fail", { src: "incam", msg: String(e && e.message || e).slice(0, 200) }); toast("사진을 못 찍었어. 다시 해줘."); openCamera(); }
+};
+// 다른 화면으로 가거나 화면이 꺼지면 카메라 끄기 (배터리·발열)
+document.addEventListener("visibilitychange", () => { if (document.visibilityState === "hidden" && camStream) { stopCam(); } else if (document.visibilityState === "visible" && $("sCam").classList.contains("on") && !camStream) openCamera(); });
 $("shootBtn").onclick = openCamera;
 $("retakeBtn").onclick = openCamera;
 $("file").onchange = async () => {

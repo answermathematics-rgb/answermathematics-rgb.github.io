@@ -50,6 +50,11 @@
   .hs th { background:#F1F3F6; font-size:12px; color:var(--muted); }
   .hs td.n { text-align:right; font-weight:800; }
   .hs tr.click { cursor:pointer; }
+  .dq { border:1.5px solid var(--line); background:#fff; border-radius:10px; padding:8px 12px; font-size:14px; font-weight:700; color:var(--navy); }
+  #day { border:1.5px solid var(--line); border-radius:10px; padding:7px 8px; font-size:14px; font-family:inherit; color:var(--navy); background:#fff; }
+  .day { display:flex; align-items:center; justify-content:space-between; }
+  .pbtn { border:0; border-radius:9px; background:var(--red); color:#fff; font-weight:700; font-size:13px; padding:7px 11px; white-space:nowrap; }
+  .hrow .pbtn { flex:none; align-self:center; background:var(--navy); }
   .day { font-size:13px; font-weight:800; color:var(--navy); margin:16px 4px 8px; }
   .hrow { display:flex; gap:10px; align-items:flex-start; background:#fff; border:1px solid var(--line); border-radius:12px; padding:10px; margin-bottom:8px; }
   .hrow .who { flex:none; width:64px; }
@@ -103,7 +108,8 @@
 
 <div class="pane" id="pPrint">
   <div class="opts">
-    <select id="day"><option value="0">오늘</option><option value="1">어제</option><option value="2">그저께</option></select>
+    <button class="dq" data-dq="0">오늘</button><button class="dq" data-dq="1">어제</button>
+    <input type="date" id="day" title="날짜 고르기">
     <label><input type="checkbox" id="incl"> 이미 출력한 것도</label>
   </div>
   <div class="plist" id="plist"></div>
@@ -269,10 +275,24 @@ async function localPrint(list, label, markAfter, why) {
   }
   loadPrint();
 }
+// 출력 탭 날짜: 오늘(한국 시간) 기준 며칠 전인지
+const todayKst = () => new Date(Date.now() + 9 * 3600e3).toISOString().slice(0, 10);
+const daysAgoOf = (d) => Math.max(0, Math.round((new Date(todayKst() + "T00:00:00Z") - new Date(d + "T00:00:00Z")) / 864e5));
+const shortDay = (d) => { const x = new Date(d + "T00:00:00+09:00"); return `${x.getMonth() + 1}월 ${x.getDate()}일`; };
+$("day").value = todayKst(); $("day").max = todayKst();
+function setDay(d) {
+  $("day").value = d;
+  // 지난 날짜는 다시 뽑는 거니까 이미 출력한 것까지 보여주기
+  $("incl").checked = d !== todayKst();
+  document.querySelectorAll(".dq").forEach(b => b.style.borderColor = daysAgoOf(d) === +b.dataset.dq ? "var(--red)" : "");
+  loadPrint();
+}
+document.querySelectorAll(".dq").forEach(b => b.onclick = () => setDay(new Date(Date.now() + 9 * 3600e3 - (+b.dataset.dq) * 864e5).toISOString().slice(0, 10)));
+const printLabel = () => $("day").value && $("day").value !== todayKst() ? shortDay($("day").value) : "";
 async function loadPrint() {
   $("plist").innerHTML = '<div class="empty">불러오는 중…</div>'; $("printBtn").disabled = true;
   try {
-    const r = await call("admin_print_list", { days_ago: +$("day").value, include_printed: $("incl").checked });
+    const r = await call("admin_print_list", { days_ago: daysAgoOf($("day").value || todayKst()), include_printed: $("incl").checked });
     printItems = r.items; allPrint = r.items;
     const gs = group(printItems);
     $("plist").innerHTML = gs.length ? gs.map(g => `<div class="pr"><b>${esc(g.st.name)}</b><span>${g.qs.length}문제${g.qs.some(q => q.typed?.cut) ? ` · <b style="color:var(--red)">⚠️ 잘림 ${g.qs.filter(q => q.typed?.cut).length}</b>` : ""}
@@ -283,10 +303,10 @@ async function loadPrint() {
     $("printBtn").textContent = gs.length ? `전체 출력 · ${gs.length}명 ${printItems.length}문제` : "출력하기";
   } catch (e) { $("plist").innerHTML = `<div class="empty">${esc(e.message)}</div>`; }
 }
-$("day").onchange = loadPrint; $("incl").onchange = loadPrint;
+$("day").onchange = () => setDay($("day").value || todayKst()); $("incl").onchange = loadPrint;
 
 function buildPrint(label) {
-  const dayN = +$("day").value;
+  const dayN = daysAgoOf($("day").value || todayKst());
   const d = new Date(Date.now() - dayN * 864e5);
   const ds = label || `${d.getMonth() + 1}월 ${d.getDate()}일`;
   let h = "";
@@ -307,7 +327,7 @@ function buildPrint(label) {
 }
 $("printBtn").onclick = async () => {
   $("printBtn").disabled = true; $("printBtn").textContent = "준비 중…";
-  await printSet(allPrint);
+  await printSet(allPrint, printLabel());
 };
 $("plist").onclick = async (e) => {
   // 완료: 이미 출력한 학생은 목록에서 빼기 (출력 완료로 표시)
@@ -321,7 +341,7 @@ $("plist").onclick = async (e) => {
   }
   const b = e.target.closest("[data-sp]"); if (!b) return;
   b.disabled = true; b.textContent = "준비 중…";
-  await printSet(allPrint.filter(q => q.student_id === b.dataset.sp));
+  await printSet(allPrint.filter(q => q.student_id === b.dataset.sp), printLabel());
 };
 async function loadPins() {
   try {
@@ -372,11 +392,13 @@ function renderHist(sid) {
   const byDay = new Map();
   histItems.forEach(q => { const d = ymd(q.created_at); if (!byDay.has(d)) byDay.set(d, new Map()); const g = byDay.get(d); if (!g.has(q.student_id)) g.set(q.student_id, []); g.get(q.student_id).push(q); });
   byDay.forEach((g, d) => {
-    h += `<div class="day">${dayLabel(d)}</div>`;
-    g.forEach(qs => {
+    const nAll = [...g.values()].reduce((a, qs) => a + qs.length, 0);
+    h += `<div class="day"><span>${dayLabel(d)}</span>${g.size > 1 ? `<button class="pbtn" data-pd="${d}">이 날 전체 출력 · ${g.size}명 ${nAll}문제</button>` : ""}</div>`;
+    g.forEach((qs, sid2) => {
       const st = qs[0].students || {};
       h += `<div class="hrow"><div class="who"><b>${esc(st.name)}</b><span>${qs.length}문제 · ${hm(qs[qs.length - 1].created_at)}</span></div>
-        <div class="thumbs">${qs.slice().reverse().map(q => `<div class="thumb"><img src="${esc(q.url)}" data-full="${esc(q.orig_url || q.url)}" loading="lazy"></div>`).join("")}</div></div>`;
+        <div class="thumbs">${qs.slice().reverse().map(q => `<div class="thumb"><img src="${esc(q.url)}" data-full="${esc(q.orig_url || q.url)}" loading="lazy"></div>`).join("")}</div>
+        <button class="pbtn" data-pd="${d}" data-ps="${sid2}">출력</button></div>`;
     });
   });
   $("hList").innerHTML = h;
@@ -388,7 +410,19 @@ $("hSum").onclick = async (e) => {
     await printSet(histItems.slice().reverse(), `최근 ${$("hDays").selectedOptions[0].text.replace("최근 ", "")}`, false);
   }
 };
-$("hList").onclick = (e) => { const f = e.target.dataset.full; if (f) { $("vimg").src = f; $("viewer").style.display = "flex"; } };
+$("hList").onclick = async (e) => {
+  // 날짜별 다시 출력: 그 날 그 학생 / 그 날 전체
+  const pb = e.target.closest("[data-pd]");
+  if (pb) {
+    const d = pb.dataset.pd, sid = pb.dataset.ps;
+    const list = histItems.filter(q => ymd(q.created_at) === d && (!sid || q.student_id === sid)).sort((a, b) => a.created_at < b.created_at ? -1 : 1);
+    const t = pb.textContent; pb.disabled = true; pb.textContent = "보내는 중…";
+    await printSet(list, shortDay(d), false);
+    pb.disabled = false; pb.textContent = t;
+    return;
+  }
+  const f = e.target.dataset.full; if (f) { $("vimg").src = f; $("viewer").style.display = "flex"; }
+};
 
 $("testBtn").onclick = async () => { await call("admin_test_notify").then(() => toast("알림 보냈어요. 워치 확인해보세요")).catch(x => toast(x.message)); };
 

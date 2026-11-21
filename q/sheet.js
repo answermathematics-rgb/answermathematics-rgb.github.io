@@ -49,14 +49,39 @@
     return h;
   }
   const loadImg = (src) => new Promise((res) => { const im = new Image(); im.crossOrigin = "anonymous"; im.onload = () => res(im); im.onerror = () => res(null); im.src = src; });
-  async function cropFigure(url, bbox) {
+  // AI가 그린 SVG 점검·정리: 깨진 SVG면 null(→ 사진 그림 사용), 글자·선이 너무 작으면 키움
+  function fixSvg(svg) {
+    try {
+      const doc = new DOMParser().parseFromString(svg, "image/svg+xml");
+      const root = doc.documentElement;
+      if (!root || root.nodeName.toLowerCase() !== "svg" || doc.getElementsByTagName("parsererror").length) return null;
+      const vb = (root.getAttribute("viewBox") || "").split(/[\s,]+/).map(Number);
+      const vw = vb.length === 4 && vb[2] > 0 ? vb[2] : +root.getAttribute("width") || 400;
+      const vh = vb.length === 4 && vb[3] > 0 ? vb[3] : +root.getAttribute("height") || 300;
+      if (!root.getAttribute("viewBox")) root.setAttribute("viewBox", `0 0 ${vw} ${vh}`);
+      root.removeAttribute("width"); root.removeAttribute("height");
+      // 인쇄 크기(가로 약 58mm)에서 글자가 2.4mm 이상 되게
+      const minFont = Math.max(vw, vh * 1.3) * 0.042;
+      const fsOf = (el) => { for (let e = el; e && e.getAttribute; e = e.parentNode) { const v = parseFloat(e.getAttribute("font-size") || (e.getAttribute("style") || "").replace(/.*font-size:\s*([\d.]+).*/s, "$1")); if (v > 0) return v; } return 16; };
+      [...root.getElementsByTagName("text")].forEach((t) => { if (fsOf(t) < minFont) t.setAttribute("font-size", minFont.toFixed(1)); });
+      const minStroke = vw * 0.0028;
+      root.querySelectorAll("[stroke-width]").forEach((e) => { if (parseFloat(e.getAttribute("stroke-width")) < minStroke) e.setAttribute("stroke-width", minStroke.toFixed(2)); });
+      if (!root.getElementsByTagName("*").length) return null;
+      return new XMLSerializer().serializeToString(root);
+    } catch (_) { return null; }
+  }
+  async function cropFigure(url, bbox, rot) {
     const im = await loadImg(url); if (!im) return null;
     const p = 0.02;
     const x0 = Math.max(0, bbox[0] - p), y0 = Math.max(0, bbox[1] - p), x1 = Math.min(1, bbox[2] + p), y1 = Math.min(1, bbox[3] + p);
     const sw = (x1 - x0) * im.width, sh = (y1 - y0) * im.height;
     if (sw < 20 || sh < 20) return null;
-    const c = document.createElement("canvas"); c.width = Math.round(sw); c.height = Math.round(sh);
-    c.getContext("2d").drawImage(im, x0 * im.width, y0 * im.height, sw, sh, 0, 0, c.width, c.height);
+    const c = document.createElement("canvas"), g = c.getContext("2d");
+    // 누워서 찍힌 그림은 바로 세워서 (rot: 시계방향 각도)
+    const r = [90, 180, 270].includes(rot) ? rot : 0;
+    c.width = Math.round(r % 180 ? sh : sw); c.height = Math.round(r % 180 ? sw : sh);
+    g.translate(c.width / 2, c.height / 2); g.rotate(r * Math.PI / 180);
+    g.drawImage(im, x0 * im.width, y0 * im.height, sw, sh, -sw / 2, -sh / 2, sw, sh);
     try { return c.toDataURL("image/jpeg", 0.92); } catch (_) { return null; }
   }
   function usePhoto(q) {
@@ -86,8 +111,9 @@
       const f = q.typed?.figure;
       if (usePhoto(q) || !f?.present) return;
       // AI가 다시 그린 그림(SVG)이 있으면 그걸로, 없으면 원본 사진에서 잘라서
-      if (f.svg && !f.use_crop) figs[q.id] = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(f.svg);
-      else if (f.bbox) figs[q.id] = await cropFigure(q.typed.img === "full" && q.full_url ? q.full_url : (q.orig_url || q.url), f.bbox);
+      const svg = f.svg && !f.use_crop ? fixSvg(f.svg) : null;
+      if (svg) figs[q.id] = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(svg);
+      else if (f.bbox) figs[q.id] = await cropFigure(q.typed.img === "full" && q.full_url ? q.full_url : (q.orig_url || q.url), f.bbox, f.rot);
     }));
     let h = '<div class="sheet-root">';
     const PER = 4; // 한 장에 4문제 (2×2)
@@ -120,5 +146,5 @@
     if (document.fonts && document.fonts.ready) { try { await document.fonts.ready; } catch (_) {} }
     return { students: groupByStudent(items).length, problems: items.length };
   }
-  window.AnswerSheet = { build, usePhoto, groupByStudent };
+  window.AnswerSheet = { build, usePhoto, groupByStudent, fixSvg, cropFigure };
 })();

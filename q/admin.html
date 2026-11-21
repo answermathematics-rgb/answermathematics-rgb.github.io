@@ -65,6 +65,16 @@
   .plist .pr span { color:var(--muted); display:flex; align-items:center; }
   #viewer { position:fixed; inset:0; background:rgba(0,0,0,.9); display:none; align-items:center; justify-content:center; z-index:20; }
   #viewer img { max-width:96%; max-height:92%; background:#fff; }
+  #figPanel { position:fixed; inset:0; background:rgba(0,0,0,.5); display:none; z-index:35; overflow:auto; padding:14px; }
+  #figPanel .fbox { background:#fff; border-radius:16px; padding:14px; max-width:720px; margin:0 auto; }
+  .frow { border:1px solid var(--line); border-radius:12px; padding:10px; margin-bottom:10px; }
+  .frow .pair { display:flex; gap:8px; }
+  .frow .pair > div { flex:1; min-width:0; text-align:center; border:2px solid transparent; border-radius:10px; padding:4px; }
+  .frow .pair > div.sel { border-color:var(--red); }
+  .frow .pair img { max-width:100%; max-height:200px; object-fit:contain; background:#fff; }
+  .frow .lab { font-size:12px; color:var(--muted); margin:2px 0 4px; }
+  .frow .acts { display:flex; gap:6px; margin-top:6px; }
+  .frow .acts button { flex:1; border:1.5px solid var(--line); background:#fff; border-radius:9px; padding:8px; font-weight:700; font-size:13px; color:var(--navy); }
   #modal { position:fixed; inset:0; background:rgba(0,0,0,.45); display:none; align-items:flex-end; z-index:30; }
   #modal .box { background:#fff; width:100%; border-radius:18px 18px 0 0; padding:20px 16px 26px; }
   #modal .t { font-size:18px; font-weight:800; margin-bottom:6px; }
@@ -142,6 +152,9 @@
 <div id="toast"></div>
 <div id="printArea"></div>
 <div id="pdfArea"></div>
+<div id="figPanel"><div class="fbox"><div style="display:flex;align-items:center;margin-bottom:10px"><b style="font-size:17px" id="figTitle">그림 확인</b><button class="undo" style="margin-left:auto" id="figClose">닫기</button></div>
+  <div class="muted" style="font-size:13px;color:var(--muted);margin-bottom:10px">왼쪽은 AI가 다시 그린 그림, 오른쪽은 사진에서 자른 그림이야. 빨간 테두리 쪽이 출력돼. 다시 그린 게 틀렸으면 '사진 그림으로' 또는 '다시 그리기'.</div>
+  <div id="figList"></div></div></div>
 
 <link rel="stylesheet" href="katex/katex.min.css">
 <script src="katex/katex.min.js"></script>
@@ -307,6 +320,43 @@ async function downloadPdf(list, label, fileBase) {
   finally { $("pdfArea").innerHTML = ""; }
 }
 const fileDay = (d) => (d || todayKst()).slice(5).replace("-", "");
+// ───── 그림 확인: 다시 그린 그림 vs 사진 그림, 고르기·다시 그리기 ─────
+const OCR = "https://hddsyoaymvpfcloqthyv.supabase.co/functions/v1/qna-ocr";
+const ocrCall = (body) => fetch(OCR, { method: "POST", headers: { "content-type": "application/json", apikey: ANON, authorization: "Bearer " + ANON }, body: JSON.stringify({ token: TOKEN, ...body }) }).then(r => r.json());
+let figItems = [];
+async function figRow(q) {
+  const f = q.typed.figure, svg = f.svg ? AnswerSheet.fixSvg(f.svg) : null;
+  const src = q.typed.img === "full" && q.full_url ? q.full_url : (q.orig_url || q.url);
+  const crop = f.bbox ? await AnswerSheet.cropFigure(src, f.bbox, f.rot) : null;
+  const useCrop = !svg || f.use_crop;
+  return `<div class="frow" data-q="${q.id}"><div class="pair">
+    <div class="${useCrop ? "" : "sel"}"><div class="lab">다시 그린 그림</div>${svg ? `<img src="data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}">` : `<div class="lab" style="padding:30px 0">${f.svg_error ? "그리기 실패" : "없음"}</div>`}</div>
+    <div class="${useCrop ? "sel" : ""}"><div class="lab">사진 그림</div>${crop ? `<img src="${crop}">` : '<div class="lab" style="padding:30px 0">없음</div>'}</div></div>
+    <div class="acts"><button data-fa="svg" ${svg ? "" : "disabled"}>다시 그린 걸로</button><button data-fa="crop">사진 그림으로</button><button data-fa="redraw">다시 그리기</button></div></div>`;
+}
+async function openFigs(list, name) {
+  figItems = list; $("figTitle").textContent = `${name} 그림 ${list.length}개`;
+  $("figList").innerHTML = '<div class="empty">불러오는 중…</div>'; $("figPanel").style.display = "block";
+  $("figList").innerHTML = (await Promise.all(list.map(figRow))).join("");
+}
+$("figClose").onclick = () => { $("figPanel").style.display = "none"; loadPrint(); };
+$("figList").onclick = async (e) => {
+  const b = e.target.closest("[data-fa]"); if (!b) return;
+  const row = b.closest("[data-q]"), id = row.dataset.q, q = figItems.find(x => x.id === id);
+  b.disabled = true;
+  if (b.dataset.fa === "redraw") {
+    b.textContent = "그리는 중… (1~2분)";
+    await ocrCall({ mode: "figure", ids: [id], wait: true }).catch(() => {});
+    const r = await call("admin_print_list", { days_ago: daysAgoOf($("day").value || todayKst()), include_printed: true }).catch(() => null);
+    const nq = r && r.items.find(x => x.id === id);
+    if (nq) { Object.assign(q, nq); row.outerHTML = await figRow(q); } else toast("다시 그렸어요. 목록 새로고침해서 확인해줘");
+    return;
+  }
+  const use_crop = b.dataset.fa === "crop";
+  const r = await ocrCall({ mode: "set_fig", id, use_crop }).catch(() => null);
+  if (r && r.ok) { q.typed.figure = r.figure; row.outerHTML = await figRow(q); toast(use_crop ? "사진 그림으로 출력할게요" : "다시 그린 그림으로 출력할게요"); }
+  else { toast("바꾸지 못했어요"); b.disabled = false; }
+};
 // 출력 탭 날짜: 오늘(한국 시간) 기준 며칠 전인지
 const todayKst = () => new Date(Date.now() + 9 * 3600e3).toISOString().slice(0, 10);
 const daysAgoOf = (d) => Math.max(0, Math.round((new Date(todayKst() + "T00:00:00Z") - new Date(d + "T00:00:00Z")) / 864e5));
@@ -330,6 +380,7 @@ async function loadPrint() {
     $("plist").innerHTML = gs.length ? gs.map(g => `<div class="pr"><b>${esc(g.st.name)}</b><span>${g.qs.length}문제${g.qs.some(q => q.typed?.cut) ? ` · <b style="color:var(--red)">⚠️ 잘림 ${g.qs.filter(q => q.typed?.cut).length}</b>` : ""}
       <button class="done" style="margin-left:10px;padding:8px 14px;font-size:14px;background:var(--navy)" data-sp="${g.sid}">이 학생만 출력</button>
       <button class="done pdfb" style="margin-left:6px;padding:8px 12px;font-size:14px" data-pdf="${g.sid}" data-name="${esc(g.st.name)}">PDF</button>
+      ${g.qs.some(q => q.typed?.figure?.present) ? `<button class="done pdfb" style="margin-left:6px;padding:8px 12px;font-size:14px" data-fig="${g.sid}" data-name="${esc(g.st.name)}">그림 ${g.qs.filter(q => q.typed?.figure?.present).length}</button>` : ""}
       <button class="undo" style="margin-left:6px;padding:8px 12px;font-size:14px" data-mk="${g.sid}" data-name="${esc(g.st.name)}">완료</button></span></div>`).join("")
       : '<div class="empty">출력할 질문 문제가 없어요.</div>';
     $("printBtn").disabled = !gs.length;
@@ -373,6 +424,8 @@ $("plist").onclick = async (e) => {
     toast(`${mk.dataset.name} 출력 완료로 표시했어요`); loadPrint(); loadQueue(true);
     return;
   }
+  const figB = e.target.closest("[data-fig]");
+  if (figB) { openFigs(allPrint.filter(q => q.student_id === figB.dataset.fig && q.typed?.figure?.present), figB.dataset.name); return; }
   const pdfB = e.target.closest("[data-pdf]");
   if (pdfB) { pdfB.disabled = true; await downloadPdf(allPrint.filter(q => q.student_id === pdfB.dataset.pdf), printLabel(), `${fileDay($("day").value)}_${pdfB.dataset.name}_질문`); pdfB.disabled = false; return; }
   const b = e.target.closest("[data-sp]"); if (!b) return;

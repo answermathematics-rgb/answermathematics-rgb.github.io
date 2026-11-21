@@ -60,13 +60,24 @@
       const vh = vb.length === 4 && vb[3] > 0 ? vb[3] : +root.getAttribute("height") || 300;
       if (!root.getAttribute("viewBox")) root.setAttribute("viewBox", `0 0 ${vw} ${vh}`);
       root.removeAttribute("width"); root.removeAttribute("height");
+      if (!root.getElementsByTagName("*").length) return null;
+      // 실제로 그려진 부분에 맞게 테두리 여백 잘라내기 (그림이 작게 찍히지 않게)
+      try {
+        const host = document.createElement("div"); host.style.cssText = "position:absolute;left:-9999px;top:0;width:400px;height:400px;visibility:hidden";
+        const live = document.importNode(root, true); host.appendChild(live); document.body.appendChild(host);
+        const bb = live.getBBox(); host.remove();
+        if (bb.width > 10 && bb.height > 10) {
+          const p = Math.max(bb.width, bb.height) * 0.04;
+          root.setAttribute("viewBox", `${(bb.x - p).toFixed(1)} ${(bb.y - p).toFixed(1)} ${(bb.width + 2 * p).toFixed(1)} ${(bb.height + 2 * p).toFixed(1)}`);
+        }
+      } catch (_) {}
+      { const v2 = root.getAttribute("viewBox").split(/[\s,]+/).map(Number); var vwF = v2[2] || vw, vhF = v2[3] || vh; }
       // 인쇄 크기(가로 약 58mm)에서 글자가 2.4mm 이상 되게
-      const minFont = Math.max(vw, vh * 1.3) * 0.042;
+      const minFont = Math.max(vwF, vhF * 1.3) * 0.042;
       const fsOf = (el) => { for (let e = el; e && e.getAttribute; e = e.parentNode) { const v = parseFloat(e.getAttribute("font-size") || (e.getAttribute("style") || "").replace(/.*font-size:\s*([\d.]+).*/s, "$1")); if (v > 0) return v; } return 16; };
       [...root.getElementsByTagName("text")].forEach((t) => { if (fsOf(t) < minFont) t.setAttribute("font-size", minFont.toFixed(1)); });
-      const minStroke = vw * 0.0028;
+      const minStroke = vwF * 0.0028;
       root.querySelectorAll("[stroke-width]").forEach((e) => { if (parseFloat(e.getAttribute("stroke-width")) < minStroke) e.setAttribute("stroke-width", minStroke.toFixed(2)); });
-      if (!root.getElementsByTagName("*").length) return null;
       return new XMLSerializer().serializeToString(root);
     } catch (_) { return null; }
   }

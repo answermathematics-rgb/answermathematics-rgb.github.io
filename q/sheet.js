@@ -36,10 +36,10 @@
   .sh-q .choices.c2 { grid-template-columns:repeat(2,1fr); }
   .sh-q .choices.c1 { grid-template-columns:1fr; }
   /* 답지: 빠른 정답 표 + 문제별 해설 (2단) */
-  .sh-quick { display:grid; grid-template-columns:repeat(10,1fr); border:1px solid #1E2A44; border-radius:1.5mm; overflow:hidden; margin-bottom:4mm; font-size:10pt; }
+  .sh-quick { display:grid; grid-template-columns:repeat(5,1fr); border:1px solid #1E2A44; border-radius:1.5mm; overflow:hidden; margin-bottom:4mm; font-size:10pt; }
   .sh-quick div { display:flex; border-right:1px solid #ccd; border-bottom:1px solid #ccd; min-height:8mm; }
   .sh-quick div b { width:7mm; background:#eef0f5; color:#1E2A44; display:flex; align-items:center; justify-content:center; font-weight:800; }
-  .sh-quick div span { flex:1; display:flex; align-items:center; justify-content:center; padding:0 1mm; }
+  .sh-quick div span { flex:1; display:flex; align-items:center; justify-content:center; padding:1mm 1.5mm; white-space:nowrap; overflow:hidden; }
   .sh-acols { display:grid; grid-template-columns:1fr 1fr; gap:0 6mm; }
   .sh-acol { overflow:hidden; }
   .sh-acols .sh-acol:first-child { border-right:1px dashed #bbb; padding-right:3mm; }
@@ -138,7 +138,7 @@
     let k = 0, page, cols, ci;
     const newPage = (withQuick) => {
       page = document.createElement("div"); page.className = "sh-page sh-apage";
-      page.innerHTML = head(k++) + (withQuick ? `<div class="sh-quick">${g.qs.map((q, i) => `<div><b>${i + 1}</b><span>${bodyHtml(ansTxt(q))}</span></div>`).join("")}</div>` : "") + `<div class="sh-acols"><div class="sh-acol"></div><div class="sh-acol"></div></div>` + foot;
+      page.innerHTML = head(k++) + (withQuick ? `<div class="sh-quick">${g.qs.map((q, i) => `<div><b>${i + 1}</b><span>${bodyHtml(ansTxt(q)).replace(/\\dfrac/g, "\\frac")}</span></div>`).join("")}</div>` : "") + `<div class="sh-acols"><div class="sh-acol"></div><div class="sh-acol"></div></div>` + foot;
       root.appendChild(page); renderMath(page);
       cols = page.querySelectorAll(".sh-acol"); ci = 0;
       const used = [...page.children].filter((c) => !c.classList.contains("sh-acols")).reduce((a, c) => a + c.offsetHeight + parseFloat(getComputedStyle(c).marginBottom || 0) + parseFloat(getComputedStyle(c).marginTop || 0), 0);

@@ -51,7 +51,7 @@
   .hs td.n { text-align:right; font-weight:800; }
   .hs tr.click { cursor:pointer; }
   .dq { border:1.5px solid var(--line); background:#fff; border-radius:10px; padding:8px 12px; font-size:14px; font-weight:700; color:var(--navy); }
-  #day { border:1.5px solid var(--line); border-radius:10px; padding:7px 8px; font-size:14px; font-family:inherit; color:var(--navy); background:#fff; }
+  #day, #day2 { border:1.5px solid var(--line); border-radius:10px; padding:7px 8px; font-size:14px; font-family:inherit; color:var(--navy); background:#fff; }
   .day { display:flex; align-items:center; justify-content:space-between; }
   .pbtn { border:0; border-radius:9px; background:var(--red); color:#fff; font-weight:700; font-size:13px; padding:7px 11px; white-space:nowrap; }
   .hrow .pbtn { flex:none; align-self:center; background:var(--navy); }
@@ -122,8 +122,8 @@
 
 <div class="pane" id="pPrint">
   <div class="opts">
-    <button class="dq" data-dq="0">오늘</button><button class="dq" data-dq="1">어제</button>
-    <input type="date" id="day" title="날짜 고르기">
+    <button class="dq" data-dq="0">오늘</button><button class="dq" data-dq="1">어제</button><button class="dq" data-dq="6" data-rg="1">최근 7일</button>
+    <input type="date" id="day" title="시작 날짜"> ~ <input type="date" id="day2" title="끝 날짜">
     <label><input type="checkbox" id="incl"> 이미 출력한 것도</label>
   </div>
   <div class="plist" id="plist"></div>
@@ -347,7 +347,7 @@ $("figList").onclick = async (e) => {
   if (b.dataset.fa === "redraw") {
     b.textContent = "그리는 중… (1~2분)";
     await ocrCall({ mode: "figure", ids: [id], wait: true }).catch(() => {});
-    const r = await call("admin_print_list", { days_ago: daysAgoOf($("day").value || todayKst()), include_printed: true }).catch(() => null);
+    const r = await fetchRange(true).catch(() => null);
     const nq = r && r.items.find(x => x.id === id);
     if (nq) { Object.assign(q, nq); row.outerHTML = await figRow(q); } else toast("다시 그렸어요. 목록 새로고침해서 확인해줘");
     return;
@@ -361,20 +361,34 @@ $("figList").onclick = async (e) => {
 const todayKst = () => new Date(Date.now() + 9 * 3600e3).toISOString().slice(0, 10);
 const daysAgoOf = (d) => Math.max(0, Math.round((new Date(todayKst() + "T00:00:00Z") - new Date(d + "T00:00:00Z")) / 864e5));
 const shortDay = (d) => { const x = new Date(d + "T00:00:00+09:00"); return `${x.getMonth() + 1}월 ${x.getDate()}일`; };
-$("day").value = todayKst(); $("day").max = todayKst();
-function setDay(d) {
-  $("day").value = d;
+$("day").value = $("day2").value = todayKst(); $("day").max = $("day2").max = todayKst();
+// 기간: day(시작) ~ day2(끝). 하루만 볼 땐 둘이 같음
+const rng = () => { let a = $("day").value || todayKst(), z = $("day2").value || a; if (a > z) [a, z] = [z, a]; return [a, z]; };
+function setDay(d, d2) {
+  $("day").value = d; $("day2").value = d2 || d;
+  const [a, z] = rng();
   // 지난 날짜는 다시 뽑는 거니까 이미 출력한 것까지 보여주기
-  $("incl").checked = d !== todayKst();
-  document.querySelectorAll(".dq").forEach(b => b.style.borderColor = daysAgoOf(d) === +b.dataset.dq ? "var(--red)" : "");
+  $("incl").checked = !(a === todayKst() && z === todayKst());
+  document.querySelectorAll(".dq").forEach(b => b.style.borderColor = (b.dataset.rg ? (z === todayKst() && daysAgoOf(a) === +b.dataset.dq) : (a === z && daysAgoOf(a) === +b.dataset.dq)) ? "var(--red)" : "");
   loadPrint();
 }
-document.querySelectorAll(".dq").forEach(b => b.onclick = () => setDay(new Date(Date.now() + 9 * 3600e3 - (+b.dataset.dq) * 864e5).toISOString().slice(0, 10)));
-const printLabel = () => $("day").value && $("day").value !== todayKst() ? shortDay($("day").value) : "";
+const kstAgo = (n) => new Date(Date.now() + 9 * 3600e3 - n * 864e5).toISOString().slice(0, 10);
+document.querySelectorAll(".dq").forEach(b => b.onclick = () => b.dataset.rg ? setDay(kstAgo(+b.dataset.dq), todayKst()) : setDay(kstAgo(+b.dataset.dq)));
+// 기간 안의 날짜마다 불러와서 합치기 (최대 62일)
+async function fetchRange(incl) {
+  const [a, z] = rng(), from = daysAgoOf(a), to = daysAgoOf(z);
+  if (from - to > 61) throw new Error("기간은 두 달 이내로 골라줘");
+  const days = []; for (let n = to; n <= from; n++) days.push(n);
+  const rs = await Promise.all(days.map(n => call("admin_print_list", { days_ago: n, include_printed: incl })));
+  const items = rs.flatMap(r => r.items || []).sort((x, y) => x.created_at < y.created_at ? -1 : 1);
+  return { items };
+}
+const printLabel = () => { const [a, z] = rng(); return a !== z ? `${shortDay(a)} ~ ${shortDay(z)}` : a !== todayKst() ? shortDay(a) : ""; };
+const fileRange = () => { const [a, z] = rng(); return a !== z ? `${fileDay(a)}-${fileDay(z)}` : fileDay(a); };
 async function loadPrint() {
   $("plist").innerHTML = '<div class="empty">불러오는 중…</div>'; $("printBtn").disabled = true;
   try {
-    const r = await call("admin_print_list", { days_ago: daysAgoOf($("day").value || todayKst()), include_printed: $("incl").checked });
+    const r = await fetchRange($("incl").checked);
     printItems = r.items; allPrint = r.items;
     const gs = group(printItems);
     $("plist").innerHTML = gs.length ? gs.map(g => `<div class="pr"><b>${esc(g.st.name)}</b><span>${g.qs.length}문제${g.qs.some(q => q.typed?.cut) ? ` · <b style="color:var(--red)">⚠️ 잘림 ${g.qs.filter(q => q.typed?.cut).length}</b>` : ""}
@@ -387,7 +401,8 @@ async function loadPrint() {
     $("printBtn").textContent = gs.length ? `전체 출력 · ${gs.length}명 ${printItems.length}문제` : "출력하기";
   } catch (e) { $("plist").innerHTML = `<div class="empty">${esc(e.message)}</div>`; }
 }
-$("day").onchange = () => setDay($("day").value || todayKst()); $("incl").onchange = loadPrint;
+$("day").onchange = () => { const d = $("day").value || todayKst(); setDay(d, $("day2").value < d ? d : $("day2").value); };
+$("day2").onchange = () => setDay($("day").value || todayKst(), $("day2").value || todayKst()); $("incl").onchange = loadPrint;
 
 function buildPrint(label) {
   const dayN = daysAgoOf($("day").value || todayKst());
@@ -413,7 +428,7 @@ $("printBtn").onclick = async () => {
   $("printBtn").disabled = true; $("printBtn").textContent = "준비 중…";
   await printSet(allPrint, printLabel());
 };
-$("pdfAllBtn").onclick = async () => { if (!allPrint || !allPrint.length) return toast("받을 문제가 없어요"); $("pdfAllBtn").disabled = true; await downloadPdf(allPrint, printLabel(), `${fileDay($("day").value)}_전체_질문`); $("pdfAllBtn").disabled = false; };
+$("pdfAllBtn").onclick = async () => { if (!allPrint || !allPrint.length) return toast("받을 문제가 없어요"); $("pdfAllBtn").disabled = true; await downloadPdf(allPrint, printLabel(), `${fileRange()}_전체_질문`); $("pdfAllBtn").disabled = false; };
 $("plist").onclick = async (e) => {
   // 완료: 이미 출력한 학생은 목록에서 빼기 (출력 완료로 표시)
   const mk = e.target.closest("[data-mk]");
@@ -427,7 +442,7 @@ $("plist").onclick = async (e) => {
   const figB = e.target.closest("[data-fig]");
   if (figB) { openFigs(allPrint.filter(q => q.student_id === figB.dataset.fig && q.typed?.figure?.present), figB.dataset.name); return; }
   const pdfB = e.target.closest("[data-pdf]");
-  if (pdfB) { pdfB.disabled = true; await downloadPdf(allPrint.filter(q => q.student_id === pdfB.dataset.pdf), printLabel(), `${fileDay($("day").value)}_${pdfB.dataset.name}_질문`); pdfB.disabled = false; return; }
+  if (pdfB) { pdfB.disabled = true; await downloadPdf(allPrint.filter(q => q.student_id === pdfB.dataset.pdf), printLabel(), `${fileRange()}_${pdfB.dataset.name}_질문`); pdfB.disabled = false; return; }
   const b = e.target.closest("[data-sp]"); if (!b) return;
   b.disabled = true; b.textContent = "준비 중…";
   await printSet(allPrint.filter(q => q.student_id === b.dataset.sp), printLabel());

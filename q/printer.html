@@ -62,7 +62,9 @@ async function tick() {
       const names = [...new Set(r.items.map(q => q.students?.name))].join(", ");
       setSt("🖨 인쇄 중… " + names);
       try {
-        const info = await AnswerSheet.build($("out"), r.items, { label: r.job.label || undefined });
+        // 관리자 화면에서 '답지 같이'를 켜면 label 앞에 ANS| 가 붙어 옴
+        const lb = r.job.label || "", ans = lb.startsWith("ANS|");
+        const info = await AnswerSheet.build($("out"), r.items, { label: (ans ? lb.slice(4) : lb) || undefined, answers: ans });
         await new Promise(res => setTimeout(res, 300));
         window.print();          // --kiosk-printing 으로 켜면 창 없이 바로 기본 프린터로 나감
         await call("printer_done", { job_id: r.job.id, ok: true });

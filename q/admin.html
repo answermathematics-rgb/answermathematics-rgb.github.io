@@ -125,6 +125,7 @@
     <button class="dq" data-dq="0">오늘</button><button class="dq" data-dq="1">어제</button><button class="dq" data-dq="6" data-rg="1">최근 7일</button>
     <input type="date" id="day" title="시작 날짜"> ~ <input type="date" id="day2" title="끝 날짜">
     <label><input type="checkbox" id="incl"> 이미 출력한 것도</label>
+    <label><input type="checkbox" id="ans"> 답지 같이</label>
   </div>
   <div class="plist" id="plist"></div>
   <div style="height:14px"></div>
@@ -259,14 +260,24 @@ $("viewer").onclick = () => $("viewer").style.display = "none";
 let printItems = [];
 let allPrint = [];
 // 출력: 학원 PC '앤서수학 프린트' 화면으로 보냄 → PC가 바로 인쇄(창 없이). PC가 꺼져 있으면 이 기기에서 인쇄
+// 답지 켜고 뽑는데 아직 답이 없는 문제 → 지금 풀게 시킴 (1~2분 뒤 다시 뽑으면 들어감)
+function ensureAns(list) {
+  if (!withAns()) return;
+  const miss = list.filter(q => !q.typed?.sol?.answer && q.typed?.sol?.error === undefined && q.ocr_status === "done");
+  if (!miss.length) return;
+  for (let i = 0; i < miss.length; i += 3) setTimeout(() => ocrCall({ mode: "solve", ids: miss.slice(i, i + 3).map(q => q.id) }).catch(() => {}), (i / 3) * 1500);
+  miss.forEach(q => { q.typed = { ...(q.typed || {}), sol: { answer: "", pending: true } }; });
+  setTimeout(() => toast(`답이 아직 없는 ${miss.length}문제는 지금 푸는 중이에요 — 1~2분 뒤 다시 뽑으면 답지에 들어가요`), 2500);
+}
 async function printSet(list, label, markAfter = true) {
   if (!list.length) return;
+  ensureAns(list);
   const names = [...new Set(list.map(q => q.students?.name))].join(", ");
   try {
     const st0 = await call("admin_print_job_status", { job_id: "" });
     const alive = st0.printer_seen && (Date.now() - new Date(st0.printer_seen).getTime() < 20000);
     if (!alive) { await localPrint(list, label, markAfter, "학원 PC의 '앤서수학 프린트' 창이 꺼져 있어요."); return; }
-    const { job_id } = await call("admin_print_job", { ids: list.map(q => q.id), label: label || "" });
+    const { job_id } = await call("admin_print_job", { ids: list.map(q => q.id), label: (withAns() ? "ANS|" : "") + (label || "") });
     toast(`🖨 ${names} — 학원 PC로 보냈어요`);
     for (let i = 0; i < 40; i++) {
       await new Promise(r => setTimeout(r, 1500));
@@ -280,7 +291,7 @@ async function printSet(list, label, markAfter = true) {
 // 이 기기에서 직접 인쇄 (PC 관리자 화면에서는 잘 됨)
 async function localPrint(list, label, markAfter, why) {
   toast("오답 정리지 만드는 중…");
-  await AnswerSheet.build($("printArea"), list, { label });
+  await AnswerSheet.build($("printArea"), list, { label, answers: withAns() });
   await new Promise(res => {
     $("mt").textContent = "이 기기에서 인쇄할까요?";
     $("md").textContent = `${why || ""} 이 기기에서 바로 인쇄하려면 '인쇄하기'를 누르세요.`;
@@ -299,11 +310,12 @@ async function localPrint(list, label, markAfter, why) {
 const loadJs = (src) => new Promise((res, rej) => { if (document.querySelector(`script[src="${src}"]`)) return res(); const s = document.createElement("script"); s.src = src; s.onload = res; s.onerror = () => rej(new Error("PDF 도구를 못 불러왔어요")); document.head.appendChild(s); });
 async function downloadPdf(list, label, fileBase) {
   if (!list.length) return;
+  ensureAns(list);
   toast("PDF 만드는 중… (문제 많으면 몇 초 걸려요)");
   try {
     await Promise.all([loadJs("vendor/html2canvas.min.js"), loadJs("vendor/jspdf.umd.min.js")]);
     const area = $("pdfArea");
-    await AnswerSheet.build(area, list, { label });
+    await AnswerSheet.build(area, list, { label, answers: withAns() });
     await Promise.all([...area.querySelectorAll("img")].map(im => im.complete ? 0 : new Promise(r => { im.onload = im.onerror = r; })));
     if (document.fonts && document.fonts.ready) await document.fonts.ready;
     const pdf = new jspdf.jsPDF({ unit: "mm", format: "a4" });
@@ -319,6 +331,10 @@ async function downloadPdf(list, label, fileBase) {
   } catch (e) { toast("PDF 만들기 실패: " + e.message); }
   finally { $("pdfArea").innerHTML = ""; }
 }
+// 답지 같이 뽑기 (기본 켬, 이 기기에 기억)
+const withAns = () => $("ans").checked;
+try { $("ans").checked = localStorage.getItem("q_ans") !== "0"; } catch (_) { $("ans").checked = true; }
+$("ans").onchange = () => { try { localStorage.setItem("q_ans", $("ans").checked ? "1" : "0"); } catch (_) {} };
 const fileDay = (d) => (d || todayKst()).slice(5).replace("-", "");
 // ───── 그림 확인: 다시 그린 그림 vs 사진 그림, 고르기·다시 그리기 ─────
 const OCR = "https://hddsyoaymvpfcloqthyv.supabase.co/functions/v1/qna-ocr";

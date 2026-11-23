@@ -35,6 +35,19 @@
   .sh-q .choices.c3 { grid-template-columns:repeat(3,1fr); }
   .sh-q .choices.c2 { grid-template-columns:repeat(2,1fr); }
   .sh-q .choices.c1 { grid-template-columns:1fr; }
+  /* 답지: 빠른 정답 표 + 문제별 해설 (2단) */
+  .sh-quick { display:grid; grid-template-columns:repeat(10,1fr); border:1px solid #1E2A44; border-radius:1.5mm; overflow:hidden; margin-bottom:4mm; font-size:10pt; }
+  .sh-quick div { display:flex; border-right:1px solid #ccd; border-bottom:1px solid #ccd; min-height:8mm; }
+  .sh-quick div b { width:7mm; background:#eef0f5; color:#1E2A44; display:flex; align-items:center; justify-content:center; font-weight:800; }
+  .sh-quick div span { flex:1; display:flex; align-items:center; justify-content:center; padding:0 1mm; }
+  .sh-acols { display:grid; grid-template-columns:1fr 1fr; gap:0 6mm; }
+  .sh-acol { overflow:hidden; }
+  .sh-acols .sh-acol:first-child { border-right:1px dashed #bbb; padding-right:3mm; }
+  .sh-ans { margin-bottom:4mm; font-size:9.5pt; line-height:1.65; word-break:keep-all; break-inside:avoid; }
+  .sh-ans .an { font-size:10.5pt; margin-bottom:1mm; }
+  .sh-ans .an b { font-size:12pt; margin-right:2mm; }
+  .sh-ans .an i { font-style:normal; color:#B62A1D; font-weight:800; }
+  .sh-ans .st div { margin:0.6mm 0; }
   `;
   const CIRC = ["①", "②", "③", "④", "⑤", "⑥", "⑦", "⑧"];
   const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
@@ -110,6 +123,39 @@
     items.forEach((q) => { if (!m.has(q.student_id)) m.set(q.student_id, { name: q.students?.name || "", qs: [] }); m.get(q.student_id).qs.push(q); });
     return [...m.values()];
   }
+  const ansTxt = (q) => { const a = q.typed?.sol?.answer; return a ? String(a) : "—"; };
+  const renderMath = (el) => { if (window.renderMathInElement) window.renderMathInElement(el, { delimiters: [{ left: "$$", right: "$$", display: true }, { left: "$", right: "$", display: false }], throwOnError: false, strict: "ignore" }); };
+  const MM = (() => { let v = 0; return () => { if (!v) { const d = document.createElement("div"); d.style.cssText = "position:absolute;width:100mm;visibility:hidden"; document.body.appendChild(d); v = d.offsetWidth / 100; d.remove(); } return v; }; })();
+  // 학생 한 명의 답지 장들을 만들어 container 끝에 붙임 (해설이 넘치면 다음 칸·다음 장으로)
+  function answerPages(root, g, ds, base) {
+    const head = (k) => `<div class="sh-head"><img class="lg" src="${base}logo.png"><div class="bar"></div><div class="ttl">정답·해설</div><div class="info"><b>${esc(g.name)}</b> · ${esc(ds)}${k ? ` (${k + 1})` : ""}</div></div>`;
+    const foot = `<div class="sh-pfoot"><img src="${base}logo-ko.png"></div>`;
+    const blocks = g.qs.map((q, i) => {
+      const st = (q.typed?.sol?.steps || []).map((x) => `<div>${bodyHtml(x)}</div>`).join("");
+      return `<div class="sh-ans"><div class="an"><b>${i + 1}</b>정답 <i>${bodyHtml(ansTxt(q))}</i></div>${st ? `<div class="st">${st}</div>` : ""}</div>`;
+    });
+    const PAGE_H = 268 * MM();
+    let k = 0, page, cols, ci;
+    const newPage = (withQuick) => {
+      page = document.createElement("div"); page.className = "sh-page sh-apage";
+      page.innerHTML = head(k++) + (withQuick ? `<div class="sh-quick">${g.qs.map((q, i) => `<div><b>${i + 1}</b><span>${bodyHtml(ansTxt(q))}</span></div>`).join("")}</div>` : "") + `<div class="sh-acols"><div class="sh-acol"></div><div class="sh-acol"></div></div>` + foot;
+      root.appendChild(page); renderMath(page);
+      cols = page.querySelectorAll(".sh-acol"); ci = 0;
+      const used = [...page.children].filter((c) => !c.classList.contains("sh-acols")).reduce((a, c) => a + c.offsetHeight + parseFloat(getComputedStyle(c).marginBottom || 0) + parseFloat(getComputedStyle(c).marginTop || 0), 0);
+      const h = Math.max(60 * MM(), PAGE_H - used - 4 * MM());
+      cols.forEach((c) => (c.style.height = h + "px"));
+    };
+    newPage(true);
+    for (const b of blocks) {
+      const t = document.createElement("div"); t.innerHTML = b; const el = t.firstChild;
+      for (let tries = 0; tries < 3; tries++) {
+        cols[ci].appendChild(el); renderMath(el);
+        if (cols[ci].scrollHeight <= cols[ci].clientHeight + 1 || cols[ci].children.length === 1) break;
+        cols[ci].removeChild(el);
+        if (ci === 0) ci = 1; else newPage(false);
+      }
+    }
+  }
   // container 안에 오답 정리지를 그림. 그림·폰트·수식이 다 준비되면 resolve
   async function build(container, items, opts = {}) {
     if (!document.getElementById("sheet-css")) { const st = document.createElement("style"); st.id = "sheet-css"; st.textContent = CSS; document.head.appendChild(st); }
@@ -128,7 +174,8 @@
     }));
     let h = '<div class="sheet-root">';
     const PER = 4; // 한 장에 4문제 (2×2)
-    groupByStudent(items).forEach((g) => {
+    const groups = groupByStudent(items);
+    groups.forEach((g) => {
       const pages = Math.ceil(g.qs.length / PER);
       for (let p = 0; p < pages; p++) {
         h += `<div class="sh-page"><div class="sh-head"><img class="lg" src="${base}logo.png"><div class="bar"></div><div class="ttl">오답 정리</div>
@@ -147,11 +194,27 @@
         });
         h += `</div><div class="sh-pfoot"><img src="${base}logo-ko.png"></div></div>`;
       }
+      if (opts.answers) h += `<div class="sh-ansmark" data-g="${groups.indexOf(g)}"></div>`;
     });
     h += "</div>";
     container.innerHTML = h;
     if (window.renderMathInElement) {
       window.renderMathInElement(container, { delimiters: [{ left: "$$", right: "$$", display: true }, { left: "$", right: "$", display: false }], throwOnError: false, strict: "ignore" });
+    }
+    // 답지: 학생마다 문제 장 바로 뒤에 (실제 높이를 재면서 장을 나눔)
+    if (opts.answers) {
+      // 숨겨진 칸(display:none)에서는 높이를 못 재니까 잠깐 화면 밖에 펼쳐서
+      const prevStyle = container.getAttribute("style");
+      if (!container.offsetWidth) container.style.cssText = (prevStyle || "") + ";display:block;position:fixed;left:-20000px;top:0;width:190mm;visibility:visible";
+      if (document.fonts && document.fonts.ready) { try { await document.fonts.ready; } catch (_) {} }
+      container.querySelectorAll(".sh-ansmark").forEach((m) => {
+        const tmp = document.createElement("div"); tmp.className = "sh-tmp";
+        m.parentNode.insertBefore(tmp, m);
+        answerPages(tmp, groups[+m.dataset.g], ds, base);
+        while (tmp.firstChild) m.parentNode.insertBefore(tmp.firstChild, tmp);
+        tmp.remove(); m.remove();
+      });
+      if (prevStyle === null) container.removeAttribute("style"); else container.setAttribute("style", prevStyle);
     }
     await Promise.all([...container.querySelectorAll("img")].map((im) => im.complete ? 0 : new Promise((r) => { im.onload = im.onerror = r; })));
     if (document.fonts && document.fonts.ready) { try { await document.fonts.ready; } catch (_) {} }

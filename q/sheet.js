@@ -39,7 +39,7 @@
   .sh-quick { display:grid; grid-template-columns:repeat(5,1fr); border:1px solid #1E2A44; border-radius:1.5mm; overflow:hidden; margin-bottom:4mm; font-size:10pt; }
   .sh-quick div { display:flex; border-right:1px solid #ccd; border-bottom:1px solid #ccd; min-height:8mm; }
   .sh-quick div b { width:7mm; background:#eef0f5; color:#1E2A44; display:flex; align-items:center; justify-content:center; font-weight:800; }
-  .sh-quick div span { flex:1; display:flex; align-items:center; justify-content:center; padding:1mm 1.5mm; white-space:nowrap; overflow:hidden; }
+  .sh-quick div span { flex:1; display:block; align-self:center; text-align:center; padding:1mm 1.5mm; line-height:1.3; }
   .sh-acols { display:grid; grid-template-columns:1fr 1fr; gap:0 6mm; }
   .sh-acol { overflow:hidden; }
   .sh-acols .sh-acol:first-child { border-right:1px dashed #bbb; padding-right:3mm; }

@@ -263,7 +263,7 @@ let allPrint = [];
 // 답지 켜고 뽑는데 아직 답이 없는 문제 → 지금 풀게 시킴 (1~2분 뒤 다시 뽑으면 들어감)
 function ensureAns(list) {
   if (!withAns()) return;
-  const miss = list.filter(q => !q.typed?.sol?.answer && q.typed?.sol?.error === undefined && q.ocr_status === "done");
+  const miss = list.filter(q => !q.typed?.sol?.answer && !q.typed?.sol?.pending && q.ocr_status === "done");
   if (!miss.length) return;
   for (let i = 0; i < miss.length; i += 3) setTimeout(() => ocrCall({ mode: "solve", ids: miss.slice(i, i + 3).map(q => q.id) }).catch(() => {}), (i / 3) * 1500);
   miss.forEach(q => { q.typed = { ...(q.typed || {}), sol: { answer: "", pending: true } }; });

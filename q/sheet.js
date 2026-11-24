@@ -61,6 +61,16 @@
     h = h.replace(/\n/g, "<br>");
     return h;
   }
+  // 수식 글꼴(루트·≠·∅·큰 괄호용)을 다 받아둔 뒤에 인쇄/PDF — 안 받아진 채로 찍으면
+  // 루트가 끝까지 안 씌워지거나 모양이 깨지고, ≠ 짝대기가 빠지고, ∅가 네모로 나옴
+  const KATEX_FONTS = ["400 normal 20px KaTeX_Main", "400 italic 20px KaTeX_Main", "700 normal 20px KaTeX_Main", "400 italic 20px KaTeX_Math",
+    "400 normal 20px KaTeX_AMS", "400 normal 20px KaTeX_Size1", "400 normal 20px KaTeX_Size2", "400 normal 20px KaTeX_Size3", "400 normal 20px KaTeX_Size4"];
+  async function ensureMathFonts() {
+    if (!document.fonts || !document.fonts.load) return;
+    try { await Promise.race([Promise.all(KATEX_FONTS.map((f) => document.fonts.load(f, "≠√∅(x)ab12"))), new Promise((r) => setTimeout(r, 8000))]); } catch (_) {}
+    try { await document.fonts.ready; } catch (_) {}
+    await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+  }
   const loadImg = (src) => new Promise((res) => { const im = new Image(); im.crossOrigin = "anonymous"; im.onload = () => res(im); im.onerror = () => res(null); im.src = src; });
   // AI가 그린 SVG 점검·정리: 깨진 SVG면 null(→ 사진 그림 사용), 글자·선이 너무 작으면 키움
   function fixSvg(svg) {
@@ -158,6 +168,7 @@
   }
   // container 안에 오답 정리지를 그림. 그림·폰트·수식이 다 준비되면 resolve
   async function build(container, items, opts = {}) {
+    await ensureMathFonts();
     if (!document.getElementById("sheet-css")) { const st = document.createElement("style"); st.id = "sheet-css"; st.textContent = CSS; document.head.appendChild(st); }
     const d = new Date();
     const ds = opts.label || `${d.getMonth() + 1}월 ${d.getDate()}일`;
@@ -217,8 +228,8 @@
       if (prevStyle === null) container.removeAttribute("style"); else container.setAttribute("style", prevStyle);
     }
     await Promise.all([...container.querySelectorAll("img")].map((im) => im.complete ? 0 : new Promise((r) => { im.onload = im.onerror = r; })));
-    if (document.fonts && document.fonts.ready) { try { await document.fonts.ready; } catch (_) {} }
+    await ensureMathFonts();
     return { students: groupByStudent(items).length, problems: items.length };
   }
-  window.AnswerSheet = { build, usePhoto, groupByStudent, fixSvg, cropFigure };
+  window.AnswerSheet = { build, usePhoto, groupByStudent, fixSvg, cropFigure, ensureMathFonts };
 })();

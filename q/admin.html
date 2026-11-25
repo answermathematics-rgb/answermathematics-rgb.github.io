@@ -341,7 +341,7 @@ const OCR = "https://hddsyoaymvpfcloqthyv.supabase.co/functions/v1/qna-ocr";
 const ocrCall = (body) => fetch(OCR, { method: "POST", headers: { "content-type": "application/json", apikey: ANON, authorization: "Bearer " + ANON }, body: JSON.stringify({ token: TOKEN, ...body }) }).then(r => r.json());
 let figItems = [];
 async function figRow(q) {
-  const f = q.typed.figure, svg = f.svg ? AnswerSheet.fixSvg(f.svg) : null;
+  const f = q.typed.figure, svg = f.svg ? (f.manual ? f.svg : AnswerSheet.fixSvg(f.svg, { big: f.big })) : null;
   const src = q.typed.img === "full" && q.full_url ? q.full_url : (q.orig_url || q.url);
   const crop = f.bbox ? await AnswerSheet.cropFigure(src, f.bbox, f.rot) : null;
   const useCrop = !svg || f.use_crop;
@@ -362,7 +362,7 @@ $("figList").onclick = async (e) => {
   b.disabled = true;
   if (b.dataset.fa === "redraw") {
     b.textContent = "그리는 중… (1~2분)";
-    await ocrCall({ mode: "figure", ids: [id], wait: true }).catch(() => {});
+    await ocrCall({ mode: "figure", ids: [id], wait: true, force: true }).catch(() => {});   // 직접 누른 건 손으로 다듬은 그림도 다시 그림
     const r = await fetchRange(true).catch(() => null);
     const nq = r && r.items.find(x => x.id === id);
     if (nq) { Object.assign(q, nq); row.outerHTML = await figRow(q); } else toast("다시 그렸어요. 목록 새로고침해서 확인해줘");

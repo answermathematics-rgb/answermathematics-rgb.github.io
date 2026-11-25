@@ -277,10 +277,12 @@
       } catch (_) {}
       { const v2 = root.getAttribute("viewBox").split(/[\s,]+/).map(Number); var vwF = v2[2] || vw, vhF = v2[3] || vh; }
       // 인쇄 크기(가로 약 58mm)에서 글자가 2.4mm 이상 되게
-      const minFont = Math.max(vwF, vhF * 1.3) * 0.042;
+      // 크게 싣는 그림(보기까지 그림인 문제)은 칸 가득 찍히므로 글자를 덜 키움 (너무 키우면 촘촘한 그림에서 글자끼리 겹침)
+      const big = !!(opt && opt.big);
+      const minFont = big ? Math.max(vwF, vhF * 0.93) * 0.028 : Math.max(vwF, vhF * 1.3) * 0.042;
       const fsOf = (el) => { for (let e = el; e && e.getAttribute && e !== root.parentNode; e = e.parentNode) { const v = parseFloat(e.getAttribute("font-size") || (e.getAttribute("style") || "").replace(/.*font-size:\s*([\d.]+).*/s, "$1")); if (v > 0) return v; } return 16; };
       [...root.getElementsByTagName("text")].forEach((t) => { if (fsOf(t) < minFont) t.setAttribute("font-size", minFont.toFixed(1)); });
-      const minStroke = vwF * 0.0028;
+      const minStroke = vwF * (big ? 0.0019 : 0.0028);
       root.querySelectorAll("[stroke-width]").forEach((e) => { if (parseFloat(e.getAttribute("stroke-width")) < minStroke) e.setAttribute("stroke-width", minStroke.toFixed(2)); });
       return new XMLSerializer().serializeToString(root);
     } catch (_) { return null; } finally { if (host) host.remove(); }
@@ -361,7 +363,7 @@
       if (usePhoto(q) || !f?.present) return;
       // AI가 다시 그린 그림(SVG)이 있으면 그걸로, 없으면 원본 사진에서 잘라서
       // 손으로 다듬은 그림(manual)은 글자 크기 보정 없이 그대로
-      const svg = f.svg && !f.use_crop ? (f.manual ? f.svg : fixSvg(f.svg)) : null;
+      const svg = f.svg && !f.use_crop ? (f.manual ? f.svg : fixSvg(f.svg, { big: f.big })) : null;
       if (svg) figs[q.id] = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(svg);
       else if (f.bbox) figs[q.id] = await cropFigure(q.typed.img === "full" && q.full_url ? q.full_url : (q.orig_url || q.url), f.bbox, f.rot);
     }));

@@ -155,7 +155,13 @@
       (horiz ? H : V).push({ s: horiz ? dy / dx : dx / dy, len, pos: horiz ? (y1 + y2) / 2 : (x1 + x2) / 2, long: len >= 0.4 * dim, axis });
     }
     // 살짝 돌려 그린 네모의 변, 같은 크기 네모(카드·칸)가 한 줄로 늘어선 줄도 기준선으로
-    for (const r of rects) { if (!(r.tilt && r.deg)) continue; const tn = Math.tan(r.deg * Math.PI / 180); H.push({ s: tn, len: r.w, pos: r.c[1] }); V.push({ s: -tn, len: r.h, pos: r.c[0] }); }
+    for (const r of rects) {
+      if (r.tilt && r.deg) { const tn = Math.tan(r.deg * Math.PI / 180); H.push({ s: tn, len: r.w, pos: r.c[1] }); V.push({ s: -tn, len: r.h, pos: r.c[0] }); }
+      else if (!r.el.getAttribute("transform") && stroked(r.el)) {   // 반듯하게 그린 테두리 네모 = 이미 바로 선 그림이라는 증거
+        if (r.w >= 0.12 * VW) [-1, 1].forEach((k) => H.push({ s: 0, len: r.w, pos: r.c[1] + k * r.h / 2, long: r.w >= 0.4 * VW }));
+        if (r.h >= 0.12 * VH) [-1, 1].forEach((k) => V.push({ s: 0, len: r.h, pos: r.c[0] + k * r.w / 2, long: r.h >= 0.4 * VH }));
+      }
+    }
     if (rects.length >= 3) {
       const w0 = rects[0].w, h0 = rects[0].h, same = rects.filter((r) => Math.abs(r.w - w0) <= 0.12 * w0 && Math.abs(r.h - h0) <= 0.12 * h0);
       if (same.length === rects.length) {
@@ -167,30 +173,43 @@
       }
     }
     if (!H.length && !V.length) return false;
-    // 2) 기준 기울기 정하기: 좌표축이 있으면 축이 기준. 없으면 전체 선의 가운데값(그림이 통째로 얼마나 돌아갔나)
+    // 2) 고칠지 말지: 긴 선 중에 이미 정확히 가로·세로인 게 있으면 '반듯하게 그린 그림'이니 손대지 않음 (비스듬한 선은 원래 그런 것)
     const wt = (a) => a.len * (a.axis ? 3 : 1);
     const mean = (arr) => arr.reduce((t, a) => t + a.s * wt(a), 0) / arr.reduce((t, a) => t + wt(a), 0);
-    const all = [...H.map((a) => ({ v: a.s, w: wt(a) })), ...V.map((a) => ({ v: -a.s, w: wt(a) }))].sort((p, q) => p.v - q.v);
-    const tot = all.reduce((t, a) => t + a.w, 0); let acc = 0, th = 0;
-    for (const a of all) { acc += a.w; if (acc >= tot / 2) { th = a.v; break; } }
-    const axH = H.filter((a) => a.axis), axV = V.filter((a) => a.axis);
-    const baseH = axH.length ? mean(axH) : axV.length ? -mean(axV) : th, baseV = axV.length ? mean(axV) : axH.length ? -mean(axH) : -th;
-    // 기준에서 크게 벗어난 선(원래부터 비스듬한 선)은 뺌. 축이 있는 방향은 축과 나란한 점선까지 넉넉히 받아 줌
-    const hi = H.filter((a) => a.axis || Math.abs(a.s - baseH) <= (axH.length ? 0.06 : 0.045)), vi = V.filter((a) => a.axis || Math.abs(a.s - baseV) <= (axV.length ? 0.06 : 0.045));
-    if (!hi.some((a) => a.long || a.axis) && !vi.some((a) => a.long || a.axis)) return false;   // 믿을 만한 긴 기준선이 없으면 그대로 둠
+    const isLong = (a) => a.long || a.axis;
+    if ([...H, ...V].some((a) => isLong(a) && Math.abs(a.s) < 0.003)) return false;
+    // 기준 기울기: ① 좌표축(화살표 달린 긴 선) ② 같은 방향 긴 선 둘 이상이 나란히 기울어 있음 ③ 가로 긴 선과 세로 긴 선이 같은 각도로 돌아가 있음
+    const selfRef = (arr) => {
+      const ax = arr.filter((a) => a.axis); if (ax.length) return mean(ax);
+      const L = arr.filter(isLong), ss = L.map((a) => a.s);
+      return L.length >= 2 && Math.max(...ss) - Math.min(...ss) <= 0.03 ? mean(L) : null;
+    };
+    const cross = (arr, other) => { if (other == null) return null; const L = arr.filter((a) => isLong(a) && Math.abs(a.s + other) <= 0.04); return L.length ? mean(L) : null; };
+    let rH = selfRef(H), rV = selfRef(V);
+    if (rH == null) rH = cross(H, rV);
+    if (rV == null) rV = cross(V, rH);
+    if (rH == null && rV == null) {
+      let best = null;
+      for (const h of H.filter(isLong)) for (const v of V.filter(isLong)) if (Math.abs(h.s + v.s) <= 0.04 && (!best || h.len + v.len > best[2])) best = [h.s, v.s, h.len + v.len];
+      if (!best) return false;                                      // 믿을 만한 기준이 없으면 그대로 둠
+      rH = best[0]; rV = best[1];
+    }
+    // 기준과 나란한 선만 계산에 씀 (축이 있는 방향은 축에 내린 점선까지 넉넉히)
+    const pick = (arr, ref) => ref == null ? [] : arr.filter((a) => a.axis || Math.abs(a.s - ref) <= (arr.some((x) => x.axis) ? 0.06 : 0.04));
+    const hi = pick(H, rH), vi = pick(V, rV);
     // 3) 방향별 기울기: 평균 + (기준선이 넓게 퍼져 있으면) 위치에 따라 달라지는 정도까지 — 비스듬히 찍힌 사진은 선마다 기울기가 조금씩 다름
     const fit = (arr, span) => {
       if (!arr.length) return null;
       const W = arr.reduce((t, a) => t + wt(a), 0), a0 = mean(arr), pm = arr.reduce((t, a) => t + a.pos * wt(a), 0) / W;
-      let b = 0; const ps = arr.map((a) => a.pos), spread = Math.max(...ps) - Math.min(...ps), lp = arr.filter((a) => a.long || a.axis).map((a) => a.pos);
-      if ((arr.length >= 3 && spread >= 0.3 * span) || (lp.length >= 2 && Math.max(...lp) - Math.min(...lp) >= 0.5 * span)) {
+      let b = 0; const ps = arr.map((a) => a.pos), spread = Math.max(...ps) - Math.min(...ps), lp = arr.filter(isLong).map((a) => a.pos);
+      if ((arr.some((a) => a.axis) && arr.length >= 3 && spread >= 0.3 * span) || (lp.length >= 2 && Math.max(...lp) - Math.min(...lp) >= 0.5 * span)) {
         const sxx = arr.reduce((t, a) => t + wt(a) * (a.pos - pm) ** 2, 0), sxy = arr.reduce((t, a) => t + wt(a) * (a.pos - pm) * (a.s - a0), 0);
         if (sxx > 0) { const lim = 0.14 / span; b = Math.max(-lim, Math.min(lim, sxy / sxx)); }
       }
       return { a: a0, b, pm };
     };
     const fh = fit(hi, VH), fv = fit(vi, VW);
-    const sh = (y) => fh ? fh.a + fh.b * (y - fh.pm) : -(fv.a);      // 가로선 기울기 (없으면 세로선과 같은 각도로 돌아갔다고 봄)
+    const sh = (y) => fh ? fh.a + fh.b * (y - fh.pm) : -(fv.a);      // 가로선 기울기 (기준이 없으면 세로선과 같은 각도로 돌아갔다고 봄)
     const sv = (x) => fv ? fv.a + fv.b * (x - fv.pm) : -(fh.a);
     const worst = Math.max(Math.abs(sh(vb[1])), Math.abs(sh(vb[1] + VH)), Math.abs(sv(vb[0])), Math.abs(sv(vb[0] + VW)));
     if (worst < 0.006 || worst > 0.2) return false;                  // 이미 반듯함(0.35° 미만) / 말이 안 되게 큼

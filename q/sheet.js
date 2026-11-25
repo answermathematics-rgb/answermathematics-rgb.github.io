@@ -287,6 +287,19 @@
       return new XMLSerializer().serializeToString(root);
     } catch (_) { return null; } finally { if (host) host.remove(); }
   }
+  // SVG에 크기(width/height)를 적어 줌 + 가로세로 비 계산.
+  // PDF 저장(html2canvas)은 크기가 안 적힌 SVG 그림을 왼쪽 위만 크게 확대해서 그려 버려서, 그림이 잘리거나 글자 하나만 보였음.
+  function sizedSvg(svg) {
+    try {
+      const m = /<svg\b[^>]*>/i.exec(svg); if (!m) return { svg, ar: 0 };
+      const tag = m[0], vb = /viewBox\s*=\s*["']([^"']+)["']/i.exec(tag);
+      const v = vb ? vb[1].trim().split(/[\s,]+/).map(Number) : [];
+      if (v.length !== 4 || !(v[2] > 0) || !(v[3] > 0)) return { svg, ar: 0 };
+      const W = 1200, H = Math.round(W * v[3] / v[2]);
+      const clean = tag.replace(/\s(width|height)\s*=\s*("[^"]*"|'[^']*')/gi, "").replace(/<svg\b/i, `<svg width="${W}" height="${H}"`);
+      return { svg: svg.replace(tag, clean), ar: v[2] / v[3] };
+    } catch (_) { return { svg, ar: 0 }; }
+  }
   async function cropFigure(url, bbox, rot) {
     const im = await loadImg(url); if (!im) return null;
     const p = 0.02;
@@ -364,9 +377,17 @@
       // AI가 다시 그린 그림(SVG)이 있으면 그걸로, 없으면 원본 사진에서 잘라서
       // 손으로 다듬은 그림(manual)은 글자 크기 보정 없이 그대로
       const svg = f.svg && !f.use_crop ? (f.manual ? f.svg : fixSvg(f.svg, { big: f.big })) : null;
-      if (svg) figs[q.id] = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(svg);
-      else if (f.bbox) figs[q.id] = await cropFigure(q.typed.img === "full" && q.full_url ? q.full_url : (q.orig_url || q.url), f.bbox, f.rot);
+      if (svg) { const z = sizedSvg(svg); figs[q.id] = { src: "data:image/svg+xml;charset=utf-8," + encodeURIComponent(z.svg), ar: z.ar }; }
+      else if (f.bbox) {
+        const src = await cropFigure(q.typed.img === "full" && q.full_url ? q.full_url : (q.orig_url || q.url), f.bbox, f.rot);
+        if (src) { const im = await loadImg(src); figs[q.id] = { src, ar: im && im.naturalHeight ? im.naturalWidth / im.naturalHeight : 0 }; }
+      }
     }));
+    // 그림 상자를 그림 비율 그대로 잡아 줌 (화면·인쇄·PDF 어디서나 찌그러지지 않게). 보통 그림: 가로 58mm·세로 46mm 안, 크게 싣는 그림: 칸 가로·세로 92mm 안
+    const figHtml = (fg, big) => {
+      const st = fg.ar > 0 ? ` style="width:min(${big ? "100%" : "58mm, 90%"}, ${((big ? 92 : 46) * fg.ar).toFixed(1)}mm); aspect-ratio:${fg.ar.toFixed(4)}; height:auto; max-width:none; max-height:none"` : "";
+      return `<div class="fig${big ? " big" : ""}"><img src="${fg.src}"${st}></div>`;
+    };
     let h = '<div class="sheet-root">';
     const PER = 4; // 한 장에 4문제 (2×2)
     const groups = groupByStudent(items);
@@ -382,7 +403,7 @@
           if (usePhoto(q)) h += `<div class="photo"><img src="${esc(q.url)}" crossorigin="anonymous"></div>`;
           else {
             h += `<div class="body">${bodyHtml(t.body)}</div>`;
-            if (figs[q.id]) h += `<div class="fig${q.typed?.figure?.big ? " big" : ""}"><img src="${figs[q.id]}"></div>`;
+            if (figs[q.id]) h += figHtml(figs[q.id], !!q.typed?.figure?.big);
             h += choicesHtml(t.choices);
           }
           h += "</div>";
@@ -413,7 +434,31 @@
     }
     await Promise.all([...container.querySelectorAll("img")].map((im) => im.complete ? 0 : new Promise((r) => { im.onload = im.onerror = r; })));
     await ensureMathFonts();
+    fitCells(container);
     return { students: groupByStudent(items).length, problems: items.length };
+  }
+  // 한 칸(쪽의 1/4)에 다 안 들어가는 문제는 넘친 부분이 잘려서 선택지가 안 찍혔음
+  // → 넘치면 그림부터 줄이고, 그래도 넘치면 글자를 조금 줄여서 칸 안에 넣음
+  function fitCells(container) {
+    const prevStyle = container.getAttribute("style"), hidden = !container.offsetWidth;
+    if (hidden) container.style.cssText = (prevStyle || "") + ";display:block;position:fixed;left:-20000px;top:0;width:190mm;visibility:visible";
+    try {
+      container.querySelectorAll(".sh-q").forEach((cell) => {
+        const over = () => cell.scrollHeight - cell.clientHeight > 1;
+        if (!over()) return;
+        const im = cell.querySelector(".fig img");
+        if (im && im.style.width) {
+          const w0 = im.style.width;
+          for (const k of [0.85, 0.72, 0.6, 0.5]) { im.style.width = `calc(${w0} * ${k})`; if (!over()) return; }
+        }
+        for (const k of [0.94, 0.88, 0.82, 0.76]) {
+          cell.querySelectorAll(".body, .choices").forEach((e) => { e.style.fontSize = (10.5 * k).toFixed(2) + "pt"; });
+          const b = cell.querySelector(".body"); if (b) b.style.lineHeight = (1.75 - (1 - k) * 1.3).toFixed(2);
+          if (!over()) return;
+        }
+      });
+    } catch (_) {}
+    if (hidden) { if (prevStyle === null) container.removeAttribute("style"); else container.setAttribute("style", prevStyle); }
   }
   window.AnswerSheet = { build, usePhoto, groupByStudent, fixSvg, cropFigure, ensureMathFonts, bodyHtml, choicesHtml };
 })();

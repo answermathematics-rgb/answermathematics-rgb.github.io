@@ -103,6 +103,9 @@ async function verCheck() {
     if (!cur || cur === verBase || busy) return;
     let last = ""; try { last = sessionStorage.getItem("q_rl") || ""; } catch (_) {}
     if (last === cur) return;                                                  // 같은 버전으로 또 새로고침하지 않음 (무한 반복 방지)
+    // 새로고침은 저장해 둔 파일(10분 안 된 것)을 그대로 다시 쓰기도 해서, 먼저 새 파일로 바꿔 놓고 새로고침
+    await Promise.all(VER_FILES.map((f) => fetch(f, { cache: "reload" }).catch(() => null)));
+    if (busy) return;                                                          // 그새 인쇄가 시작됐으면 다음 확인 때
     try { sessionStorage.setItem("q_rl", cur); } catch (_) {}
     location.reload();
   } catch (_) {}

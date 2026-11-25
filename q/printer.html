@@ -86,7 +86,7 @@ $("testBtn").onclick = async () => {
 // ───── 스스로 새 버전 받기 ─────
 // 이 창은 며칠씩 켜 두니까, 조판·그림을 고쳐 올려도 창을 새로고침하기 전에는 옛 버전으로 인쇄됐음.
 // 5분마다 서버의 파일이 지금 쓰는 것과 달라졌는지 보고, 달라졌으면 인쇄 중이 아닐 때 알아서 새로고침.
-const VER_FILES = ["printer.html", "sheet.js"];
+const VER_FILES = [location.pathname + location.search, "sheet.js"];   // 이 창을 연 주소 그대로 (그래야 지금 쓰는 파일과 비교됨)
 const hashOf = (t) => { let h = 5381; for (let i = 0; i < t.length; i++) h = ((h << 5) + h + t.charCodeAt(i)) | 0; return t.length + "." + (h >>> 0); };
 async function verOf(cache) {
   const rs = await Promise.all(VER_FILES.map((f) => fetch(f, { cache })));

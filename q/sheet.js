@@ -29,6 +29,7 @@
   .sh-q .box { border:1px solid #333; border-radius:2mm; padding:2.5mm 3.5mm; margin:2mm 0; }
   .sh-q .fig { margin:3mm 0 1mm; text-align:center; }
   .sh-q .fig img { width:58mm; max-width:90%; max-height:46mm; object-fit:contain; }
+  .sh-q .fig.big img { width:100%; max-width:100%; max-height:92mm; }   /* 보기까지 그림인 문제 */
   .sh-q .photo img { max-width:100%; max-height:80mm; object-fit:contain; }
   .sh-q .choices { display:grid; gap:1.2mm 3mm; margin-top:2.5mm; font-size:10.5pt; }
   .sh-q .choices.c5 { grid-template-columns:repeat(5,1fr); }
@@ -180,7 +181,8 @@
       const f = q.typed?.figure;
       if (usePhoto(q) || !f?.present) return;
       // AI가 다시 그린 그림(SVG)이 있으면 그걸로, 없으면 원본 사진에서 잘라서
-      const svg = f.svg && !f.use_crop ? fixSvg(f.svg) : null;
+      // 손으로 다듬은 그림(manual)은 글자 크기 보정 없이 그대로
+      const svg = f.svg && !f.use_crop ? (f.manual ? f.svg : fixSvg(f.svg)) : null;
       if (svg) figs[q.id] = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(svg);
       else if (f.bbox) figs[q.id] = await cropFigure(q.typed.img === "full" && q.full_url ? q.full_url : (q.orig_url || q.url), f.bbox, f.rot);
     }));
@@ -199,7 +201,7 @@
           if (usePhoto(q)) h += `<div class="photo"><img src="${esc(q.url)}" crossorigin="anonymous"></div>`;
           else {
             h += `<div class="body">${bodyHtml(t.body)}</div>`;
-            if (figs[q.id]) h += `<div class="fig"><img src="${figs[q.id]}"></div>`;
+            if (figs[q.id]) h += `<div class="fig${q.typed?.figure?.big ? " big" : ""}"><img src="${figs[q.id]}"></div>`;
             h += choicesHtml(t.choices);
           }
           h += "</div>";

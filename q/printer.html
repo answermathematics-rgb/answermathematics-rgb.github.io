@@ -83,8 +83,32 @@ $("testBtn").onclick = async () => {
     typed: { body: "함수 $f(x)=x^3-3x+a$의 극댓값이 $5$일 때, 상수 $a$의 값은?", choices: ["$1$", "$2$", "$3$", "$4$", "$5$"], number: "12", confidence: "high" } }]);
   window.print(); $("out").innerHTML = ""; log("테스트 페이지 인쇄");
 };
+// ───── 스스로 새 버전 받기 ─────
+// 이 창은 며칠씩 켜 두니까, 조판·그림을 고쳐 올려도 창을 새로고침하기 전에는 옛 버전으로 인쇄됐음.
+// 5분마다 서버의 파일이 지금 쓰는 것과 달라졌는지 보고, 달라졌으면 인쇄 중이 아닐 때 알아서 새로고침.
+const VER_FILES = ["printer.html", "sheet.js"];
+const hashOf = (t) => { let h = 5381; for (let i = 0; i < t.length; i++) h = ((h << 5) + h + t.charCodeAt(i)) | 0; return t.length + "." + (h >>> 0); };
+async function verOf(cache) {
+  const rs = await Promise.all(VER_FILES.map((f) => fetch(f, { cache })));
+  if (!rs.every((r) => r.ok)) return null;
+  const ts = await Promise.all(rs.map((r) => r.text()));
+  if (!/printer_next/.test(ts[0]) || !/AnswerSheet/.test(ts[1])) return null;   // 오류 안내 페이지 같은 엉뚱한 응답이면 무시
+  return ts.map(hashOf).join("|");
+}
+let verBase = null;
+async function verCheck() {
+  try {
+    if (verBase === null) { verBase = await verOf("force-cache"); return; }   // 지금 이 창이 쓰고 있는 파일
+    const cur = await verOf("no-store");                                       // 서버에 올라와 있는 파일
+    if (!cur || cur === verBase || busy) return;
+    let last = ""; try { last = sessionStorage.getItem("q_rl") || ""; } catch (_) {}
+    if (last === cur) return;                                                  // 같은 버전으로 또 새로고침하지 않음 (무한 반복 방지)
+    try { sessionStorage.setItem("q_rl", cur); } catch (_) {}
+    location.reload();
+  } catch (_) {}
+}
 if (!TOKEN) setSt("원장 링크로 열어주세요 (?t=…)", true);
-else { tick(); setInterval(tick, 3000); }
+else { tick(); setInterval(tick, 3000); verCheck(); setInterval(verCheck, 5 * 60 * 1000); }
 </script>
 </body>
 </html>

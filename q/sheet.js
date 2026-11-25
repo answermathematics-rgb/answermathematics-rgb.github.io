@@ -9,9 +9,11 @@
   .sh-page { height:268mm; display:flex; flex-direction:column; break-after:page; page-break-after:always; overflow:hidden; }
   .sh-page:last-child { break-after:auto; page-break-after:auto; }
   .sh-grid { flex:1; display:grid; grid-template-columns:1fr 1fr; grid-template-rows:1fr 1fr; min-height:0; }
-  .sh-grid .sh-q:nth-child(odd) { border-right:1px dashed #bbb; padding-right:4mm; }
-  .sh-grid .sh-q:nth-child(even) { padding-left:4mm; }
-  .sh-grid .sh-q:nth-child(n+3) { border-top:1px dashed #bbb; padding-top:4mm; }
+  .sh-grid .sh-q.cl { border-right:1px dashed #bbb; padding-right:4mm; }   /* 왼쪽 칸 */
+  .sh-grid .sh-q.cr { padding-left:4mm; }                                   /* 오른쪽 칸 */
+  .sh-grid .sh-q.rb { border-top:1px dashed #bbb; padding-top:4mm; }        /* 아랫줄 */
+  /* 칸 넘침을 잴 때는 화면에서도 인쇄할 때와 같은 장 크기로 (PDF 조판 영역은 자기 크기 277mm가 우선) */
+  .sh-fit .sh-page { height:268mm !important; min-height:0 !important; border:0 !important; margin:0 !important; padding:0 !important; }
   .sh-pfoot { display:flex; justify-content:flex-end; align-items:center; height:9mm; }
   .sh-pfoot img { height:6.5mm; }
   @media screen { .sh-page { border:1px solid #ddd; margin-bottom:6mm; padding:4mm; height:auto; min-height:268mm; } }
@@ -36,6 +38,14 @@
   .sh-q .choices.c3 { grid-template-columns:repeat(3,1fr); }
   .sh-q .choices.c2 { grid-template-columns:repeat(2,1fr); }
   .sh-q .choices.c1 { grid-template-columns:1fr; }
+  /* 한 칸에 도저히 안 들어가는 긴 문제는 한 줄(두 칸)을 통째로 씀 */
+  .sh-q.wide > .choices.c3 { grid-template-columns:repeat(5,1fr); }
+  .sh-q.wide > .choices.c2 { grid-template-columns:repeat(3,1fr); }
+  .sh-q.wide > .choices.c1 { grid-template-columns:repeat(2,1fr); }
+  .sh-q.wide .wrow { display:flex; gap:6mm; align-items:flex-start; }      /* 그림 있는 긴 문제: 글은 왼쪽, 그림은 오른쪽 */
+  .sh-q.wide .wrow .wtxt { flex:1; min-width:0; }
+  .sh-q.wide .wrow .fig { flex:0 0 auto; width:64mm; margin:1mm 0 0; }
+  .sh-q.wide .wrow.big .fig { width:48%; }
   /* 답지: 빠른 정답 표 + 문제별 해설 (2단) */
   .sh-quick { display:grid; grid-template-columns:repeat(5,1fr); border:1px solid #1E2A44; border-radius:1.5mm; overflow:hidden; margin-bottom:4mm; font-size:10pt; }
   .sh-quick > div { display:flex; border-right:1px solid #ccd; border-bottom:1px solid #ccd; min-height:8mm; }
@@ -388,35 +398,54 @@
       const st = fg.ar > 0 ? ` style="width:min(${big ? "100%" : "58mm, 90%"}, ${((big ? 92 : 46) * fg.ar).toFixed(1)}mm); aspect-ratio:${fg.ar.toFixed(4)}; height:auto; max-width:none; max-height:none"` : "";
       return `<div class="fig${big ? " big" : ""}"><img src="${fg.src}"${st}></div>`;
     };
-    let h = '<div class="sheet-root">';
-    const PER = 4; // 한 장에 4문제 (2×2)
     const groups = groupByStudent(items);
-    groups.forEach((g) => {
-      const pages = Math.ceil(g.qs.length / PER);
-      for (let p = 0; p < pages; p++) {
-        h += `<div class="sh-page"><div class="sh-head"><img class="lg" src="${base}logo.png"><div class="bar"></div><div class="ttl">오답 정리</div>
-          <div class="info"><b>${esc(g.name)}</b> · ${esc(ds)} · ${g.qs.length}문제${pages > 1 ? ` (${p + 1}/${pages})` : ""}</div></div><div class="sh-grid">`;
-        g.qs.slice(p * PER, p * PER + PER).forEach((q, j) => {
-          const i = p * PER + j, t = q.typed || {};
-          const src = t.number ? `<small>원래 ${esc(t.number)}번</small>` : "";
-          h += `<div class="sh-q"><div class="qn">${i + 1}${src}</div>`;
-          if (usePhoto(q)) h += `<div class="photo"><img src="${esc(q.url)}" crossorigin="anonymous"></div>`;
-          else {
-            h += `<div class="body">${bodyHtml(t.body)}</div>`;
-            if (figs[q.id]) h += figHtml(figs[q.id], !!q.typed?.figure?.big);
-            h += choicesHtml(t.choices);
-          }
-          h += "</div>";
-        });
-        h += `</div><div class="sh-pfoot"><img src="${base}logo-ko.png"></div></div>`;
+    // 문제를 줄 단위로 묶음: 보통은 한 줄에 두 문제(한 장 = 두 줄 = 4문제), 긴 문제(wide)는 혼자 한 줄을 다 씀
+    const wide = new Set();
+    const rowsOf = (qs) => {
+      const rows = []; let cur = null;
+      qs.forEach((q, i) => {
+        if (wide.has(q.id)) { if (cur) rows.push(cur); cur = null; rows.push([{ q, i, w: true }]); }
+        else { (cur = cur || []).push({ q, i }); if (cur.length === 2) { rows.push(cur); cur = null; } }
+      });
+      if (cur) rows.push(cur);
+      return rows;
+    };
+    const cellHtml = (c, r, col) => {
+      const q = c.q, t = q.typed || {};
+      const src = t.number ? `<small>원래 ${esc(t.number)}번</small>` : "";
+      let s = `<div class="sh-q ${c.w ? "wide" : col ? "cr" : "cl"}${r ? " rb" : ""}" data-id="${esc(q.id)}" style="grid-row:${r + 1};grid-column:${c.w ? "1 / -1" : col + 1}"><div class="qn">${c.i + 1}${src}</div>`;
+      if (usePhoto(q)) s += `<div class="photo"><img src="${esc(q.url)}" crossorigin="anonymous"></div>`;
+      else {
+        const big = !!(t.figure && t.figure.big), body = `<div class="body">${bodyHtml(t.body)}</div>`;
+        if (c.w && figs[q.id]) s += `<div class="wrow${big ? " big" : ""}"><div class="wtxt">${body}${choicesHtml(t.choices)}</div>${figHtml(figs[q.id], big)}</div>`;
+        else s += body + (figs[q.id] ? figHtml(figs[q.id], big) : "") + choicesHtml(t.choices);
       }
-      if (opts.answers) h += `<div class="sh-ansmark" data-g="${groups.indexOf(g)}"></div>`;
-    });
-    h += "</div>";
-    container.innerHTML = h;
-    if (window.renderMathInElement) {
-      window.renderMathInElement(container, { delimiters: [{ left: "$$", right: "$$", display: true }, { left: "$", right: "$", display: false }], throwOnError: false, strict: "ignore" });
-    }
+      return s + "</div>";
+    };
+    const sheetHtml = () => {
+      let h = '<div class="sheet-root">';
+      groups.forEach((g, gi) => {
+        const rows = rowsOf(g.qs), pages = Math.ceil(rows.length / 2);
+        for (let p = 0; p < pages; p++) {
+          h += `<div class="sh-page"><div class="sh-head"><img class="lg" src="${base}logo.png"><div class="bar"></div><div class="ttl">오답 정리</div>
+          <div class="info"><b>${esc(g.name)}</b> · ${esc(ds)} · ${g.qs.length}문제${pages > 1 ? ` (${p + 1}/${pages})` : ""}</div></div><div class="sh-grid">`;
+          rows.slice(p * 2, p * 2 + 2).forEach((row, r) => {
+            row.forEach((c, col) => { h += cellHtml(c, r, col); });
+            // 한 문제만 있는 줄의 빈 오른쪽 칸 (가로 점선이 끝까지 이어지게)
+            if (row.length === 1 && !row[0].w) h += `<div class="sh-q cr${r ? " rb" : ""}" style="grid-row:${r + 1};grid-column:2"></div>`;
+          });
+          h += `</div><div class="sh-pfoot"><img src="${base}logo-ko.png"></div></div>`;
+        }
+        if (opts.answers) h += `<div class="sh-ansmark" data-g="${gi}"></div>`;
+      });
+      return h + "</div>";
+    };
+    const imgsReady = () => Promise.all([...container.querySelectorAll("img")].map((im) => im.complete ? 0 : new Promise((r) => { im.onload = im.onerror = r; })));
+    const paint = async () => { container.innerHTML = sheetHtml(); renderMath(container); await imgsReady(); await ensureMathFonts(); };
+    await paint();
+    // 글자·그림을 조금 줄여 봐도 한 칸에 안 들어가는 문제는 한 줄을 통째로 쓰게 해서 다시 조판
+    const need = fitCells(container, true);
+    if (need.length) { need.forEach((id) => wide.add(id)); await paint(); }
     // 답지: 학생마다 문제 장 바로 뒤에 (실제 높이를 재면서 장을 나눔)
     if (opts.answers) {
       // 숨겨진 칸(display:none)에서는 높이를 못 재니까 잠깐 화면 밖에 펼쳐서
@@ -432,33 +461,53 @@
       });
       if (prevStyle === null) container.removeAttribute("style"); else container.setAttribute("style", prevStyle);
     }
-    await Promise.all([...container.querySelectorAll("img")].map((im) => im.complete ? 0 : new Promise((r) => { im.onload = im.onerror = r; })));
+    await imgsReady();
     await ensureMathFonts();
-    fitCells(container);
-    return { students: groupByStudent(items).length, problems: items.length };
+    fitCells(container, false);
+    return { students: groups.length, problems: items.length };
   }
   // 한 칸(쪽의 1/4)에 다 안 들어가는 문제는 넘친 부분이 잘려서 선택지가 안 찍혔음
-  // → 넘치면 그림부터 줄이고, 그래도 넘치면 글자를 조금 줄여서 칸 안에 넣음
-  function fitCells(container) {
+  // → 넘치면 그림과 글자를 번갈아 조금씩 줄여서 칸 안에 넣음. 앞의 7단계(그림 75%·글자 88%)까지가 '조금'
+  const FIT_STEPS = [["f", 0.9], ["t", 0.97], ["f", 0.82], ["t", 0.94], ["f", 0.75], ["t", 0.91], ["t", 0.88],
+    ["f", 0.66], ["t", 0.85], ["f", 0.58], ["t", 0.82], ["f", 0.5], ["t", 0.79], ["t", 0.76]];
+  const FIT_MILD = 7;
+  function fitOne(cell, upto) {
+    const over = () => cell.scrollHeight - cell.clientHeight > 1;
+    if (!over()) return true;
+    const im = cell.querySelector(".fig img");
+    const w0 = im && im.style.width ? (im.dataset.w0 || (im.dataset.w0 = im.style.width)) : "";
+    const txt = cell.querySelectorAll(".body, .choices"), b = cell.querySelector(".body");
+    for (let i = 0; i < upto; i++) {
+      const k = FIT_STEPS[i][1];
+      if (FIT_STEPS[i][0] === "f") { if (!w0) continue; im.style.width = `calc(${w0} * ${k})`; }
+      else { txt.forEach((e) => { e.style.fontSize = (10.5 * k).toFixed(2) + "pt"; }); if (b) b.style.lineHeight = (1.75 - (1 - k) * 1.3).toFixed(2); }
+      if (!over()) return true;
+    }
+    return false;
+  }
+  function unfit(cell) {
+    const im = cell.querySelector(".fig img"); if (im && im.dataset.w0) im.style.width = im.dataset.w0;
+    cell.querySelectorAll(".body, .choices").forEach((e) => { e.style.fontSize = ""; });
+    const b = cell.querySelector(".body"); if (b) b.style.lineHeight = "";
+  }
+  // probe=true: 조금 줄여도 안 들어가는 칸의 문제 id만 알려 주고 원래대로 돌려놓음 / false: 실제로 줄임
+  function fitCells(container, probe) {
+    const need = [];
     const prevStyle = container.getAttribute("style"), hidden = !container.offsetWidth;
+    // 숨겨진 인쇄 영역은 잠깐 화면 밖에 펼치고, 인쇄할 때와 같은 장 크기(sh-fit)로 놓고 잼.
+    // (화면에서는 장 높이가 내용 따라 늘어나서, 이렇게 안 하면 넘침이 안 보이고 인쇄할 때만 잘림)
     if (hidden) container.style.cssText = (prevStyle || "") + ";display:block;position:fixed;left:-20000px;top:0;width:190mm;visibility:visible";
+    container.classList.add("sh-fit");
     try {
       container.querySelectorAll(".sh-q").forEach((cell) => {
-        const over = () => cell.scrollHeight - cell.clientHeight > 1;
-        if (!over()) return;
-        const im = cell.querySelector(".fig img");
-        if (im && im.style.width) {
-          const w0 = im.style.width;
-          for (const k of [0.85, 0.72, 0.6, 0.5]) { im.style.width = `calc(${w0} * ${k})`; if (!over()) return; }
-        }
-        for (const k of [0.94, 0.88, 0.82, 0.76]) {
-          cell.querySelectorAll(".body, .choices").forEach((e) => { e.style.fontSize = (10.5 * k).toFixed(2) + "pt"; });
-          const b = cell.querySelector(".body"); if (b) b.style.lineHeight = (1.75 - (1 - k) * 1.3).toFixed(2);
-          if (!over()) return;
-        }
+        if (!probe) { fitOne(cell, FIT_STEPS.length); return; }
+        if (!fitOne(cell, FIT_MILD) && !cell.classList.contains("wide") && cell.dataset.id) need.push(cell.dataset.id);
+        unfit(cell);
       });
     } catch (_) {}
+    container.classList.remove("sh-fit");
     if (hidden) { if (prevStyle === null) container.removeAttribute("style"); else container.setAttribute("style", prevStyle); }
+    return need;
   }
   window.AnswerSheet = { build, usePhoto, groupByStudent, fixSvg, cropFigure, ensureMathFonts, bodyHtml, choicesHtml };
 })();

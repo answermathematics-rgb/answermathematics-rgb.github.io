@@ -155,6 +155,7 @@
     <div class="who"><b id="whoName"></b> 질문</div>
     <div class="big">질문할 문제를<br>찍어줘</div>
     <div class="muted">문제만 크게, 그림자 없이.<br>풀이 쓰기 전 문제 그대로 찍어.</div>
+    <div class="err" id="shootNote"></div>
     <button class="btn red" id="shootBtn">📷 카메라 열기</button>
     <button class="btn ghost" id="cancelBtn">취소</button>
   </div>
@@ -211,10 +212,12 @@ const ANON = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZ
 // 5초마다 지금 화면을 폰에 적어 둠 → 다음에 열렸을 때 직전 페이지가 정상 종료 안 됐으면(죽었으면) 서버에 기록
 const LOG_URL = "https://hddsyoaymvpfcloqthyv.supabase.co/functions/v1/qna-log";
 const logQ = [];
+// 어느 폰에서 난 일인지 구분하는 꼬리표 (폰마다 처음 한 번 정해지는 4글자)
+let DEV = ""; try { DEV = localStorage.getItem("qdev") || ""; if (!DEV) { DEV = Math.random().toString(36).slice(2, 6); localStorage.setItem("qdev", DEV); } } catch (_) {}
 function klog(kind, info = {}) {
   try {
     const scr = (document.querySelector(".screen.on") || {}).id || "";
-    logQ.push({ kind, screen: scr, name: (window.cur && cur.name) || "", info: { ...info, t: new Date().toISOString() } });
+    logQ.push({ kind, screen: scr, name: (window.cur && cur.name) || "", info: { ...info, t: new Date().toISOString(), d: DEV } });
     clearTimeout(klog._t); klog._t = setTimeout(flushLog, 1500);
   } catch (_) {}
 }
@@ -244,7 +247,8 @@ window.addEventListener("unhandledrejection", (e) => klog("promise_error", { msg
   document.addEventListener("visibilitychange", () => { beat(document.visibilityState); if (document.visibilityState === "hidden") flushLog(); });
   window.addEventListener("pagehide", () => { beat("closed"); flushLog(); });
   window.addEventListener("pageshow", (e) => { if (e.persisted) { closed = false; beat(document.visibilityState); } });
-  setTimeout(() => klog("open", { standalone: matchMedia("(display-mode: standalone)").matches, ua: navigator.userAgent.slice(0, 160), ...memInfo() }), 800);
+  setTimeout(() => klog("open", { standalone: matchMedia("(display-mode: standalone)").matches, ua: navigator.userAgent.slice(0, 160),
+    cw: typeof CloseWatcher !== "undefined", hl: history.length, ...memInfo() }), 800);
 })();
 
 // 기기 토큰: 처음 한 번 ?k=… 로 열면 기기에 저장
@@ -331,18 +335,68 @@ function regNext() {
 }
 fastTap($("regNext"), regNext);
 // ───── 폰 뒤로가기 버튼 ─────
-// 그냥 두면 앱이 꺼지거나 이전 페이지로 나가버려서 오류처럼 보임 → 앱 안에서 한 단계 뒤로만 가게
-try { history.replaceState({ q: 0 }, ""); history.pushState({ q: 1 }, ""); } catch (_) {}
+// 그냥 두면 앱이 꺼져서(앱 고정 상태에선 하얗게 먹통) 오류처럼 보임 → 앱 안에서 한 단계 뒤로만 가게.
+// 크롬은 '화면을 만지지 않았는데 페이지가 새로 만든 방문기록'을 뒤로가기 때 건너뛴다.
+// 예전엔 뒤로가기를 받을 때마다 기록을 새로 만들어서, 첫 화면에서 두 번 연달아 누르면(새로고침 직후엔 한 번만 눌러도)
+// 건너뛸 기록만 남아 앱이 꺼졌음. 그래서:
+//  ① 새 크롬: 뒤로가기 신호만 따로 받아서 처리 (방문기록을 아예 안 건드림)
+//  ② 옛 크롬: 기록을 처음에 한 번만 여러 칸 깔아 두고, 뒤로 내려가면 새로 만들지 않고 '앞으로 되돌아오기'만 함
+const BACK_N = 12;
+let backPos = BACK_N, backAt = 0, backCnt = 0;
+const backQ = () => { try { const s = history.state; return s && s.qn === BACK_N && typeof s.q === "number" ? s.q : -1; } catch (_) { return -1; } };
+function layBackStack() {
+  try {
+    history.replaceState({ q: 0, qn: BACK_N }, "");
+    for (let i = 1; i <= BACK_N; i++) history.pushState({ q: i, qn: BACK_N }, "");
+    backPos = BACK_N;
+  } catch (_) {}
+}
+// 맨 위 칸으로 돌아왔는지 확인. 아직이면 다시 앞으로, 끝까지 안 되면(앞 칸이 없어졌으면) 새로 깔기
+function settleBack(last) {
+  const q = backQ();
+  if (q === BACK_N) { backPos = q; return; }
+  if (q >= 0 && !last) { backPos = q; try { history.go(BACK_N - q); } catch (_) {} return; }
+  layBackStack();
+}
+function settleSoon() {
+  clearTimeout(settleSoon.a); clearTimeout(settleSoon.b);
+  settleSoon.a = setTimeout(() => settleBack(false), 400);
+  settleSoon.b = setTimeout(() => settleBack(true), 1600);
+}
+// 새로고침해도 깔아 둔 칸은 그대로 남음 → 이미 있으면 다시 만들지 않음 (다시 만들면 크롬이 건너뛸 기록으로 봄)
+if (backQ() < 0) layBackStack(); else { backPos = backQ(); if (backPos < BACK_N) { try { history.go(BACK_N - backPos); } catch (_) {} settleSoon(); } }
 window.addEventListener("popstate", () => {
-  try { history.pushState({ q: 1 }, ""); } catch (_) {}
-  const on = (document.querySelector(".screen.on") || {}).id;
+  const q = backQ(), went = q < 0 || q < backPos;    // 아래 칸으로 내려왔으면 학생이 뒤로가기를 누른 것
+  if (q >= 0) backPos = q;
+  if (q === BACK_N) return;                           // 우리가 앞으로 되돌린 것
+  if (q >= 0) { try { history.go(BACK_N - q); } catch (_) {} }
+  settleSoon();
+  if (went) onBack("pop");
+});
+let backWatch = null;
+function armBackWatch() {
+  if (backWatch || typeof CloseWatcher === "undefined") return;
+  try {
+    const w = new CloseWatcher(); backWatch = w;
+    w.onclose = () => { if (backWatch === w) backWatch = null; onBack("cw"); armBackWatch(); };
+  } catch (_) { backWatch = null; }
+}
+armBackWatch();
+document.addEventListener("pointerdown", armBackWatch, { capture: true, passive: true });
+document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") armBackWatch(); });
+function onBack(via) {
+  const now = Date.now(), on = (document.querySelector(".screen.on") || {}).id || "";
+  backCnt++; clearTimeout(onBack.t);
+  onBack.t = setTimeout(() => { klog("back", { via, on, n: backCnt, q: backQ(), hl: history.length }); backCnt = 0; }, 1200);
+  if (now - backAt < 400) return;                     // 연타는 한 번으로
+  backAt = now;
   if (busy) return;                                   // 보내는 중엔 무시
   if (on === "sConfirm") show("sCrop");
   else if (on === "sCam") { stopCam(); if (cur) showHome(); else goNames(); }
   else if (on === "sCrop" || on === "sShoot" || on === "sDone") { if (cur) showHome(); else goNames(); }
   else if (on === "sReg" || on === "sPin") goNames();
-  // 로그인·홈 화면에서는 아무것도 안 함 (앱이 꺼지지 않게)
-});
+  else toast(on === "sHome" ? "여기가 첫 화면이야. 다 썼으면 '공기계 반납'을 눌러줘" : "여기가 첫 화면이야");   // 로그인·홈: 앱이 꺼지지 않게 그대로
+}
 function goNames() { cur = null; pinStudent = null; $("nameIn").value = ""; $("nameErr").textContent = ""; show("sName"); window.scrollTo(0, 0); }
 // 홈으로 돌아가면 사진 메모리 전부 반납 (오래 켜 두는 공기계가 메모리 부족으로 하얗게 죽지 않게)
 function freePhoto() {
@@ -402,46 +456,93 @@ $("pad").onclick = async (e) => {
 // 폰 기본 카메라 앱 (앱 안 카메라가 안 될 때만)
 const openNativeCamera = () => { stopCam(); try { sessionStorage.setItem("camOpen", String(Date.now())); } catch (_) {} $("file").value = ""; $("file").click(); };
 // 앱 안 카메라: 페이지를 떠나지 않고 찍음 → 카메라 앱 갔다 오다 페이지가 꺼지는 일 없음
-let camStream = null;
-function stopCam() { try { camStream && camStream.getTracks().forEach(t => t.stop()); } catch (_) {} camStream = null; try { $("camVideo").srcObject = null; } catch (_) {} }
+let camStream = null, camSeq = 0, camFrames = 0, camT1 = 0, camBroken = "";
+const CAM_SIZES = [[2560, 1920], [1920, 1440]];
+const camLv = () => { try { return localStorage.getItem("qcamlv") === "1" ? 1 : 0; } catch (_) { return 0; } };
+const sleep = (ms) => new Promise(r => setTimeout(r, ms));
+function stopCam() { camSeq++; try { camStream && camStream.getTracks().forEach(t => t.stop()); } catch (_) {} camStream = null; try { $("camVideo").srcObject = null; } catch (_) {} }
+// 앱 안 카메라가 안 되는 폰: '문제 찍기' 화면으로 보내고 기본 카메라를 엶 (기본 카메라를 취소해도 검은 화면에 안 갇힘)
+function camFallback(why) {
+  camBroken = why || "x";
+  $("shootNote").textContent = why === "NotAllowedError" ? "이 폰은 카메라 권한이 꺼져 있어서 기본 카메라로 찍어야 해. 선생님한테 알려줘!" : "";
+  show("sShoot"); openNativeCamera();
+}
 async function openCamera() {
-  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) return openNativeCamera();
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) return camFallback("unsupported");
+  stopCam();
+  const my = camSeq, t0 = Date.now(), lv = camLv(), v = $("camVideo");
   show("sCam"); $("shutter").disabled = true; $("camMsg").textContent = "카메라 켜는 중…";
-  try {
-    stopCam();
-    camStream = await navigator.mediaDevices.getUserMedia({ audio: false,
-      video: { facingMode: { ideal: "environment" }, width: { ideal: 2560 }, height: { ideal: 1920 } } });
-    const v = $("camVideo"); v.srcObject = camStream; await v.play().catch(() => {});
-    $("camMsg").textContent = "문제 하나가 점선 안에 크게 들어오게 찍어줘";
-    $("shutter").disabled = false;
-    klog("cam_open", { w: v.videoWidth, h: v.videoHeight });
-  } catch (e) {
-    klog("cam_fail", { msg: String(e && (e.name || e.message) || e).slice(0, 120) });
-    stopCam(); openNativeCamera();
+  let perm = "";
+  try { perm = await Promise.race([navigator.permissions.query({ name: "camera" }).then(p => p.state), sleep(300).then(() => "")]); } catch (_) {}
+  if (my !== camSeq) return;
+  if (perm === "prompt") $("camMsg").textContent = "카메라 허용 창이 뜨면 '허용'을 눌러줘";
+  let stream = null, err = "";
+  for (let i = 0; i < 2 && !stream; i++) {
+    try {
+      stream = await navigator.mediaDevices.getUserMedia({ audio: false,
+        video: { facingMode: { ideal: "environment" }, width: { ideal: CAM_SIZES[lv][0] }, height: { ideal: CAM_SIZES[lv][1] } } });
+    } catch (e) {
+      err = String(e && (e.name || e.message) || e).slice(0, 120);
+      if (my !== camSeq) return;
+      if (i === 0 && err === "NotReadableError") { await sleep(600); if (my !== camSeq) return; continue; }   // 카메라가 아직 덜 닫혔을 때 → 한 번 더
+      break;
+    }
   }
+  if (my !== camSeq || !$("sCam").classList.contains("on")) { try { stream && stream.getTracks().forEach(t => t.stop()); } catch (_) {} return; }   // 기다리는 사이 취소함
+  if (!stream) { klog("cam_fail", { msg: err, perm, ms: Date.now() - t0 }); return camFallback(err); }
+  camStream = stream; v.srcObject = stream; v.play().catch(() => {});
+  // 화면이 실제로 나온 뒤에 셔터를 켬 (그 전에 누르면 빈 사진이 찍혔음)
+  for (let i = 0; i < 160 && my === camSeq && !(v.videoWidth > 0 && v.readyState >= 2); i++) await sleep(50);
+  if (my !== camSeq) return;
+  if (!(v.videoWidth > 0)) { klog("cam_fail", { msg: "no_frame", perm, ms: Date.now() - t0 }); return camFallback("no_frame"); }
+  camBroken = ""; $("shootNote").textContent = "";
+  $("camMsg").textContent = "문제 하나가 점선 안에 크게 들어오게 찍어줘";
+  $("shutter").disabled = false;
+  klog("cam_open", { w: v.videoWidth, h: v.videoHeight, ms: Date.now() - t0, lv, perm });
+  // 카메라 화면이 1초에 몇 장 나오는지 세어 둠 (뚝뚝 끊기는 폰 찾기)
+  camFrames = 0; camT1 = performance.now();
+  if (v.requestVideoFrameCallback) { const tick = () => { if (my !== camSeq) return; camFrames++; v.requestVideoFrameCallback(tick); }; v.requestVideoFrameCallback(tick); }
 }
 $("camCancel").onclick = () => { stopCam(); if (cur) showHome(); else goNames(); };
-$("camNative").onclick = () => openNativeCamera();
-$("shutter").onclick = async () => {
-  if (!camStream) return;
-  $("shutter").disabled = true;
-  const v = $("camVideo"), track = camStream.getVideoTracks()[0], t0 = Date.now();
-  let blob = null;
-  try {   // 지원하면 카메라 최대 화질로 한 장
-    if (window.ImageCapture && track) blob = await Promise.race([new ImageCapture(track).takePhoto(), new Promise(r => setTimeout(() => r(null), 5000))]);
-  } catch (_) { blob = null; }
-  if (!blob) {   // 안 되면 지금 화면을 그대로
-    const c = document.createElement("canvas"); c.width = v.videoWidth; c.height = v.videoHeight;
-    c.getContext("2d").drawImage(v, 0, 0);
-    blob = await new Promise(r => c.toBlob(r, "image/jpeg", 0.92)); c.width = c.height = 0;
-  }
-  stopCam();
-  try { await loadPhoto(blob); show("sCrop"); klog("photo", { src: "incam", fileMB: +(blob.size / 1048576).toFixed(1), w: img && img.width, h: img && img.height, ms: Date.now() - t0, ...memInfo() }); }
-  catch (e) { klog("photo_fail", { src: "incam", msg: String(e && e.message || e).slice(0, 200) }); toast("사진을 못 찍었어. 다시 해줘."); openCamera(); }
+$("camNative").onclick = () => { show("sShoot"); openNativeCamera(); };
+// 찍기: 지금 화면에 보이는 장면을 그대로 사진으로 씀.
+// (예전엔 '최대 화질로 한 장'을 5초 기다리다 포기한 뒤에야 화면을 옮겨서, 누르고 8초씩 걸렸음. 결과 사진은 지금과 같았음)
+$("shutter").onclick = () => {
+  const v = $("camVideo"), vw = v.videoWidth, vh = v.videoHeight;
+  if (!camStream || !(vw > 0)) { toast("카메라가 아직 준비 중이야"); return; }
+  const t0 = Date.now(), sec = (performance.now() - camT1) / 1000, fps = sec >= 1 && camFrames ? +(camFrames / sec).toFixed(1) : null;
+  try { setPhoto(v, vw, vh); if (blankPhoto()) throw new Error("blank"); }
+  catch (e) { klog("photo_fail", { src: "incam", msg: String(e && e.message || e).slice(0, 200), vw, vh }); toast("사진이 안 찍혔어. 한 번 더 눌러줘"); return; }
+  stopCam(); show("sCrop");
+  klog("photo", { src: "incam", w: img.width, h: img.height, ms: Date.now() - t0, fps, lv: camLv(), ...memInfo() });
+  camTune(fps);
 };
+// 새까만 사진(카메라가 장면을 아직 안 넘겨줌)인지 확인
+function blankPhoto() {
+  try {
+    const c = document.createElement("canvas"); c.width = c.height = 16;
+    const g = c.getContext("2d"); g.drawImage(img, 0, 0, 16, 16);
+    const d = g.getImageData(0, 0, 16, 16).data; let mx = 0;
+    for (let i = 0; i < d.length; i += 4) mx = Math.max(mx, d[i], d[i + 1], d[i + 2]);
+    return mx < 10;
+  } catch (_) { return false; }
+}
+// 카메라 화면이 뚝뚝 끊기는 폰(1초에 8장 미만이 두 번 연속)은 다음부터 화질을 한 단계 낮춰서 엶
+function camTune(fps) {
+  try {
+    if (fps == null || camLv() === 1) return;
+    const slow = fps < 8 ? (Number(localStorage.getItem("qcamslow")) || 0) + 1 : 0;
+    localStorage.setItem("qcamslow", String(slow));
+    if (slow >= 2) { localStorage.setItem("qcamlv", "1"); klog("cam_lower", { fps }); }
+  } catch (_) {}
+}
 // 다른 화면으로 가거나 화면이 꺼지면 카메라 끄기 (배터리·발열)
-document.addEventListener("visibilitychange", () => { if (document.visibilityState === "hidden" && camStream) { stopCam(); } else if (document.visibilityState === "visible" && $("sCam").classList.contains("on") && !camStream) openCamera(); });
-$("shootBtn").onclick = openCamera;
+document.addEventListener("visibilitychange", () => {
+  const onCam = $("sCam").classList.contains("on");
+  if (document.visibilityState === "hidden") { if (onCam || camStream) stopCam(); }
+  else if (onCam && !camStream) openCamera();
+});
+$("shootBtn").onclick = () => { if (camBroken) openNativeCamera(); else openCamera(); };
 $("retakeBtn").onclick = openCamera;
 $("file").onchange = async () => {
   try { sessionStorage.removeItem("camOpen"); } catch (_) {}
@@ -456,23 +557,26 @@ let img = null, scale = 1, sel = null, DPR = 1;
 const cv = $("cropCanvas"), cx = cv.getContext("2d");
 const MAXPX = 2400;  // 폰 사진(1200만~5000만 화소)을 그대로 펼치면 메모리가 터져 화면이 하얗게 죽음 → 처음부터 줄여서 읽기
 async function loadPhoto(file) {
-  // 이전 사진 메모리 비우기
-  if (img && img.width) { img.width = 0; img.height = 0; } img = null;
+  if (img && img.width) { img.width = 0; img.height = 0; } img = null;   // 이전 사진 메모리 먼저 비우기
   let url = null;
   const src = await createImageBitmap(file, { imageOrientation: "from-image", resizeWidth: MAXPX, resizeQuality: "high" })
     .catch(() => createImageBitmap(file, { imageOrientation: "from-image" }))
     .catch(async () => { url = URL.createObjectURL(file); const im = new Image(); im.src = url; await im.decode(); return im; });
-  // 사진을 먼저 평범한 캔버스 한 장으로 옮겨 둠 → 화면에 보이는 것과 잘라내는 것이 항상 같은 그림
-  // (폰마다 사진 회전정보 처리 방식이 달라 '부분 자르기'만 엉뚱한 곳을 자르는 경우가 있음)
-  const k = Math.min(1, MAXPX / Math.max(src.width, src.height));
+  try { setPhoto(src, src.width, src.height); }
+  finally { try { src.close && src.close(); } catch (_) {} if (url) URL.revokeObjectURL(url); }
+}
+// 사진(또는 카메라 화면 한 장면)을 평범한 캔버스 한 장으로 옮겨 둠 → 화면에 보이는 것과 잘라내는 것이 항상 같은 그림
+// (폰마다 사진 회전정보 처리 방식이 달라 '부분 자르기'만 엉뚱한 곳을 자르는 경우가 있음)
+function setPhoto(src, sw, sh) {
+  if (img && img.width) { img.width = 0; img.height = 0; } img = null;
+  const k = Math.min(1, MAXPX / Math.max(sw, sh));
   const base = document.createElement("canvas");
-  base.width = Math.round(src.width * k); base.height = Math.round(src.height * k);
+  base.width = Math.round(sw * k); base.height = Math.round(sh * k);
   const bg = base.getContext("2d"); bg.imageSmoothingQuality = "high"; bg.drawImage(src, 0, 0, base.width, base.height);
-  try { src.close && src.close(); } catch (_) {}
-  if (url) URL.revokeObjectURL(url);
   img = base;
   sel = null;
   requestAnimationFrame(layoutCrop);
+  setTimeout(layoutCrop, 120);   // 화면 갱신이 밀려도 사진이 꼭 그려지게 한 번 더
 }
 // 화면 크기에 맞춰 자르기 화면 배치 (화면 회전·키보드 등으로 크기가 바뀌어도 선택 영역 유지)
 function layoutCrop() {
@@ -616,14 +720,21 @@ async function checkPhoto(qid) {
 
 let busy = false, pending = null;
 // 보내기 → 잘린 모습을 한 번 보여주고 확인받기
+let cropBusy = false;
 $("sendBtn").onclick = async () => {
-  if (busy || !cur) return;
-  const blob = await processCrop();       // 한 장씩 차례로 (동시에 하면 메모리 두 배)
-  const oblob = await cropOriginal();
-  pending = { blob, oblob, crop: cropRatio() };
-  try { URL.revokeObjectURL($("confirmImg").src); } catch (_) {}
-  $("confirmImg").src = URL.createObjectURL(oblob);
-  show("sConfirm");
+  if (busy || cropBusy || !cur || !img || !sel) return;
+  cropBusy = true; const sb = $("sendBtn"); sb.disabled = true; sb.textContent = "잠깐만…";   // 누른 티가 바로 나게 (정리하는 데 1~2초 걸림)
+  await sleep(40);
+  try {
+    const blob = await processCrop();       // 한 장씩 차례로 (동시에 하면 메모리 두 배)
+    const oblob = await cropOriginal();
+    if (!blob || !oblob) throw new Error("빈 사진");
+    pending = { blob, oblob, crop: cropRatio() };
+    try { URL.revokeObjectURL($("confirmImg").src); } catch (_) {}
+    $("confirmImg").src = URL.createObjectURL(oblob);
+    show("sConfirm");
+  } catch (e) { klog("crop_fail", { msg: String(e && e.message || e).slice(0, 200), ...memInfo() }); toast("잘 안 됐어. 한 번 더 눌러줘"); }
+  finally { cropBusy = false; sb.disabled = false; sb.textContent = "보내기"; }
 };
 $("reCropBtn").onclick = () => show("sCrop");
 $("confirmSendBtn").onclick = async () => {

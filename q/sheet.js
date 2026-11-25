@@ -69,7 +69,8 @@
     if (!document.fonts || !document.fonts.load) return;
     try { await Promise.race([Promise.all(KATEX_FONTS.map((f) => document.fonts.load(f, "≠√∅(x)ab12"))), new Promise((r) => setTimeout(r, 8000))]); } catch (_) {}
     try { await document.fonts.ready; } catch (_) {}
-    await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+    // 숨겨진 창에선 requestAnimationFrame이 안 돌아서 멈출 수 있으니 짧은 대기와 경주
+    await Promise.race([new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))), new Promise((r) => setTimeout(r, 150))]);
   }
   const loadImg = (src) => new Promise((res) => { const im = new Image(); im.crossOrigin = "anonymous"; im.onload = () => res(im); im.onerror = () => res(null); im.src = src; });
   // AI가 그린 SVG 점검·정리: 깨진 SVG면 null(→ 사진 그림 사용), 글자·선이 너무 작으면 키움

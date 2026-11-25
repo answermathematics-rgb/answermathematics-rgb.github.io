@@ -127,7 +127,9 @@ async function make() {
   await AS.ensureMathFonts();
   const sid = $("stu").value;
   const st = ALL.find((q) => q.student_id === sid)?.students || {};
-  const qs = ALL.filter((q) => q.student_id === sid);
+  // 같은 문제를 두 번 올린 건 한 번만
+  const seen = new Set();
+  const qs = ALL.filter((q) => q.student_id === sid).filter((q) => { const k = String(q.typed?.body || q.id).replace(/\s+/g, ""); if (seen.has(k)) return false; seen.add(k); return true; });
   const ready = qs.filter((q) => q.typed?.var?.body);
   const miss = qs.filter((q) => !q.typed?.var?.body && q.ocr_status === "done");
   if (miss.length) {

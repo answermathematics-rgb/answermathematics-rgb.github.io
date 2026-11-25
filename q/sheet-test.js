@@ -111,24 +111,32 @@
     const els = [...live.querySelectorAll("line,polyline,polygon,path,rect,circle,ellipse,text,tspan")].filter((e) => !e.closest("defs,marker"));
     const stroked = (el) => { const st = getComputedStyle(el).stroke; return !!st && st !== "none"; };
     // 1) 직선 조각 모으기 (선이 그어진 것만: 색칠 영역의 가장자리는 기준으로 안 씀)
-    const segs = [], paths = new Map(), polys = new Map(), rects = [];
+    const segs = [], paths = new Map(), polys = new Map(), rects = [], tris = [];
+    const BIG = Math.max(VW, VH);
+    // 작은 세모 = 화살촉. 화살촉이 끝에 붙은 직선은 좌표축으로 봄
+    const tri = (q) => { const xs = q.map((p) => p[0]), ys = q.map((p) => p[1]); if (Math.max(Math.max(...xs) - Math.min(...xs), Math.max(...ys) - Math.min(...ys)) <= 0.08 * BIG) tris.push([(xs[0] + xs[1] + xs[2]) / 3, (ys[0] + ys[1] + ys[2]) / 3]); };
+    const marked = (el) => { const cs = getComputedStyle(el); return !!(el.getAttribute("marker-end") || el.getAttribute("marker-start")) || (cs.markerEnd && cs.markerEnd !== "none") || (cs.markerStart && cs.markerStart !== "none"); };
     for (const el of els) {
       const t = el.tagName.toLowerCase(), use = t !== "text" && t !== "tspan" && stroked(el);
-      if (t === "line") { if (use) segs.push([...toRoot(el, A(el, "x1"), A(el, "y1")), ...toRoot(el, A(el, "x2"), A(el, "y2"))]); }
+      if (t === "line") { if (use) segs.push([...toRoot(el, A(el, "x1"), A(el, "y1")), ...toRoot(el, A(el, "x2"), A(el, "y2")), marked(el)]); }
       else if (t === "polyline" || t === "polygon") {
         const a = (el.getAttribute("points") || "").trim().split(/[\s,]+/).map(Number);
         if (a.length < 2 || a.length % 2 || a.some((v) => !isFinite(v))) return false;
         polys.set(el, a);
-        if (use) { const q = []; for (let i = 0; i < a.length; i += 2) q.push(toRoot(el, a[i], a[i + 1]));
-          for (let i = 1; i < q.length; i++) segs.push([...q[i - 1], ...q[i]]);
-          if (t === "polygon" && q.length > 2) segs.push([...q[q.length - 1], ...q[0]]); }
+        const q = []; for (let i = 0; i < a.length; i += 2) q.push(toRoot(el, a[i], a[i + 1]));
+        if (q.length === 3) tri(q);
+        if (use) { const mk = q.length === 2 && marked(el);
+          for (let i = 1; i < q.length; i++) segs.push([...q[i - 1], ...q[i], mk]);
+          if (t === "polygon" && q.length > 2) segs.push([...q[q.length - 1], ...q[0], false]); }
       } else if (t === "path") {
         const c = pathCmds(el.getAttribute("d") || ""); if (!c) return false;
         paths.set(el, c);
-        if (use) { let cur = null, st = null; for (const k of c) {
-          if (k[0] === "Z") { if (cur && st) segs.push([...toRoot(el, cur[0], cur[1]), ...toRoot(el, st[0], st[1])]); cur = st; continue; }
+        const body = c.filter((k) => k[0] !== "Z");
+        if (body.length === 3 && body[0][0] === "M" && body[1][0] === "L" && body[2][0] === "L") tri(body.map((k) => toRoot(el, k[1], k[2])));
+        if (use) { const mk = body.length === 2 && marked(el); let cur = null, st = null; for (const k of c) {
+          if (k[0] === "Z") { if (cur && st) segs.push([...toRoot(el, cur[0], cur[1]), ...toRoot(el, st[0], st[1]), false]); cur = st; continue; }
           const e = [k[k.length - 2], k[k.length - 1]];
-          if (k[0] === "M") st = e; else if (k[0] === "L" && cur) segs.push([...toRoot(el, cur[0], cur[1]), ...toRoot(el, e[0], e[1])]);
+          if (k[0] === "M") st = e; else if (k[0] === "L" && cur) segs.push([...toRoot(el, cur[0], cur[1]), ...toRoot(el, e[0], e[1]), mk]);
           cur = e; } }
       } else if (t === "rect") {
         const w = A(el, "width"), h = A(el, "height"), c = toRoot(el, A(el, "x") + w / 2, A(el, "y") + h / 2);
@@ -137,17 +145,20 @@
       }
     }
     const H = [], V = [], TOL = 0.14;   // 8°까지를 '원래 가로·세로였을 선'으로 봄
-    for (const [x1, y1, x2, y2] of segs) {
+    const nearTri = (x, y) => tris.some((c) => Math.hypot(c[0] - x, c[1] - y) <= 0.05 * BIG);
+    for (const [x1, y1, x2, y2, mk] of segs) {
       const dx = x2 - x1, dy = y2 - y1, len = Math.hypot(dx, dy);
-      if (Math.abs(dy) <= TOL * Math.abs(dx)) { if (len >= 0.12 * VW) H.push({ s: dy / dx, len, pos: (y1 + y2) / 2, long: len >= 0.4 * VW }); }
-      else if (Math.abs(dx) <= TOL * Math.abs(dy)) { if (len >= 0.12 * VH) V.push({ s: dx / dy, len, pos: (x1 + x2) / 2, long: len >= 0.4 * VH }); }
+      const horiz = Math.abs(dy) <= TOL * Math.abs(dx), vert = Math.abs(dx) <= TOL * Math.abs(dy);
+      if (!horiz && !vert) continue;
+      const dim = horiz ? VW : VH; if (len < 0.12 * dim) continue;
+      const axis = len >= 0.35 * dim && (mk || nearTri(x1, y1) || nearTri(x2, y2));
+      (horiz ? H : V).push({ s: horiz ? dy / dx : dx / dy, len, pos: horiz ? (y1 + y2) / 2 : (x1 + x2) / 2, long: len >= 0.4 * dim, axis });
     }
-    // 같은 크기 네모(카드·칸)가 한 줄로 늘어서 있으면 그 줄도 기준선으로
-    const tilted = rects.filter((r) => r.tilt && r.deg);
-    for (const r of tilted) { const tn = Math.tan(r.deg * Math.PI / 180); H.push({ s: tn, len: r.w, pos: r.c[1], long: false }); V.push({ s: -tn, len: r.h, pos: r.c[0], long: false }); }
+    // 살짝 돌려 그린 네모의 변, 같은 크기 네모(카드·칸)가 한 줄로 늘어선 줄도 기준선으로
+    for (const r of rects) { if (!(r.tilt && r.deg)) continue; const tn = Math.tan(r.deg * Math.PI / 180); H.push({ s: tn, len: r.w, pos: r.c[1] }); V.push({ s: -tn, len: r.h, pos: r.c[0] }); }
     if (rects.length >= 3) {
       const w0 = rects[0].w, h0 = rects[0].h, same = rects.filter((r) => Math.abs(r.w - w0) <= 0.12 * w0 && Math.abs(r.h - h0) <= 0.12 * h0);
-      if (same.length >= 3 && same.length === rects.length) {
+      if (same.length === rects.length) {
         const n = same.length, mx = same.reduce((t, r) => t + r.c[0], 0) / n, my = same.reduce((t, r) => t + r.c[1], 0) / n;
         const sxx = same.reduce((t, r) => t + (r.c[0] - mx) ** 2, 0), syy = same.reduce((t, r) => t + (r.c[1] - my) ** 2, 0), sxy = same.reduce((t, r) => t + (r.c[0] - mx) * (r.c[1] - my), 0);
         const xs = same.map((r) => r.c[0]), ys = same.map((r) => r.c[1]);
@@ -156,24 +167,29 @@
       }
     }
     if (!H.length && !V.length) return false;
-    // 2) 전체가 한쪽으로 얼마나 돌아갔는지(가운데값) 먼저 잡고, 거기서 크게 벗어난 선(원래 비스듬한 선)은 뺌
-    const all = [...H.map((a) => ({ v: a.s, len: a.len })), ...V.map((a) => ({ v: -a.s, len: a.len }))].sort((p, q) => p.v - q.v);
-    const tot = all.reduce((t, a) => t + a.len, 0); let acc = 0, th = 0;
-    for (const a of all) { acc += a.len; if (acc >= tot / 2) { th = a.v; break; } }
-    const hi = H.filter((a) => Math.abs(a.s - th) <= 0.045), vi = V.filter((a) => Math.abs(-a.s - th) <= 0.045);
-    if (!hi.some((a) => a.long) && !vi.some((a) => a.long)) return false;   // 믿을 만한 긴 기준선이 없으면 그대로 둠
+    // 2) 기준 기울기 정하기: 좌표축이 있으면 축이 기준. 없으면 전체 선의 가운데값(그림이 통째로 얼마나 돌아갔나)
+    const wt = (a) => a.len * (a.axis ? 3 : 1);
+    const mean = (arr) => arr.reduce((t, a) => t + a.s * wt(a), 0) / arr.reduce((t, a) => t + wt(a), 0);
+    const all = [...H.map((a) => ({ v: a.s, w: wt(a) })), ...V.map((a) => ({ v: -a.s, w: wt(a) }))].sort((p, q) => p.v - q.v);
+    const tot = all.reduce((t, a) => t + a.w, 0); let acc = 0, th = 0;
+    for (const a of all) { acc += a.w; if (acc >= tot / 2) { th = a.v; break; } }
+    const axH = H.filter((a) => a.axis), axV = V.filter((a) => a.axis);
+    const baseH = axH.length ? mean(axH) : axV.length ? -mean(axV) : th, baseV = axV.length ? mean(axV) : axH.length ? -mean(axH) : -th;
+    // 기준에서 크게 벗어난 선(원래부터 비스듬한 선)은 뺌. 축이 있는 방향은 축과 나란한 점선까지 넉넉히 받아 줌
+    const hi = H.filter((a) => a.axis || Math.abs(a.s - baseH) <= (axH.length ? 0.06 : 0.045)), vi = V.filter((a) => a.axis || Math.abs(a.s - baseV) <= (axV.length ? 0.06 : 0.045));
+    if (!hi.some((a) => a.long || a.axis) && !vi.some((a) => a.long || a.axis)) return false;   // 믿을 만한 긴 기준선이 없으면 그대로 둠
     // 3) 방향별 기울기: 평균 + (기준선이 넓게 퍼져 있으면) 위치에 따라 달라지는 정도까지 — 비스듬히 찍힌 사진은 선마다 기울기가 조금씩 다름
-    const fit = (arr, span, dim) => {
+    const fit = (arr, span) => {
       if (!arr.length) return null;
-      const W = arr.reduce((t, a) => t + a.len, 0), a0 = arr.reduce((t, a) => t + a.s * a.len, 0) / W, pm = arr.reduce((t, a) => t + a.pos * a.len, 0) / W;
-      let b = 0; const big = arr.filter((a) => a.len >= 0.25 * dim), ps = big.map((a) => a.pos);
-      if (big.length >= 2 && Math.max(...ps) - Math.min(...ps) >= 0.4 * span) {
-        const sxx = arr.reduce((t, a) => t + a.len * (a.pos - pm) ** 2, 0), sxy = arr.reduce((t, a) => t + a.len * (a.pos - pm) * (a.s - a0), 0);
+      const W = arr.reduce((t, a) => t + wt(a), 0), a0 = mean(arr), pm = arr.reduce((t, a) => t + a.pos * wt(a), 0) / W;
+      let b = 0; const ps = arr.map((a) => a.pos), spread = Math.max(...ps) - Math.min(...ps), lp = arr.filter((a) => a.long || a.axis).map((a) => a.pos);
+      if ((arr.length >= 3 && spread >= 0.3 * span) || (lp.length >= 2 && Math.max(...lp) - Math.min(...lp) >= 0.5 * span)) {
+        const sxx = arr.reduce((t, a) => t + wt(a) * (a.pos - pm) ** 2, 0), sxy = arr.reduce((t, a) => t + wt(a) * (a.pos - pm) * (a.s - a0), 0);
         if (sxx > 0) { const lim = 0.14 / span; b = Math.max(-lim, Math.min(lim, sxy / sxx)); }
       }
       return { a: a0, b, pm };
     };
-    const fh = fit(hi, VH, VW), fv = fit(vi, VW, VH);
+    const fh = fit(hi, VH), fv = fit(vi, VW);
     const sh = (y) => fh ? fh.a + fh.b * (y - fh.pm) : -(fv.a);      // 가로선 기울기 (없으면 세로선과 같은 각도로 돌아갔다고 봄)
     const sv = (x) => fv ? fv.a + fv.b * (x - fv.pm) : -(fh.a);
     const worst = Math.max(Math.abs(sh(vb[1])), Math.abs(sh(vb[1] + VH)), Math.abs(sv(vb[0])), Math.abs(sv(vb[0] + VW)));

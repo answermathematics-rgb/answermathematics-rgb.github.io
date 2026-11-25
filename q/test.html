@@ -108,16 +108,28 @@ function paginate(root, blocks, opts) {
     for (let k = 0; k < 4; k++) {
       cols[ci].appendChild(el);
       if (window.renderMathInElement && !el.dataset.r) { renderMathInElement(el, { delimiters: [{ left: "$$", right: "$$", display: true }, { left: "$", right: "$", display: false }], throwOnError: false, strict: "ignore" }); el.dataset.r = 1; }
-      if (cols[ci].scrollHeight <= cols[ci].clientHeight + 1 || cols[ci].children.length === 1) break;
+      const roomy = !(pno === 1 && opts.top);   // 빠른 정답 표가 있는 첫 장 칸은 짧음
+      if (cols[ci].scrollHeight <= cols[ci].clientHeight + 1 || (cols[ci].children.length === 1 && (roomy || k >= 2))) break;
       cols[ci].removeChild(el);
       if (ci === 0) ci = 1; else newPage();
     }
   }
 }
+const PNG = new Map();   // svg → png 데이터 (PDF 캡처에서 SVG 그림이 빈칸으로 나와서 미리 그림으로 바꿔 둠)
+async function svgToPng(svg) {
+  const s = AS.fixSvg(svg); if (!s) return null;
+  const vb = (s.match(/viewBox="([^"]+)"/) || [])[1]; const p = vb ? vb.split(/[\s,]+/).map(Number) : [0, 0, 400, 300];
+  const W = 900, H = Math.max(60, Math.round(W * (p[3] / p[2] || 0.75)));
+  const sized = s.replace("<svg", `<svg width="${W}" height="${H}"`);
+  const im = new Image(); im.src = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(sized);
+  await new Promise((r) => { im.onload = im.onerror = r; });
+  const c = document.createElement("canvas"); c.width = W; c.height = H; const g = c.getContext("2d");
+  g.fillStyle = "#fff"; g.fillRect(0, 0, W, H); try { g.drawImage(im, 0, 0, W, H); return c.toDataURL("image/png"); } catch (_) { return null; }
+}
 function figHtml(v) {
   if (!v.svg) return "";
-  const s = AS.fixSvg(v.svg); if (!s) return "";
-  return `<div class="fig"><img src="data:image/svg+xml;charset=utf-8,${encodeURIComponent(s)}"></div>`;
+  const src = PNG.get(v.svg); if (!src) return "";
+  return `<div class="fig"><img src="${src}"></div>`;
 }
 function probHtml(i, v, space) {
   return `<div class="tq" ${space ? 'style="min-height:72mm"' : ""}><span class="n">${i}</span>${H(v.body)}${figHtml(v)}${AS.choicesHtml(v.choices)}</div>`;
@@ -136,10 +148,11 @@ async function make() {
     msg(`변형 문제 ${miss.length}개 만드는 중… (1~2분 뒤 다시 '만들기')`);
     for (let i = 0; i < miss.length; i += 2) setTimeout(() => ocrCall({ mode: "variant", ids: miss.slice(i, i + 2).map((q) => q.id) }).catch(() => {}), (i / 2) * 3000);
   }
+  for (const q of ready) { const sv = q.typed.var.svg; if (sv && !PNG.has(sv)) PNG.set(sv, await svgToPng(sv)); }
   let a = $("from").value, z = $("to").value; if (a > z) [a, z] = [z, a];
   const sub = st.name + (st.school || st.grade ? ` (${[st.school, st.grade].filter(Boolean).join(" ")})` : "");
   const meta = `${md(a)} ~ ${md(z)} 질문한 문제 · ${ready.length}문제`;
-  CUR = { name: st.name, a, z, n: ready.length, bad: ready.filter((q) => !q.typed.var.ok).map((q, i) => i + 1) };
+  CUR = { name: st.name, a, z, n: ready.length, bad: ready.map((q, i) => (q.typed.var.ok ? 0 : i + 1)).filter(Boolean) };
   const root = $("pages"); root.innerHTML = "";
   const qWrap = document.createElement("div"); qWrap.id = "qPages"; root.appendChild(qWrap);
   paginate(qWrap, ready.map((q, i) => probHtml(i + 1, q.typed.var, true)), { title: "질문 문제 복습 테스트", sub, meta });

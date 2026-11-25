@@ -1,0 +1,182 @@
+<!doctype html>
+<html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>복습 테스트 · 앤서수학</title>
+<link rel="stylesheet" href="katex/katex.min.css">
+<script src="katex/katex.min.js"></script>
+<script src="katex/auto-render.min.js"></script>
+<script src="sheet.js"></script>
+<style>
+  /* 앤서수학 문제지 판형: 첫 장 로고+레드 세로바+제목, 이후 장 ANSWER MATHEMATICS / 제목, 꼬리말 쪽번호 + 한글 로고, 본문 2단 */
+  body { margin:0; background:#eceef2; font-family:"Pretendard","Noto Sans KR","Malgun Gothic",sans-serif; color:#111; }
+  #bar { position:sticky; top:0; z-index:5; background:#1E2A44; color:#fff; padding:10px 14px; display:flex; gap:8px; align-items:center; flex-wrap:wrap; font-size:14px; }
+  #bar select, #bar input, #bar button { font:inherit; padding:6px 10px; border-radius:8px; border:0; }
+  #bar button { background:#B62A1D; color:#fff; font-weight:700; cursor:pointer; }
+  #bar .msg { margin-left:auto; opacity:.85; }
+  #pages { padding:14px 0 40px; }
+  .pg { width:210mm; height:297mm; box-sizing:border-box; padding:13mm 14mm 10mm; margin:0 auto 8mm; background:#fff; display:flex; flex-direction:column; overflow:hidden; box-shadow:0 1px 6px rgba(0,0,0,.12); }
+  .pg .hd { display:flex; justify-content:space-between; align-items:flex-end; border-bottom:.4mm solid #1E2A44; padding-bottom:1.6mm; margin-bottom:5mm; font-size:9pt; color:#1E2A44; }
+  .pg .hd b { letter-spacing:.6px; font-weight:800; }
+  .pg .first { display:flex; align-items:center; gap:4mm; padding-bottom:4mm; margin-bottom:5mm; border-bottom:.6mm solid #1E2A44; }
+  .pg .first img { height:15mm; }
+  .pg .first .vb { width:1.4mm; height:15mm; background:#B62A1D; }
+  .pg .first .t1 { font-size:19pt; font-weight:900; color:#1E2A44; letter-spacing:-.3px; }
+  .pg .first .t2 { font-size:11pt; color:#B62A1D; font-weight:700; margin-top:.6mm; }
+  .pg .first .t3 { font-size:9pt; color:#888; margin-top:.4mm; }
+  .pg .cols { flex:1; display:grid; grid-template-columns:1fr 1fr; gap:0 7mm; min-height:0; }
+  .pg .col { overflow:hidden; min-height:0; }
+  .pg .cols .col:first-child { border-right:.3mm solid #ccc; padding-right:3.5mm; }
+  .pg .ft { height:8mm; display:flex; align-items:center; justify-content:center; position:relative; font-size:9pt; color:#333; }
+  .pg .ft img { position:absolute; right:0; height:5.5mm; }
+  .tq { font-size:10pt; line-height:1.75; word-break:keep-all; margin-bottom:3mm; }
+  .tq .n { font-weight:800; font-size:12pt; margin-right:2mm; }
+  .tq .box { border:.3mm solid #444; border-radius:3pt; padding:2mm 3mm; margin:2mm 0; }
+  .tq .fig { text-align:center; margin:2.5mm 0 1mm; }
+  .tq .fig img { width:62%; max-height:44mm; object-fit:contain; }
+  .tq .choices { display:grid; gap:1mm 2mm; margin-top:2mm; }
+  .tq .choices.c5 { grid-template-columns:repeat(5,1fr); } .tq .choices.c3 { grid-template-columns:repeat(3,1fr); }
+  .tq .choices.c2 { grid-template-columns:repeat(2,1fr); } .tq .choices.c1 { grid-template-columns:1fr; }
+  .tq .katex { font-size:1.05em; }
+  .tq .ans { margin-top:2mm; } .tq .ans b { color:#B62A1D; margin-right:2mm; }
+  .tq .st { font-size:9.5pt; line-height:1.7; margin-top:1mm; } .tq .st div { margin:.4mm 0; }
+  .tq.sol { border-bottom:.3mm solid #ddd; padding-bottom:3mm; }
+  .quick { display:grid; grid-template-columns:repeat(4,1fr); border:.35mm solid #1E2A44; border-radius:1.5mm; overflow:hidden; margin-bottom:5mm; font-size:10pt; }
+  .quick > div { display:flex; border-right:.25mm solid #ccd; border-bottom:.25mm solid #ccd; min-height:8mm; }
+  .quick > div > b { width:8mm; background:#eef0f5; color:#1E2A44; display:flex; align-items:center; justify-content:center; }
+  .quick > div > span { flex:1; display:block; align-self:center; text-align:center; padding:1mm; }
+  .qt { font-weight:800; color:#1E2A44; margin:0 0 2mm; font-size:11pt; }
+  @media print { body { background:#fff; } #bar { display:none; } #pages { padding:0; } .pg { margin:0; box-shadow:none; break-after:page; } @page { size:A4; margin:0; } }
+</style>
+</head><body>
+<div id="bar">
+  <select id="stu"><option>학생 불러오는 중…</option></select>
+  <input type="date" id="from"> ~ <input type="date" id="to">
+  <button id="go">만들기</button>
+  <button id="pdfQ">⬇ 문제지 PDF</button>
+  <button id="pdfA">⬇ 해설지 PDF</button>
+  <span class="msg" id="msg"></span>
+</div>
+<div id="pages"></div>
+<script>
+const FN = "https://hddsyoaymvpfcloqthyv.supabase.co/functions/v1/qna";
+const OCR = "https://hddsyoaymvpfcloqthyv.supabase.co/functions/v1/qna-ocr";
+const ANON = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhkZHN5b2F5bXZwZmNsb3F0aHl2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODExODUwNzcsImV4cCI6MjA5Njc2MTA3N30._x8RtDqIACVr2AC7u5VXbntbmderTw4sV4t3zkp6dC0";
+const P = new URLSearchParams(location.search);
+let TOKEN = P.get("t") || ""; try { if (TOKEN) localStorage.setItem("qa", TOKEN); else TOKEN = localStorage.getItem("qa") || ""; } catch (_) {}
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+const msg = (m) => ($("msg").textContent = m);
+async function call(action, body = {}) {
+  const r = await fetch(FN, { method: "POST", headers: { "content-type": "application/json", apikey: ANON, authorization: "Bearer " + ANON }, body: JSON.stringify({ action, token: TOKEN, ...body }) });
+  const j = await r.json().catch(() => ({})); if (!r.ok) throw new Error(j.error || "오류 " + r.status); return j;
+}
+const ocrCall = (body) => fetch(OCR, { method: "POST", headers: { "content-type": "application/json", apikey: ANON, authorization: "Bearer " + ANON }, body: JSON.stringify({ token: TOKEN, ...body }) }).then((r) => r.json());
+const todayKst = () => new Date(Date.now() + 9 * 3600e3).toISOString().slice(0, 10);
+const daysAgoOf = (d) => Math.max(0, Math.round((new Date(todayKst() + "T00:00:00Z") - new Date(d + "T00:00:00Z")) / 864e5));
+const md = (d) => { const x = new Date(d + "T00:00:00+09:00"); return `${x.getMonth() + 1}/${x.getDate()}`; };
+const AS = window.AnswerSheet;
+const H = (s) => AS.bodyHtml(s || "");
+
+let ALL = [];   // 기간 안 전체 질문
+async function loadRange() {
+  let a = $("from").value, z = $("to").value; if (a > z) [a, z] = [z, a];
+  const days = []; for (let n = daysAgoOf(z); n <= daysAgoOf(a); n++) days.push(n);
+  const rs = await Promise.all(days.map((n) => call("admin_print_list", { days_ago: n, include_printed: true })));
+  ALL = rs.flatMap((r) => r.items || []).sort((x, y) => (x.created_at < y.created_at ? -1 : 1));
+  const m = new Map(); ALL.forEach((q) => { const k = q.student_id; if (!m.has(k)) m.set(k, { name: q.students?.name || "", school: q.students?.school || "", grade: q.students?.grade || "", n: 0 }); m.get(k).n++; });
+  const cur = $("stu").value;
+  $("stu").innerHTML = [...m.entries()].sort((x, y) => x[1].name.localeCompare(y[1].name, "ko")).map(([k, s]) => `<option value="${k}">${esc(s.name)} (${s.n})</option>`).join("");
+  if ([...m.keys()].includes(cur)) $("stu").value = cur;
+  const want = P.get("name"); if (want) { const e = [...m.entries()].find(([, s]) => s.name === want); if (e) $("stu").value = e[0]; }
+  return m;
+}
+
+// 2단 칸에 블록을 차례로 채우고, 넘치면 다음 칸·다음 장으로
+function paginate(root, blocks, opts) {
+  const head = (first) => first
+    ? `<div class="first"><img src="logo.png"><div class="vb"></div><div><div class="t1">${esc(opts.title)}</div><div class="t2">${esc(opts.sub)}</div><div class="t3">${esc(opts.meta)}</div></div></div>`
+    : `<div class="hd"><b>ANSWER MATHEMATICS</b><span>${esc(opts.title)}</span></div>`;
+  let page, cols, ci, pno = 0;
+  const newPage = () => {
+    page = document.createElement("div"); page.className = "pg";
+    page.innerHTML = head(pno === 0) + (pno === 0 && opts.top ? opts.top : "") + `<div class="cols"><div class="col"></div><div class="col"></div></div><div class="ft"><span>${pno + 1}</span><img src="logo-ko.png"></div>`;
+    pno++; root.appendChild(page); cols = page.querySelectorAll(".col"); ci = 0;
+    if (window.renderMathInElement) renderMathInElement(page, { delimiters: [{ left: "$$", right: "$$", display: true }, { left: "$", right: "$", display: false }], throwOnError: false, strict: "ignore" });
+  };
+  newPage();
+  for (const html of blocks) {
+    const t = document.createElement("div"); t.innerHTML = html; const el = t.firstElementChild;
+    for (let k = 0; k < 4; k++) {
+      cols[ci].appendChild(el);
+      if (window.renderMathInElement && !el.dataset.r) { renderMathInElement(el, { delimiters: [{ left: "$$", right: "$$", display: true }, { left: "$", right: "$", display: false }], throwOnError: false, strict: "ignore" }); el.dataset.r = 1; }
+      if (cols[ci].scrollHeight <= cols[ci].clientHeight + 1 || cols[ci].children.length === 1) break;
+      cols[ci].removeChild(el);
+      if (ci === 0) ci = 1; else newPage();
+    }
+  }
+}
+function figHtml(v) {
+  if (!v.svg) return "";
+  const s = AS.fixSvg(v.svg); if (!s) return "";
+  return `<div class="fig"><img src="data:image/svg+xml;charset=utf-8,${encodeURIComponent(s)}"></div>`;
+}
+function probHtml(i, v, space) {
+  return `<div class="tq" ${space ? 'style="min-height:72mm"' : ""}><span class="n">${i}</span>${H(v.body)}${figHtml(v)}${AS.choicesHtml(v.choices)}</div>`;
+}
+let CUR = null;
+async function make() {
+  await AS.ensureMathFonts();
+  const sid = $("stu").value;
+  const st = ALL.find((q) => q.student_id === sid)?.students || {};
+  const qs = ALL.filter((q) => q.student_id === sid);
+  const ready = qs.filter((q) => q.typed?.var?.body);
+  const miss = qs.filter((q) => !q.typed?.var?.body && q.ocr_status === "done");
+  if (miss.length) {
+    msg(`변형 문제 ${miss.length}개 만드는 중… (1~2분 뒤 다시 '만들기')`);
+    for (let i = 0; i < miss.length; i += 2) setTimeout(() => ocrCall({ mode: "variant", ids: miss.slice(i, i + 2).map((q) => q.id) }).catch(() => {}), (i / 2) * 3000);
+  }
+  let a = $("from").value, z = $("to").value; if (a > z) [a, z] = [z, a];
+  const sub = st.name + (st.school || st.grade ? ` (${[st.school, st.grade].filter(Boolean).join(" ")})` : "");
+  const meta = `${md(a)} ~ ${md(z)} 질문한 문제 · ${ready.length}문제`;
+  CUR = { name: st.name, a, z, n: ready.length, bad: ready.filter((q) => !q.typed.var.ok).map((q, i) => i + 1) };
+  const root = $("pages"); root.innerHTML = "";
+  const qWrap = document.createElement("div"); qWrap.id = "qPages"; root.appendChild(qWrap);
+  paginate(qWrap, ready.map((q, i) => probHtml(i + 1, q.typed.var, true)), { title: "질문 문제 복습 테스트", sub, meta });
+  const aWrap = document.createElement("div"); aWrap.id = "aPages"; root.appendChild(aWrap);
+  const quick = `<div class="qt">빠른 정답</div><div class="quick">${ready.map((q, i) => `<div><b>${i + 1}</b><span>${H(q.typed.var.answer).replace(/\\dfrac/g, "\\frac")}</span></div>`).join("")}</div>`;
+  paginate(aWrap, ready.map((q, i) => {
+    const v = q.typed.var;
+    return `<div class="tq sol"><span class="n">${i + 1}</span>${H(v.body)}${figHtml(v)}${AS.choicesHtml(v.choices)}<div class="ans"><b>정답</b>${H(v.answer)}</div><div class="st">${(v.steps || []).map((x) => `<div>${H(x)}</div>`).join("")}</div></div>`;
+  }), { title: "정답 및 해설", sub, meta, top: quick });
+  await Promise.all([...root.querySelectorAll("img")].map((im) => (im.complete ? 0 : new Promise((r) => (im.onload = im.onerror = r)))));
+  await AS.ensureMathFonts();
+  msg(`${st.name} ${ready.length}문제` + (miss.length ? ` · 변형 아직 없는 ${miss.length}문제는 빠짐` : "") + (CUR.bad.length ? ` · 검산 안 맞은 문제: ${CUR.bad.join(", ")}번` : ""));
+  return CUR;
+}
+const loadJs = (src) => new Promise((res, rej) => { if (document.querySelector(`script[src="${src}"]`)) return res(); const s = document.createElement("script"); s.src = src; s.onload = res; s.onerror = rej; document.head.appendChild(s); });
+async function pdfOf(wrapId, suffix, save = true) {
+  await Promise.all([loadJs("vendor/html2canvas.min.js"), loadJs("vendor/jspdf.umd.min.js")]);
+  const pdf = new jspdf.jsPDF({ unit: "mm", format: "a4" });
+  const pages = [...document.querySelectorAll(`#${wrapId} .pg`)];
+  for (let i = 0; i < pages.length; i++) {
+    const c = await html2canvas(pages[i], { scale: 2.5, useCORS: true, backgroundColor: "#ffffff", logging: false });
+    if (i) pdf.addPage();
+    pdf.addImage(c.toDataURL("image/jpeg", 0.92), "JPEG", 0, 0, 210, 297);
+    c.width = c.height = 0;
+  }
+  const d = todayKst().slice(5).replace("-", "");
+  const name = `${d}_${CUR.name}_복습테스트${suffix}.pdf`;
+  if (save) pdf.save(name);
+  return { name, pdf };
+}
+$("go").onclick = async () => { msg("불러오는 중…"); await loadRange(); await make(); };
+$("stu").onchange = () => make();
+$("pdfQ").onclick = () => pdfOf("qPages", "");
+$("pdfA").onclick = () => pdfOf("aPages", "_해설");
+(async () => {
+  const d0 = new Date(Date.now() + 9 * 3600e3 - 9 * 864e5).toISOString().slice(0, 10);
+  $("from").value = P.get("from") || d0; $("to").value = P.get("to") || todayKst();
+  try { await loadRange(); if (P.get("name")) await make(); else msg("학생 고르고 '만들기'"); } catch (e) { msg(e.message); }
+})();
+window.TEST = { loadRange, make, pdfOf };
+</script>
+</body></html>

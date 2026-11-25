@@ -231,5 +231,5 @@
     await ensureMathFonts();
     return { students: groupByStudent(items).length, problems: items.length };
   }
-  window.AnswerSheet = { build, usePhoto, groupByStudent, fixSvg, cropFigure, ensureMathFonts };
+  window.AnswerSheet = { build, usePhoto, groupByStudent, fixSvg, cropFigure, ensureMathFonts, bodyHtml, choicesHtml };
 })();

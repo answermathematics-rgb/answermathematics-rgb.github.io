@@ -434,7 +434,31 @@
     }
     await Promise.all([...container.querySelectorAll("img")].map((im) => im.complete ? 0 : new Promise((r) => { im.onload = im.onerror = r; })));
     await ensureMathFonts();
+    fitCells(container);
     return { students: groupByStudent(items).length, problems: items.length };
+  }
+  // 한 칸(쪽의 1/4)에 다 안 들어가는 문제는 넘친 부분이 잘려서 선택지가 안 찍혔음
+  // → 넘치면 그림부터 줄이고, 그래도 넘치면 글자를 조금 줄여서 칸 안에 넣음
+  function fitCells(container) {
+    const prevStyle = container.getAttribute("style"), hidden = !container.offsetWidth;
+    if (hidden) container.style.cssText = (prevStyle || "") + ";display:block;position:fixed;left:-20000px;top:0;width:190mm;visibility:visible";
+    try {
+      container.querySelectorAll(".sh-q").forEach((cell) => {
+        const over = () => cell.scrollHeight - cell.clientHeight > 1;
+        if (!over()) return;
+        const im = cell.querySelector(".fig img");
+        if (im && im.style.width) {
+          const w0 = im.style.width;
+          for (const k of [0.85, 0.72, 0.6, 0.5]) { im.style.width = `calc(${w0} * ${k})`; if (!over()) return; }
+        }
+        for (const k of [0.94, 0.88, 0.82, 0.76]) {
+          cell.querySelectorAll(".body, .choices").forEach((e) => { e.style.fontSize = (10.5 * k).toFixed(2) + "pt"; });
+          const b = cell.querySelector(".body"); if (b) b.style.lineHeight = (1.75 - (1 - k) * 1.3).toFixed(2);
+          if (!over()) return;
+        }
+      });
+    } catch (_) {}
+    if (hidden) { if (prevStyle === null) container.removeAttribute("style"); else container.setAttribute("style", prevStyle); }
   }
   window.AnswerSheet = { build, usePhoto, groupByStudent, fixSvg, cropFigure, ensureMathFonts, bodyHtml, choicesHtml };
 })();

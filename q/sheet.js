@@ -74,11 +74,188 @@
     await Promise.race([new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))), new Promise((r) => setTimeout(r, 150))]);
   }
   const loadImg = (src) => new Promise((res) => { const im = new Image(); im.crossOrigin = "anonymous"; im.onload = () => res(im); im.onerror = () => res(null); im.src = src; });
-  // AI가 그린 SVG 점검·정리: 깨진 SVG면 null(→ 사진 그림 사용), 글자·선이 너무 작으면 키움
-  function fixSvg(svg) {
+  // ───── 기울어진 그림 바로 세우기 ─────
+  // AI는 사진에 찍힌 위치 그대로 옮겨 그리기 때문에, 책을 비스듬히 찍으면 좌표축·점선·테두리까지 같이 기울어짐.
+  // 가로·세로에 가까운 긴 직선들이 얼마나 기울었는지 재서, 그만큼 모든 좌표를 되돌려 놓음 (글자는 눕히지 않고 위치만 옮김).
+  // path의 d → 절대좌표 명령 목록. 못 읽으면 null
+  function pathCmds(d) {
+    const tk = d.match(/[a-zA-Z]|-?(?:\d*\.\d+|\d+\.?)(?:[eE][-+]?\d+)?/g); if (!tk) return null;
+    const out = []; let i = 0, c = "", x = 0, y = 0, sx = 0, sy = 0;
+    const num = () => { if (i >= tk.length || /[a-zA-Z]/.test(tk[i])) throw 0; const v = parseFloat(tk[i++]); if (!isFinite(v)) throw 0; return v; };
+    const flag = () => { const t = tk[i]; if (t === "0" || t === "1") { i++; return +t; } if (/^[01]\d/.test(t || "")) { tk[i] = t.slice(1); return +t[0]; } throw 0; };
+    try {
+      while (i < tk.length) {
+        if (/[a-zA-Z]/.test(tk[i])) c = tk[i++]; else if (!c || c === "Z" || c === "z") return null; else if (c === "M") c = "L"; else if (c === "m") c = "l";
+        const C = c.toUpperCase(), rel = c !== C, ox = rel ? x : 0, oy = rel ? y : 0;
+        if (C === "Z") { out.push(["Z"]); x = sx; y = sy; continue; }
+        if (C === "H") { x = ox + num(); out.push(["L", x, y]); continue; }
+        if (C === "V") { y = oy + num(); out.push(["L", x, y]); continue; }
+        if (C === "A") { const rx = num(), ry = num(), rot = num(), f1 = flag(), f2 = flag(); x = ox + num(); y = oy + num(); out.push(["A", rx, ry, rot, f1, f2, x, y]); continue; }
+        const n = { M: 1, L: 1, T: 1, Q: 2, S: 2, C: 3 }[C]; if (!n) return null;
+        const k = [C]; for (let j = 0; j < n; j++) { const px = ox + num(), py = oy + num(); k.push(px, py); if (j === n - 1) { x = px; y = py; } }
+        out.push(k); if (C === "M") { sx = x; sy = y; }
+      }
+    } catch (_) { return null; }
+    return out;
+  }
+  function straighten(live) {
+    const vb = (live.getAttribute("viewBox") || "").split(/[\s,]+/).map(Number);
+    if (vb.length !== 4 || !(vb[2] > 0) || !(vb[3] > 0)) return false;
+    const VW = vb[2], VH = vb[3], xc = vb[0] + VW / 2, yc = vb[1] + VH / 2;
+    if (live.querySelector("clipPath,mask,use,symbol,pattern,textPath")) return false;   // 복잡한 그림은 건드리지 않음
+    const rootInv = live.getScreenCTM().inverse();
+    const mats = new Map();
+    const M = (el) => { let m = mats.get(el); if (!m) { m = rootInv.multiply(el.getScreenCTM()); mats.set(el, m); } return m; };
+    const toRoot = (el, x, y) => { const p = new DOMPoint(x, y).matrixTransform(M(el)); return [p.x, p.y]; };
+    const A = (el, k) => { const v = parseFloat(el.getAttribute(k)); return isFinite(v) ? v : 0; };
+    const els = [...live.querySelectorAll("line,polyline,polygon,path,rect,circle,ellipse,text,tspan")].filter((e) => !e.closest("defs,marker"));
+    const stroked = (el) => { const st = getComputedStyle(el).stroke; return !!st && st !== "none"; };
+    // 1) 직선 조각 모으기 (선이 그어진 것만: 색칠 영역의 가장자리는 기준으로 안 씀)
+    const segs = [], paths = new Map(), polys = new Map(), rects = [], tris = [];
+    const BIG = Math.max(VW, VH);
+    // 작은 세모 = 화살촉. 화살촉이 끝에 붙은 직선은 좌표축으로 봄
+    const tri = (q) => { const xs = q.map((p) => p[0]), ys = q.map((p) => p[1]); if (Math.max(Math.max(...xs) - Math.min(...xs), Math.max(...ys) - Math.min(...ys)) <= 0.08 * BIG) tris.push([(xs[0] + xs[1] + xs[2]) / 3, (ys[0] + ys[1] + ys[2]) / 3]); };
+    const marked = (el) => { const cs = getComputedStyle(el); return !!(el.getAttribute("marker-end") || el.getAttribute("marker-start")) || (cs.markerEnd && cs.markerEnd !== "none") || (cs.markerStart && cs.markerStart !== "none"); };
+    for (const el of els) {
+      const t = el.tagName.toLowerCase(), use = t !== "text" && t !== "tspan" && stroked(el);
+      if (t === "line") { if (use) segs.push([...toRoot(el, A(el, "x1"), A(el, "y1")), ...toRoot(el, A(el, "x2"), A(el, "y2")), marked(el)]); }
+      else if (t === "polyline" || t === "polygon") {
+        const a = (el.getAttribute("points") || "").trim().split(/[\s,]+/).map(Number);
+        if (a.length < 2 || a.length % 2 || a.some((v) => !isFinite(v))) return false;
+        polys.set(el, a);
+        const q = []; for (let i = 0; i < a.length; i += 2) q.push(toRoot(el, a[i], a[i + 1]));
+        if (q.length === 3) tri(q);
+        if (use) { const mk = q.length === 2 && marked(el);
+          for (let i = 1; i < q.length; i++) segs.push([...q[i - 1], ...q[i], mk]);
+          if (t === "polygon" && q.length > 2) segs.push([...q[q.length - 1], ...q[0], false]); }
+      } else if (t === "path") {
+        const c = pathCmds(el.getAttribute("d") || ""); if (!c) return false;
+        paths.set(el, c);
+        const body = c.filter((k) => k[0] !== "Z");
+        if (body.length === 3 && body[0][0] === "M" && body[1][0] === "L" && body[2][0] === "L") tri(body.map((k) => toRoot(el, k[1], k[2])));
+        if (use) { const mk = body.length === 2 && marked(el); let cur = null, st = null; for (const k of c) {
+          if (k[0] === "Z") { if (cur && st) segs.push([...toRoot(el, cur[0], cur[1]), ...toRoot(el, st[0], st[1]), false]); cur = st; continue; }
+          const e = [k[k.length - 2], k[k.length - 1]];
+          if (k[0] === "M") st = e; else if (k[0] === "L" && cur) segs.push([...toRoot(el, cur[0], cur[1]), ...toRoot(el, e[0], e[1]), mk]);
+          cur = e; } }
+      } else if (t === "rect") {
+        const w = A(el, "width"), h = A(el, "height"), c = toRoot(el, A(el, "x") + w / 2, A(el, "y") + h / 2);
+        const rot = /^\s*rotate\(\s*(-?[\d.]+)/.exec(el.getAttribute("transform") || ""), deg = rot ? parseFloat(rot[1]) : 0;
+        rects.push({ el, w, h, c, deg, tilt: !!rot && Math.abs(deg) <= 10 && !/\)\s*\S/.test(el.getAttribute("transform")) });
+      }
+    }
+    const H = [], V = [], TOL = 0.14;   // 8°까지를 '원래 가로·세로였을 선'으로 봄
+    const nearTri = (x, y) => tris.some((c) => Math.hypot(c[0] - x, c[1] - y) <= 0.05 * BIG);
+    for (const [x1, y1, x2, y2, mk] of segs) {
+      const dx = x2 - x1, dy = y2 - y1, len = Math.hypot(dx, dy);
+      const horiz = Math.abs(dy) <= TOL * Math.abs(dx), vert = Math.abs(dx) <= TOL * Math.abs(dy);
+      if (!horiz && !vert) continue;
+      const dim = horiz ? VW : VH; if (len < 0.12 * dim) continue;
+      const axis = len >= 0.35 * dim && (mk || nearTri(x1, y1) || nearTri(x2, y2));
+      (horiz ? H : V).push({ s: horiz ? dy / dx : dx / dy, len, pos: horiz ? (y1 + y2) / 2 : (x1 + x2) / 2, long: len >= 0.4 * dim, axis });
+    }
+    // 살짝 돌려 그린 네모의 변, 같은 크기 네모(카드·칸)가 한 줄로 늘어선 줄도 기준선으로
+    for (const r of rects) {
+      if (r.tilt && r.deg) { const tn = Math.tan(r.deg * Math.PI / 180); H.push({ s: tn, len: r.w, pos: r.c[1] }); V.push({ s: -tn, len: r.h, pos: r.c[0] }); }
+      else if (!r.el.getAttribute("transform") && stroked(r.el)) {   // 반듯하게 그린 테두리 네모 = 이미 바로 선 그림이라는 증거
+        if (r.w >= 0.12 * VW) [-1, 1].forEach((k) => H.push({ s: 0, len: r.w, pos: r.c[1] + k * r.h / 2, long: r.w >= 0.4 * VW }));
+        if (r.h >= 0.12 * VH) [-1, 1].forEach((k) => V.push({ s: 0, len: r.h, pos: r.c[0] + k * r.w / 2, long: r.h >= 0.4 * VH }));
+      }
+    }
+    if (rects.length >= 3) {
+      const w0 = rects[0].w, h0 = rects[0].h, same = rects.filter((r) => Math.abs(r.w - w0) <= 0.12 * w0 && Math.abs(r.h - h0) <= 0.12 * h0);
+      if (same.length === rects.length) {
+        const n = same.length, mx = same.reduce((t, r) => t + r.c[0], 0) / n, my = same.reduce((t, r) => t + r.c[1], 0) / n;
+        const sxx = same.reduce((t, r) => t + (r.c[0] - mx) ** 2, 0), syy = same.reduce((t, r) => t + (r.c[1] - my) ** 2, 0), sxy = same.reduce((t, r) => t + (r.c[0] - mx) * (r.c[1] - my), 0);
+        const xs = same.map((r) => r.c[0]), ys = same.map((r) => r.c[1]);
+        if (sxx > syy * 30 && sxx > 0) { const len = Math.max(...xs) - Math.min(...xs) + w0; H.push({ s: sxy / sxx, len, pos: my, long: len >= 0.4 * VW }); }
+        else if (syy > sxx * 30 && syy > 0) { const len = Math.max(...ys) - Math.min(...ys) + h0; V.push({ s: sxy / syy, len, pos: mx, long: len >= 0.4 * VH }); }
+      }
+    }
+    if (!H.length && !V.length) return false;
+    // 2) 고칠지 말지: 긴 선 중에 이미 정확히 가로·세로인 게 있으면 '반듯하게 그린 그림'이니 손대지 않음 (비스듬한 선은 원래 그런 것)
+    const wt = (a) => a.len * (a.axis ? 3 : 1);
+    const mean = (arr) => arr.reduce((t, a) => t + a.s * wt(a), 0) / arr.reduce((t, a) => t + wt(a), 0);
+    const isLong = (a) => a.long || a.axis;
+    if ([...H, ...V].some((a) => isLong(a) && Math.abs(a.s) < 0.003)) return false;
+    // 기준 기울기: ① 좌표축(화살표 달린 긴 선) ② 같은 방향 긴 선 둘 이상이 나란히 기울어 있음 ③ 가로 긴 선과 세로 긴 선이 같은 각도로 돌아가 있음
+    const selfRef = (arr) => {
+      const ax = arr.filter((a) => a.axis); if (ax.length) return mean(ax);
+      const L = arr.filter(isLong), ss = L.map((a) => a.s);
+      return L.length >= 2 && Math.max(...ss) - Math.min(...ss) <= 0.03 ? mean(L) : null;
+    };
+    const cross = (arr, other) => { if (other == null) return null; const L = arr.filter((a) => isLong(a) && Math.abs(a.s + other) <= 0.04); return L.length ? mean(L) : null; };
+    let rH = selfRef(H), rV = selfRef(V);
+    if (rH == null) rH = cross(H, rV);
+    if (rV == null) rV = cross(V, rH);
+    if (rH == null && rV == null) {
+      let best = null;
+      for (const h of H.filter(isLong)) for (const v of V.filter(isLong)) if (Math.abs(h.s + v.s) <= 0.04 && (!best || h.len + v.len > best[2])) best = [h.s, v.s, h.len + v.len];
+      if (!best) return false;                                      // 믿을 만한 기준이 없으면 그대로 둠
+      rH = best[0]; rV = best[1];
+    }
+    // 기준과 나란한 선만 계산에 씀 (축이 있는 방향은 축에 내린 점선까지 넉넉히)
+    const pick = (arr, ref) => ref == null ? [] : arr.filter((a) => a.axis || Math.abs(a.s - ref) <= (arr.some((x) => x.axis) ? 0.06 : 0.04));
+    const hi = pick(H, rH), vi = pick(V, rV);
+    // 3) 방향별 기울기: 평균 + (기준선이 넓게 퍼져 있으면) 위치에 따라 달라지는 정도까지 — 비스듬히 찍힌 사진은 선마다 기울기가 조금씩 다름
+    const fit = (arr, span) => {
+      if (!arr.length) return null;
+      const W = arr.reduce((t, a) => t + wt(a), 0), a0 = mean(arr), pm = arr.reduce((t, a) => t + a.pos * wt(a), 0) / W;
+      let b = 0; const ps = arr.map((a) => a.pos), spread = Math.max(...ps) - Math.min(...ps), lp = arr.filter(isLong).map((a) => a.pos);
+      if ((arr.some((a) => a.axis) && arr.length >= 3 && spread >= 0.3 * span) || (lp.length >= 2 && Math.max(...lp) - Math.min(...lp) >= 0.5 * span)) {
+        const sxx = arr.reduce((t, a) => t + wt(a) * (a.pos - pm) ** 2, 0), sxy = arr.reduce((t, a) => t + wt(a) * (a.pos - pm) * (a.s - a0), 0);
+        if (sxx > 0) { const lim = 0.14 / span; b = Math.max(-lim, Math.min(lim, sxy / sxx)); }
+      }
+      return { a: a0, b, pm };
+    };
+    const fh = fit(hi, VH), fv = fit(vi, VW);
+    const sh = (y) => fh ? fh.a + fh.b * (y - fh.pm) : -(fv.a);      // 가로선 기울기 (기준이 없으면 세로선과 같은 각도로 돌아갔다고 봄)
+    const sv = (x) => fv ? fv.a + fv.b * (x - fv.pm) : -(fh.a);
+    const worst = Math.max(Math.abs(sh(vb[1])), Math.abs(sh(vb[1] + VH)), Math.abs(sv(vb[0])), Math.abs(sv(vb[0] + VW)));
+    if (worst < 0.006 || worst > 0.2) return false;                  // 이미 반듯함(0.35° 미만) / 말이 안 되게 큼
+    const warp = (x, y) => [x - sv(x) * (y - yc), y - sh(y) * (x - xc)];
+    const map = (el, x, y, m) => { m = m || M(el); const p = new DOMPoint(x, y).matrixTransform(m), w = warp(p.x, p.y), q = new DOMPoint(w[0], w[1]).matrixTransform(m.inverse()); return [q.x, q.y]; };
+    const f1 = (v) => String(+v.toFixed(1));
+    // 4) 옮길 값을 전부 계산해 둔 뒤 한꺼번에 적용 (중간에 실패하면 아무것도 안 바꿈)
+    const ops = [];
+    for (const el of els) {
+      const t = el.tagName.toLowerCase();
+      if (t === "line") { const a = map(el, A(el, "x1"), A(el, "y1")), b = map(el, A(el, "x2"), A(el, "y2")); ops.push([el, "x1", f1(a[0])], [el, "y1", f1(a[1])], [el, "x2", f1(b[0])], [el, "y2", f1(b[1])]); }
+      else if (polys.has(el)) { const a = polys.get(el), o = []; for (let i = 0; i < a.length; i += 2) { const p = map(el, a[i], a[i + 1]); o.push(f1(p[0]) + "," + f1(p[1])); } ops.push([el, "points", o.join(" ")]); }
+      else if (paths.has(el)) {
+        const d = paths.get(el).map((k) => {
+          if (k[0] === "Z") return "Z";
+          if (k[0] === "A") { const p = map(el, k[6], k[7]); return `A${k[1]} ${k[2]} ${k[3]} ${k[4]} ${k[5]} ${f1(p[0])} ${f1(p[1])}`; }
+          const o = []; for (let i = 1; i < k.length; i += 2) { const p = map(el, k[i], k[i + 1]); o.push(f1(p[0]), f1(p[1])); }
+          return k[0] + o.join(" ");
+        }).join(" ");
+        ops.push([el, "d", d]);
+      } else if (t === "circle" || t === "ellipse") { const p = map(el, A(el, "cx"), A(el, "cy")); ops.push([el, "cx", f1(p[0])], [el, "cy", f1(p[1])]); }
+      else if (t === "rect") {
+        const r = rects.find((q) => q.el === el), w = warp(r.c[0], r.c[1]);
+        // 살짝 돌려 그린 네모는 똑바로 세움 (돌림 표시 삭제 → 부모 기준 좌표로 다시 계산)
+        const m = r.tilt ? rootInv.multiply(el.parentNode.getScreenCTM()) : M(el), q = new DOMPoint(w[0], w[1]).matrixTransform(m.inverse());
+        ops.push([el, "x", f1(q.x - r.w / 2)], [el, "y", f1(q.y - r.h / 2)]); if (r.tilt) ops.push([el, "transform", null]);
+      } else if (t === "text") {
+        const xs = (el.getAttribute("x") || "").trim().split(/[\s,]+/).filter(Boolean), ys = (el.getAttribute("y") || "").trim().split(/[\s,]+/).filter(Boolean);
+        if (xs.length > 1 || ys.length > 1) continue;                // 글자마다 좌표를 준 경우는 그대로 둠
+        const p = map(el, A(el, "x"), A(el, "y")); ops.push([el, "x", f1(p[0])], [el, "y", f1(p[1])]);
+      } else if (t === "tspan") {
+        const hx = el.hasAttribute("x"), hy = el.hasAttribute("y"); if (!hx && !hy) continue;
+        const par = el.closest("text"); if (!par) continue;
+        const p = map(el, hx ? A(el, "x") : A(par, "x"), hy ? A(el, "y") : A(par, "y"));
+        if (hx) ops.push([el, "x", f1(p[0])]); if (hy) ops.push([el, "y", f1(p[1])]);
+      }
+    }
+    for (const [el, k, v] of ops) { if (v === null) el.removeAttribute(k); else el.setAttribute(k, v); }
+    return true;
+  }
+  // AI가 그린 SVG 점검·정리: 깨진 SVG면 null(→ 사진 그림 사용), 기울어진 건 바로 세우고, 글자·선이 너무 작으면 키움
+  function fixSvg(svg, opt) {
+    let host = null;
     try {
       const doc = new DOMParser().parseFromString(svg, "image/svg+xml");
-      const root = doc.documentElement;
+      let root = doc.documentElement;
       if (!root || root.nodeName.toLowerCase() !== "svg" || doc.getElementsByTagName("parsererror").length) return null;
       const vb = (root.getAttribute("viewBox") || "").split(/[\s,]+/).map(Number);
       const vw = vb.length === 4 && vb[2] > 0 ? vb[2] : +root.getAttribute("width") || 400;
@@ -86,25 +263,27 @@
       if (!root.getAttribute("viewBox")) root.setAttribute("viewBox", `0 0 ${vw} ${vh}`);
       root.removeAttribute("width"); root.removeAttribute("height");
       if (!root.getElementsByTagName("*").length) return null;
-      // 실제로 그려진 부분에 맞게 테두리 여백 잘라내기 (그림이 작게 찍히지 않게)
+      // 화면 밖에 잠깐 붙여 놓고(크기·위치를 재려면 붙어 있어야 함) 기울기 바로잡기 + 테두리 여백 잘라내기 (그림이 작게 찍히지 않게)
       try {
-        const host = document.createElement("div"); host.style.cssText = "position:absolute;left:-9999px;top:0;width:400px;height:400px;visibility:hidden";
+        host = document.createElement("div"); host.style.cssText = "position:absolute;left:-9999px;top:0;width:400px;height:400px;visibility:hidden";
         const live = document.importNode(root, true); host.appendChild(live); document.body.appendChild(host);
-        const bb = live.getBBox(); host.remove();
+        if (!(opt && opt.keepTilt)) { try { straighten(live); } catch (_) {} }
+        const bb = live.getBBox();
         if (bb.width > 10 && bb.height > 10) {
           const p = Math.max(bb.width, bb.height) * 0.04;
-          root.setAttribute("viewBox", `${(bb.x - p).toFixed(1)} ${(bb.y - p).toFixed(1)} ${(bb.width + 2 * p).toFixed(1)} ${(bb.height + 2 * p).toFixed(1)}`);
+          live.setAttribute("viewBox", `${(bb.x - p).toFixed(1)} ${(bb.y - p).toFixed(1)} ${(bb.width + 2 * p).toFixed(1)} ${(bb.height + 2 * p).toFixed(1)}`);
         }
+        root = live;
       } catch (_) {}
       { const v2 = root.getAttribute("viewBox").split(/[\s,]+/).map(Number); var vwF = v2[2] || vw, vhF = v2[3] || vh; }
       // 인쇄 크기(가로 약 58mm)에서 글자가 2.4mm 이상 되게
       const minFont = Math.max(vwF, vhF * 1.3) * 0.042;
-      const fsOf = (el) => { for (let e = el; e && e.getAttribute; e = e.parentNode) { const v = parseFloat(e.getAttribute("font-size") || (e.getAttribute("style") || "").replace(/.*font-size:\s*([\d.]+).*/s, "$1")); if (v > 0) return v; } return 16; };
+      const fsOf = (el) => { for (let e = el; e && e.getAttribute && e !== root.parentNode; e = e.parentNode) { const v = parseFloat(e.getAttribute("font-size") || (e.getAttribute("style") || "").replace(/.*font-size:\s*([\d.]+).*/s, "$1")); if (v > 0) return v; } return 16; };
       [...root.getElementsByTagName("text")].forEach((t) => { if (fsOf(t) < minFont) t.setAttribute("font-size", minFont.toFixed(1)); });
       const minStroke = vwF * 0.0028;
       root.querySelectorAll("[stroke-width]").forEach((e) => { if (parseFloat(e.getAttribute("stroke-width")) < minStroke) e.setAttribute("stroke-width", minStroke.toFixed(2)); });
       return new XMLSerializer().serializeToString(root);
-    } catch (_) { return null; }
+    } catch (_) { return null; } finally { if (host) host.remove(); }
   }
   async function cropFigure(url, bbox, rot) {
     const im = await loadImg(url); if (!im) return null;

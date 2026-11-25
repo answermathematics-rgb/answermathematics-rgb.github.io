@@ -124,12 +124,13 @@ async function svgToPng(svg) {
   const im = new Image(); im.src = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(sized);
   await new Promise((r) => { im.onload = im.onerror = r; });
   const c = document.createElement("canvas"); c.width = W; c.height = H; const g = c.getContext("2d");
-  g.fillStyle = "#fff"; g.fillRect(0, 0, W, H); try { g.drawImage(im, 0, 0, W, H); return c.toDataURL("image/png"); } catch (_) { return null; }
+  g.fillStyle = "#fff"; g.fillRect(0, 0, W, H); try { g.drawImage(im, 0, 0, W, H); return { src: c.toDataURL("image/png"), ar: W / H }; } catch (_) { return null; }
 }
 function figHtml(v) {
   if (!v.svg) return "";
-  const src = PNG.get(v.svg); if (!src) return "";
-  return `<div class="fig"><img src="${src}"></div>`;
+  const f = PNG.get(v.svg); if (!f) return "";
+  // 크기를 미리 정해 둬야 칸 나눌 때 높이가 맞음 (가로 62%, 세로 최대 44mm)
+  return `<div class="fig"><img src="${f.src}" style="width:min(62%, ${(44 * f.ar).toFixed(1)}mm); aspect-ratio:${f.ar.toFixed(4)}; height:auto; max-height:none"></div>`;
 }
 function probHtml(i, v, space) {
   return `<div class="tq" ${space ? 'style="min-height:72mm"' : ""}><span class="n">${i}</span>${H(v.body)}${figHtml(v)}${AS.choicesHtml(v.choices)}</div>`;

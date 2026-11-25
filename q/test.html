@@ -143,8 +143,9 @@ async function make() {
   // 같은 문제를 두 번 올린 건 한 번만
   const seen = new Set();
   const qs = ALL.filter((q) => q.student_id === sid).filter((q) => { const k = String(q.typed?.body || q.id).replace(/\s+/g, ""); if (seen.has(k)) return false; seen.add(k); return true; });
-  const ready = qs.filter((q) => q.typed?.var?.body);
-  const miss = qs.filter((q) => !q.typed?.var?.body && q.ocr_status === "done");
+  // 수학 문제가 아닌 사진(답 없음)은 뺌
+  const ready = qs.filter((q) => q.typed?.var?.body && q.typed.var.answer);
+  const miss = qs.filter((q) => !q.typed?.var && q.ocr_status === "done" && String(q.typed?.body || "").trim());
   if (miss.length) {
     msg(`변형 문제 ${miss.length}개 만드는 중… (1~2분 뒤 다시 '만들기')`);
     for (let i = 0; i < miss.length; i += 2) setTimeout(() => ocrCall({ mode: "variant", ids: miss.slice(i, i + 2).map((q) => q.id) }).catch(() => {}), (i / 2) * 3000);

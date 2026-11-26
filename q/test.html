@@ -12,6 +12,17 @@
   #bar select, #bar input, #bar button { font:inherit; padding:6px 10px; border-radius:8px; border:0; }
   #bar button { background:#B62A1D; color:#fff; font-weight:700; cursor:pointer; }
   #bar .msg { margin-left:auto; opacity:.85; }
+  /* 학생 고르기: 이름을 치면 바로 걸러지는 목록 (예전엔 긴 선택 상자에서 눈으로 찾아야 했음) */
+  #stuBox { position:relative; }
+  #stuQ { width:190px; background:#fff; color:#111; }
+  #stuList { display:none; position:absolute; left:0; top:100%; margin-top:5px; width:min(330px, 92vw); max-height:62vh; overflow:auto; background:#fff; color:#111; border-radius:10px; box-shadow:0 8px 28px rgba(0,0,0,.3); z-index:20; }
+  #stuList.on { display:block; }
+  #stuList .so { display:flex; align-items:baseline; gap:8px; padding:10px 13px; cursor:pointer; font-size:15px; border-bottom:1px solid #eef0f4; }
+  #stuList .so b { font-weight:800; }
+  #stuList .so small { color:#8a8f99; font-size:12px; }
+  #stuList .so span { margin-left:auto; color:#B62A1D; font-size:13px; font-weight:700; white-space:nowrap; }
+  #stuList .so.hi, #stuList .so:hover { background:#eef1f7; }
+  #stuList .none { padding:16px 13px; color:#777; font-size:14px; line-height:1.5; }
   #pages { padding:14px 0 40px; }
   .pg { width:210mm; height:297mm; box-sizing:border-box; padding:13mm 14mm 10mm; margin:0 auto 8mm; background:#fff; display:flex; flex-direction:column; overflow:hidden; box-shadow:0 1px 6px rgba(0,0,0,.12); }
   .pg .hd { display:flex; justify-content:space-between; align-items:flex-end; border-bottom:.4mm solid #1E2A44; padding-bottom:1.6mm; margin-bottom:5mm; font-size:9pt; color:#1E2A44; }
@@ -48,7 +59,8 @@
 </style>
 </head><body>
 <div id="bar">
-  <select id="stu"><option>학생 불러오는 중…</option></select>
+  <div id="stuBox"><input id="stuQ" type="text" placeholder="🔍 학생 이름 검색" autocomplete="off" spellcheck="false" enterkeyhint="search"><div id="stuList"></div></div>
+  <select id="stu" hidden><option value=""></option></select>
   <input type="date" id="from"> ~ <input type="date" id="to">
   <button id="go">만들기</button>
   <button id="pdfQ">⬇ 문제지 PDF</button>
@@ -84,11 +96,42 @@ async function loadRange() {
   ALL = rs.flatMap((r) => r.items || []).sort((x, y) => (x.created_at < y.created_at ? -1 : 1));
   const m = new Map(); ALL.forEach((q) => { const k = q.student_id; if (!m.has(k)) m.set(k, { name: q.students?.name || "", school: q.students?.school || "", grade: q.students?.grade || "", n: 0 }); m.get(k).n++; });
   const cur = $("stu").value;
-  $("stu").innerHTML = [...m.entries()].sort((x, y) => x[1].name.localeCompare(y[1].name, "ko")).map(([k, s]) => `<option value="${k}">${esc(s.name)} (${s.n})</option>`).join("");
-  if ([...m.keys()].includes(cur)) $("stu").value = cur;
-  const want = P.get("name"); if (want) { const e = [...m.entries()].find(([, s]) => s.name === want); if (e) $("stu").value = e[0]; }
+  STU = [...m.entries()].map(([id, s]) => ({ id, ...s })).sort((x, y) => x.name.localeCompare(y.name, "ko"));
+  $("stu").innerHTML = '<option value=""></option>' + STU.map((s) => `<option value="${s.id}">${esc(s.name)} (${s.n})</option>`).join("");
+  $("stu").value = m.has(cur) ? cur : "";
+  const want = P.get("name"); if (want && !wantDone) { wantDone = true; const e = STU.find((s) => s.name === want); if (e) $("stu").value = e.id; }
+  $("stuQ").placeholder = `🔍 학생 이름 검색 (${STU.length}명)`;
+  syncStu(); if ($("stuList").classList.contains("on")) renderStu();
   return m;
 }
+
+// ───── 학생 고르기 (이름 검색) ─────
+let STU = [], stuShown = [], stuHi = 0, stuTyped = false, wantDone = false;
+const stuOf = (id) => STU.find((s) => s.id === id);
+function syncStu() { const s = stuOf($("stu").value); $("stuQ").value = s ? s.name : ""; stuTyped = false; }
+function renderStu() {
+  const q = stuTyped ? $("stuQ").value.trim() : "";     // 칸에 들어 있던 이름은 검색어로 치지 않음 (누르면 전체 목록)
+  stuShown = STU.filter((s) => !q || AS.nameMatch(q, s.name) || (s.school && AS.nameMatch(q, s.school)));
+  stuHi = Math.max(0, Math.min(stuHi, stuShown.length - 1));
+  $("stuList").innerHTML = stuShown.length
+    ? stuShown.map((s, i) => `<div class="so${i === stuHi ? " hi" : ""}" data-id="${s.id}"><b>${esc(s.name)}</b><small>${esc([s.school, s.grade].filter(Boolean).join(" "))}</small><span>${s.n}문제</span></div>`).join("")
+    : `<div class="none">${STU.length ? `'${esc(q)}' 학생이 없어요.<br>이 기간에 질문한 학생만 나와요 — 날짜를 넓히고 '만들기'를 눌러 보세요.` : "이 기간에 질문한 학생이 없어요."}</div>`;
+  const h = $("stuList").querySelector(".so.hi"); if (h && h.scrollIntoView) h.scrollIntoView({ block: "nearest" });
+}
+const openStu = () => { $("stuList").classList.add("on"); renderStu(); };
+const closeStu = () => $("stuList").classList.remove("on");
+function pickStu(id) { if (!stuOf(id)) return; $("stu").value = id; syncStu(); closeStu(); $("stuQ").blur(); make(); }
+$("stuQ").addEventListener("focus", () => { stuTyped = false; stuHi = Math.max(0, STU.findIndex((s) => s.id === $("stu").value)); try { $("stuQ").select(); } catch (_) {} openStu(); });
+$("stuQ").addEventListener("input", () => { stuTyped = true; stuHi = 0; openStu(); });
+$("stuQ").addEventListener("keydown", (e) => {
+  if (e.key === "ArrowDown" || e.key === "ArrowUp") { e.preventDefault(); if (!$("stuList").classList.contains("on")) return openStu(); stuHi = Math.max(0, Math.min(stuShown.length - 1, stuHi + (e.key === "ArrowDown" ? 1 : -1))); renderStu(); }
+  else if (e.key === "Escape") { closeStu(); syncStu(); $("stuQ").blur(); }
+});
+// Enter 는 키를 뗄 때 처리: 한글을 치는 도중의 Enter(글자 확정)도 한 번에 고르기까지 되게
+$("stuQ").addEventListener("keyup", (e) => { if (e.key === "Enter" && $("stuList").classList.contains("on") && stuShown[stuHi]) pickStu(stuShown[stuHi].id); });
+$("stuQ").addEventListener("blur", () => setTimeout(() => { if (document.activeElement !== $("stuQ")) { closeStu(); syncStu(); } }, 180));
+$("stuList").addEventListener("mousedown", (e) => e.preventDefault());     // 목록을 눌러도 검색 칸에서 커서가 빠지지 않게
+$("stuList").addEventListener("click", (e) => { const r = e.target.closest(".so"); if (r) pickStu(r.dataset.id); });
 
 // 2단 칸에 블록을 차례로 채우고, 넘치면 다음 칸·다음 장으로
 function paginate(root, blocks, opts) {
@@ -137,8 +180,10 @@ function probHtml(i, v, space) {
 }
 let CUR = null;
 async function make() {
-  await AS.ensureMathFonts();
   const sid = $("stu").value;
+  if (!sid) { msg("학생 이름을 검색해서 골라줘"); try { $("stuQ").focus(); } catch (_) {} return null; }
+  if (!$("stuList").classList.contains("on")) syncStu();   // 검색 칸에 지금 만드는 학생 이름이 보이게
+  await AS.ensureMathFonts();
   const st = ALL.find((q) => q.student_id === sid)?.students || {};
   // 같은 문제를 두 번 올린 건 한 번만
   const seen = new Set();
@@ -171,6 +216,7 @@ async function make() {
 }
 const loadJs = (src) => new Promise((res, rej) => { if (document.querySelector(`script[src="${src}"]`)) return res(); const s = document.createElement("script"); s.src = src; s.onload = res; s.onerror = rej; document.head.appendChild(s); });
 async function pdfOf(wrapId, suffix, save = true) {
+  if (!CUR) { msg("먼저 학생을 골라줘"); return null; }
   await Promise.all([loadJs("vendor/html2canvas.min.js"), loadJs("vendor/jspdf.umd.min.js")]);
   const pdf = new jspdf.jsPDF({ unit: "mm", format: "a4" });
   const pages = [...document.querySelectorAll(`#${wrapId} .pg`)];
@@ -192,7 +238,7 @@ $("pdfA").onclick = () => pdfOf("aPages", "_해설");
 (async () => {
   const d0 = new Date(Date.now() + 9 * 3600e3 - 9 * 864e5).toISOString().slice(0, 10);
   $("from").value = P.get("from") || d0; $("to").value = P.get("to") || todayKst();
-  try { await loadRange(); if (P.get("name")) await make(); else msg("학생 고르고 '만들기'"); } catch (e) { msg(e.message); }
+  try { await loadRange(); if ($("stu").value) await make(); else msg("학생 이름을 검색해서 고르면 바로 만들어져요"); } catch (e) { msg(e.message); }
 })();
 window.TEST = { loadRange, make, pdfOf };
 </script>

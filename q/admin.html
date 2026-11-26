@@ -45,6 +45,8 @@
   .opts { display:flex; gap:8px; margin:10px 0; }
   .opts select, .opts label { flex:1; font-size:14px; padding:10px; border:1px solid var(--line); border-radius:10px; background:#fff; display:flex; align-items:center; gap:6px; }
   .plist .pr { display:flex; justify-content:space-between; align-items:center; padding:10px 4px; border-bottom:1px solid var(--line); font-size:15px; }
+  #pq { width:100%; box-sizing:border-box; font:inherit; font-size:16px; padding:12px 14px; border:1px solid var(--line); border-radius:10px; background:#fff; margin:0 0 4px; }
+  #pq:focus { outline:2px solid var(--navy); outline-offset:-1px; }
   .hs { width:100%; border-collapse:collapse; background:#fff; border:1px solid var(--line); border-radius:12px; overflow:hidden; font-size:14px; margin-bottom:6px; }
   .hs th, .hs td { padding:9px 10px; border-bottom:1px solid var(--line); text-align:left; }
   .hs th { background:#F1F3F6; font-size:12px; color:var(--muted); }
@@ -127,7 +129,9 @@
     <label><input type="checkbox" id="incl"> 이미 출력한 것도</label>
     <label><input type="checkbox" id="ans"> 답지 같이</label>
   </div>
+  <input id="pq" type="search" placeholder="🔍 이름 검색 — 일부나 초성만 쳐도 돼요 (준현, ㅇㅈㅎ)" autocomplete="off" spellcheck="false" enterkeyhint="search">
   <div class="plist" id="plist"></div>
+  <div class="empty" id="pqNone" style="display:none;padding:22px 10px"></div>
   <div style="height:14px"></div>
   <button class="btn red" id="printBtn" disabled>출력하기</button>
   <div style="height:8px"></div>
@@ -407,7 +411,7 @@ async function loadPrint() {
     const r = await fetchRange($("incl").checked);
     printItems = r.items; allPrint = r.items;
     const gs = group(printItems);
-    $("plist").innerHTML = gs.length ? gs.map(g => `<div class="pr"><b>${esc(g.st.name)}</b><span>${g.qs.length}문제${g.qs.some(q => q.typed?.cut) ? ` · <b style="color:var(--red)">⚠️ 잘림 ${g.qs.filter(q => q.typed?.cut).length}</b>` : ""}
+    $("plist").innerHTML = gs.length ? gs.map(g => `<div class="pr" data-nm="${esc(g.st.name)}"><b>${esc(g.st.name)}</b><span>${g.qs.length}문제${g.qs.some(q => q.typed?.cut) ? ` · <b style="color:var(--red)">⚠️ 잘림 ${g.qs.filter(q => q.typed?.cut).length}</b>` : ""}
       <button class="done" style="margin-left:10px;padding:8px 14px;font-size:14px;background:var(--navy)" data-sp="${g.sid}">이 학생만 출력</button>
       <button class="done pdfb" style="margin-left:6px;padding:8px 12px;font-size:14px" data-pdf="${g.sid}" data-name="${esc(g.st.name)}">PDF</button>
       ${g.qs.some(q => q.typed?.figure?.present) ? `<button class="done pdfb" style="margin-left:6px;padding:8px 12px;font-size:14px" data-fig="${g.sid}" data-name="${esc(g.st.name)}">그림 ${g.qs.filter(q => q.typed?.figure?.present).length}</button>` : ""}
@@ -416,7 +420,18 @@ async function loadPrint() {
     $("printBtn").disabled = !gs.length;
     $("printBtn").textContent = gs.length ? `전체 출력 · ${gs.length}명 ${printItems.length}문제` : "출력하기";
   } catch (e) { $("plist").innerHTML = `<div class="empty">${esc(e.message)}</div>`; }
+  applyPq();
 }
+// 이름 검색: 목록에서 이름이 맞는 학생만 남김 (기간을 길게 잡으면 학생이 수십 명이라 찾기 힘들었음). '전체 출력'·'전체 PDF'는 검색과 상관없이 전체.
+function applyPq() {
+  const q = $("pq").value.trim(), rows = [...$("plist").querySelectorAll(".pr")];
+  let n = 0;
+  rows.forEach(r => { const ok = !q || AnswerSheet.nameMatch(q, r.dataset.nm || ""); r.style.display = ok ? "" : "none"; if (ok) n++; });
+  const none = $("pqNone");
+  if (q && rows.length && !n) { none.textContent = `'${q}' 학생이 이 기간 목록에 없어요 — 날짜를 넓혀 보세요`; none.style.display = ""; }
+  else none.style.display = "none";
+}
+$("pq").addEventListener("input", applyPq);
 $("day").onchange = () => { const d = $("day").value || todayKst(); setDay(d, $("day2").value < d ? d : $("day2").value); };
 $("day2").onchange = () => setDay($("day").value || todayKst(), $("day2").value || todayKst()); $("incl").onchange = loadPrint;
 

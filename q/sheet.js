@@ -509,5 +509,36 @@
     if (hidden) { if (prevStyle === null) container.removeAttribute("style"); else container.setAttribute("style", prevStyle); }
     return need;
   }
-  window.AnswerSheet = { build, usePhoto, groupByStudent, fixSvg, cropFigure, ensureMathFonts, bodyHtml, choicesHtml };
+  // ───── 이름 검색 (관리자 출력 목록·복습 테스트 학생 고르기에서 같이 씀) ─────
+  // 일부만 쳐도 되고(준현 → 안준현), 초성만 쳐도 되고(ㅇㅈㅎ), 한글을 치는 도중 상태도 맞춤(안주 → 안준현, 간 → 가나…)
+  const CHO = "ㄱㄲㄴㄷㄸㄹㅁㅂㅃㅅㅆㅇㅈㅉㅊㅋㅌㅍㅎ";
+  // 받침 번호 → [남는 받침 번호, 다음 글자 첫소리 번호] (받침이 다음 글자로 넘어가는 중일 때)
+  const JONG_SPLIT = { 1: [0, 0], 2: [0, 1], 3: [1, 9], 4: [0, 2], 5: [4, 12], 6: [4, 18], 7: [0, 3], 8: [0, 5], 9: [8, 0], 10: [8, 6], 11: [8, 7], 12: [8, 9], 13: [8, 16], 14: [8, 17], 15: [8, 18],
+    16: [0, 6], 17: [0, 7], 18: [17, 9], 19: [0, 9], 20: [0, 10], 21: [0, 11], 22: [0, 12], 23: [0, 14], 24: [0, 15], 25: [0, 16], 26: [0, 17], 27: [0, 18] };
+  const VBASE = { 9: 8, 10: 8, 11: 8, 14: 13, 15: 13, 16: 13, 19: 18 };   // 겹모음 → 먼저 치는 모음 (ㅘㅙㅚ←ㅗ, ㅝㅞㅟ←ㅜ, ㅢ←ㅡ)
+  const syl = (ch) => { const c = (ch || "").charCodeAt(0) - 0xAC00; return c >= 0 && c <= 11171 ? { cho: Math.floor(c / 588), jung: Math.floor((c % 588) / 28), jong: c % 28 } : null; };
+  function nameMatch(query, name) {
+    const q = String(query || "").normalize("NFC").replace(/\s+/g, "").toLowerCase(), nm = String(name || "").normalize("NFC").replace(/\s+/g, "").toLowerCase();
+    if (!q) return true;
+    if (nm.includes(q)) return true;
+    const L = q.length;
+    for (let s = 0; s + L <= nm.length; s++) {
+      let ok = true;
+      for (let i = 0; i < L && ok; i++) {
+        const qc = q[i], nc = nm[s + i];
+        if (qc === nc) continue;
+        const n = syl(nc), ci = CHO.indexOf(qc);
+        if (ci >= 0) { ok = !!n && n.cho === ci; continue; }                    // 초성만 친 글자
+        const k = syl(qc);
+        if (!k || !n || i !== L - 1 || k.cho !== n.cho) { ok = false; continue; }     // 치는 중일 수 있는 건 마지막 글자뿐
+        if (k.jong === 0) { ok = k.jung === n.jung || VBASE[n.jung] === k.jung; continue; }   // 받침·겹모음을 아직 안 침 (주 → 준, 우 → 원)
+        if (k.jung !== n.jung) { ok = false; continue; }
+        const sp = JONG_SPLIT[k.jong], nx = syl(nm[s + i + 1]);                  // 받침이 다음 글자 첫소리로 넘어가는 중 (간 → 가나)
+        ok = !!sp && !!nx && n.jong === sp[0] && nx.cho === sp[1];
+      }
+      if (ok) return true;
+    }
+    return false;
+  }
+  window.AnswerSheet = { build, usePhoto, groupByStudent, fixSvg, cropFigure, ensureMathFonts, bodyHtml, choicesHtml, nameMatch };
 })();

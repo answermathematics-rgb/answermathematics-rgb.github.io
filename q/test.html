@@ -111,7 +111,9 @@ const stuOf = (id) => STU.find((s) => s.id === id);
 function syncStu() { const s = stuOf($("stu").value); $("stuQ").value = s ? s.name : ""; stuTyped = false; }
 function renderStu() {
   const q = stuTyped ? $("stuQ").value.trim() : "";     // 칸에 들어 있던 이름은 검색어로 치지 않음 (누르면 전체 목록)
-  stuShown = STU.filter((s) => !q || AS.nameMatch(q, s.name) || (s.school && AS.nameMatch(q, s.school)));
+  // 학교 이름은 두 글자 이상을 그대로 쳤을 때만 맞춤 (해성 → 해성여고 학생들). 한 글자·치는 도중 상태까지 학교에 맞추면 '서'에 해성여고 학생이 다 딸려 나옴
+  const qs = q.replace(/\s+/g, "");
+  stuShown = STU.filter((s) => !q || AS.nameMatch(q, s.name) || (qs.length >= 2 && String(s.school || "").replace(/\s+/g, "").includes(qs)));
   stuHi = Math.max(0, Math.min(stuHi, stuShown.length - 1));
   $("stuList").innerHTML = stuShown.length
     ? stuShown.map((s, i) => `<div class="so${i === stuHi ? " hi" : ""}" data-id="${s.id}"><b>${esc(s.name)}</b><small>${esc([s.school, s.grade].filter(Boolean).join(" "))}</small><span>${s.n}문제</span></div>`).join("")

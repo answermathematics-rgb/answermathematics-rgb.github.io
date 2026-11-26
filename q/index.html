@@ -50,6 +50,7 @@
   #camVideo { width:100%; height:100%; object-fit:contain; background:#000; }
   #camGuide { position:absolute; left:6%; right:6%; top:10%; bottom:10%; border:2px dashed rgba(255,255,255,.55); border-radius:12px; pointer-events:none; }
   #camMsg { position:absolute; left:0; right:0; top:14px; text-align:center; color:#fff; font-size:15px; text-shadow:0 1px 3px #000; }
+  #camMsg.big { top:42%; font-size:30px; font-weight:800; text-shadow:0 2px 8px #000; }   /* 찍는 동안: 가운데 크게 */
   .camBar { display:flex; align-items:center; justify-content:space-between; padding:14px 22px 22px; background:#000; }
   .camBar button.side { background:none; border:0; color:#fff; font-size:16px; padding:10px; min-width:84px; }
   #shutter { width:76px; height:76px; border-radius:50%; border:5px solid #fff; background:#B62A1D; }
@@ -460,7 +461,8 @@ let camStream = null, camSeq = 0, camFrames = 0, camT1 = 0, camBroken = "";
 const CAM_SIZES = [[2560, 1920], [1920, 1440]];
 const camLv = () => { try { return localStorage.getItem("qcamlv") === "1" ? 1 : 0; } catch (_) { return 0; } };
 const sleep = (ms) => new Promise(r => setTimeout(r, ms));
-function stopCam() { camSeq++; try { camStream && camStream.getTracks().forEach(t => t.stop()); } catch (_) {} camStream = null; try { $("camVideo").srcObject = null; } catch (_) {} }
+let shotAbort = null;   // 찍는 도중 카메라를 끄면(취소·화면 꺼짐) 기다리던 찍기도 바로 끝냄
+function stopCam() { camSeq++; try { shotAbort && shotAbort(); } catch (_) {} try { camStream && camStream.getTracks().forEach(t => t.stop()); } catch (_) {} camStream = null; try { $("camVideo").srcObject = null; } catch (_) {} }
 // 앱 안 카메라가 안 되는 폰: '문제 찍기' 화면으로 보내고 기본 카메라를 엶 (기본 카메라를 취소해도 검은 화면에 안 갇힘)
 function camFallback(why) {
   camBroken = why || "x";
@@ -505,28 +507,100 @@ async function openCamera() {
 }
 $("camCancel").onclick = () => { stopCam(); if (cur) showHome(); else goNames(); };
 $("camNative").onclick = () => { show("sShoot"); openNativeCamera(); };
-// 찍기: 지금 화면에 보이는 장면을 그대로 사진으로 씀.
-// (예전엔 '최대 화질로 한 장'을 5초 기다리다 포기한 뒤에야 화면을 옮겨서, 누르고 8초씩 걸렸음. 결과 사진은 지금과 같았음)
-$("shutter").onclick = () => {
+// 찍기: 화면에 보이는 장면을 사진으로 씀. 단, 누르는 '순간'의 장면은 쓰지 않음.
+// (11/25에 누르는 순간 장면을 바로 쓰게 바꿨더니, 누르는 손떨림이 그대로 찍혀 사진이 통째로 흔들렸음 — 11/26 간서연.
+//  그 전에는 '최대 화질로 한 장'을 5초 기다리다 포기한 뒤에 장면을 옮겨서 느렸지만 안 흔들렸음.)
+// → 누르고 잠깐 쉬었다가, 그 뒤 들어오는 장면들의 또렷함을 재서 또렷한 장면 한 장을 고름. 보통 0.7초, 길어야 1.7초.
+let shotBusy = false, shC = null, shG = null;
+// 또렷함 점수: 가운데 60%를 가로 300칸으로 줄여 이웃 칸 밝기 차의 제곱 평균을 냄 (클수록 또렷하고, 흔들리면 뚝 떨어짐). mx 는 새까만 장면인지 보는 값
+function sharpOf(v, vw, vh) {
+  if (!shC) { shC = document.createElement("canvas"); shG = shC.getContext("2d", { willReadFrequently: true }); }
+  const rw = vw * 0.6, rh = vh * 0.6, W = 300, H = Math.max(8, Math.round(W * rh / rw));
+  if (shC.width !== W || shC.height !== H) { shC.width = W; shC.height = H; }
+  shG.drawImage(v, (vw - rw) / 2, (vh - rh) / 2, rw, rh, 0, 0, W, H);
+  const d = shG.getImageData(0, 0, W, H).data, row = W * 4;
+  let s = 0, mx = 0;
+  for (let y = 0; y < H - 1; y++) {
+    let i = y * row + 1;
+    for (let x = 0; x < W - 1; x++, i += 4) { const a = d[i], dx = d[i + 4] - a, dy = d[i + row] - a; s += dx * dx + dy * dy; if (a > mx) mx = a; }
+  }
+  return { e: s / ((W - 1) * (H - 1)), mx };
+}
+// 지금 화면의 장면을 줄이지 않고 그대로 사진으로 옮김 (줄이면서 옮기면 느린 폰에서 1~2초 걸렸음)
+function grabFrame(v, vw, vh) {
+  if (img && img.width) { img.width = 0; img.height = 0; } img = null;
+  const k = Math.min(1, 2600 / Math.max(vw, vh));
+  const base = document.createElement("canvas"); base.width = Math.round(vw * k); base.height = Math.round(vh * k);
+  const bg = base.getContext("2d"); if (k < 1) bg.imageSmoothingQuality = "medium";
+  bg.drawImage(v, 0, 0, base.width, base.height);
+  img = base; sel = null;
+  requestAnimationFrame(layoutCrop); setTimeout(layoutCrop, 120);
+}
+// 누른 뒤: 0.25초는 안 보고(누르는 손떨림), 0.65초까지는 또렷함만 재고, 그 뒤 '지금까지 본 것 중 가장 또렷한 수준'이 이어지는 장면이 오면 그 장면을 씀.
+// 계속 흔들리면 1.3초부터 기준을 낮추고, 1.7초에는 그냥 찍음. 도중에 취소되면 null.
+function steadyShot(v, vw, vh, my) {
+  return new Promise((resolve) => {
+    const T0 = performance.now(), SETTLE = 250, LEARN = 650, RELAX = 1300, LAST = 1700, HARD = 3200;
+    const es = []; let best = 0, done = false, wd = 0, tScore = 0, regrab = 0;
+    shotAbort = () => { if (done) return; done = true; clearTimeout(wd); shotAbort = null; resolve(null); };
+    // 지금 장면을 사진으로 옮김. 옮겨 온 사진을 다시 재서, 재는 사이 다음 장면으로 넘어가 훨씬 흐려졌으면 false (한 번 더 기다림)
+    const grab = (why, r, final) => {
+      if (done) return true;
+      if (my !== camSeq || !camStream) { shotAbort(); return true; }
+      let got = null, td = 0;
+      try {
+        const t1 = performance.now();
+        grabFrame(v, vw, vh);
+        td = performance.now() - t1;
+        try { got = sharpOf(img, img.width, img.height); } catch (_) {}
+      } catch (e) { done = true; clearTimeout(wd); shotAbort = null; resolve({ err: String(e && e.message || e).slice(0, 200) }); return true; }
+      if (!final && got && r && got.e < r.e * 0.8 && got.e < best * 0.8 && regrab < 2) { regrab++; return false; }
+      done = true; clearTimeout(wd); shotAbort = null;
+      const g = got || r || { e: 0, mx: 255 };
+      resolve({ blank: g.mx < 10, why, n: es.length, e: Math.round(g.e), eb: Math.round(best), es: es.slice(0, 14).join(","), rg: regrab,
+        ts: es.length ? Math.round(tScore / es.length) : 0, td: Math.round(td), t: Math.round(performance.now() - T0) });
+      return true;
+    };
+    const next = () => { if (done) return; if (v.requestVideoFrameCallback) v.requestVideoFrameCallback(onFrame); else setTimeout(onFrame, 70); };
+    const onFrame = () => {
+      if (done) return;
+      if (my !== camSeq) return shotAbort();
+      const t = performance.now() - T0;
+      if (t < SETTLE) return next();
+      let r; const ts0 = performance.now();
+      try { r = sharpOf(v, vw, vh); } catch (_) { grab("noscore", null, true); return; }   // 또렷함을 못 재는 폰이면 그냥 지금 장면
+      // rising: 이 장면이 지금까지 본 것보다 15% 넘게 더 또렷함 = 아직 흔들림이 가라앉는 중 → 다음 장면에서 그 수준이 유지되는지 보고 찍음
+      const rising = r.e > best * 1.15;
+      tScore += performance.now() - ts0; es.push(Math.round(r.e)); if (r.e > best) best = r.e;
+      if (t >= LEARN) {
+        const need = t < RELAX ? 0.92 : t < LAST ? 0.8 : 0;
+        if (r.e >= best * need && (!rising || t >= RELAX) && grab(t < RELAX ? "sharp" : t < LAST ? "relax" : "last", r, t >= LAST)) return;
+      }
+      next();
+    };
+    wd = setTimeout(() => grab("timeout", null, true), HARD);   // 장면이 더 안 들어오는 폰에서도 멈춰 있지 않게
+    next();
+  });
+}
+$("shutter").onclick = async () => {
+  if (shotBusy) return;
   const v = $("camVideo"), vw = v.videoWidth, vh = v.videoHeight;
   if (!camStream || !(vw > 0)) { toast("카메라가 아직 준비 중이야"); return; }
-  const t0 = Date.now(), sec = (performance.now() - camT1) / 1000, fps = sec >= 1 && camFrames ? +(camFrames / sec).toFixed(1) : null;
-  try { setPhoto(v, vw, vh); if (blankPhoto()) throw new Error("blank"); }
-  catch (e) { klog("photo_fail", { src: "incam", msg: String(e && e.message || e).slice(0, 200), vw, vh }); toast("사진이 안 찍혔어. 한 번 더 눌러줘"); return; }
+  const my = camSeq, t0 = Date.now(), sec = (performance.now() - camT1) / 1000, fps = sec >= 1 && camFrames ? +(camFrames / sec).toFixed(1) : null;
+  const msg = $("camMsg"), msg0 = msg.textContent;
+  shotBusy = true; $("shutter").disabled = true; msg.textContent = "찍는 중… 가만히!"; msg.classList.add("big");
+  let st = null;
+  try { st = await steadyShot(v, vw, vh, my); } catch (e) { st = { err: String(e && e.message || e).slice(0, 200) }; }
+  shotBusy = false; msg.classList.remove("big");
+  if (!st || my !== camSeq) return;                       // 도중에 취소·화면 꺼짐 → 카메라를 다시 열 때 셔터도 다시 켜짐
+  if (st.err || st.blank) {
+    klog("photo_fail", { src: "incam", msg: st.err || "blank", vw, vh });
+    toast("사진이 안 찍혔어. 한 번 더 눌러줘"); $("shutter").disabled = false; msg.textContent = msg0; return;
+  }
   stopCam(); show("sCrop");
-  klog("photo", { src: "incam", w: img.width, h: img.height, ms: Date.now() - t0, fps, lv: camLv(), ...memInfo() });
+  klog("photo", { src: "incam", w: img.width, h: img.height, ms: Date.now() - t0, fps, lv: camLv(), why: st.why, n: st.n, e: st.e, eb: st.eb, es: st.es, rg: st.rg, ts: st.ts, td: st.td, t: st.t, ...memInfo() });
   camTune(fps);
 };
-// 새까만 사진(카메라가 장면을 아직 안 넘겨줌)인지 확인
-function blankPhoto() {
-  try {
-    const c = document.createElement("canvas"); c.width = c.height = 16;
-    const g = c.getContext("2d"); g.drawImage(img, 0, 0, 16, 16);
-    const d = g.getImageData(0, 0, 16, 16).data; let mx = 0;
-    for (let i = 0; i < d.length; i += 4) mx = Math.max(mx, d[i], d[i + 1], d[i + 2]);
-    return mx < 10;
-  } catch (_) { return false; }
-}
 // 카메라 화면이 뚝뚝 끊기는 폰(1초에 8장 미만이 두 번 연속)은 다음부터 화질을 한 단계 낮춰서 엶
 function camTune(fps) {
   try {
@@ -701,16 +775,22 @@ async function checkPhoto(qid) {
     if (r.ocr_status === "error") break;
     if (r.ocr_status !== "done") continue;
     if (!r.bad) { $("chk").innerHTML = "✅ 문제 잘 찍혔어"; autoHome(); return; }
-    // 잘림 → 다시 찍기 안내
-    $("doneBox").innerHTML = `
+    // 못 읽는 사진 → 다시 찍기 안내. 흔들리거나 흐린 사진이면 그렇게 말해 줌 (전에는 무조건 '잘렸어'라고 나와서 학생이 뭘 고쳐야 할지 몰랐음)
+    const blur = /흐|흔들|초점|번지|뭉개/.test(r.note || "");
+    klog("bad_photo", { blur, note: String(r.note || "").slice(0, 80) });
+    $("doneBox").innerHTML = blur ? `
+      <div class="big" style="color:var(--red)">사진이 흔들렸어</div>
+      <div class="muted">글자가 흐려서 선생님이 출력을 못 해.<br><b>폰을 두 손으로 잡고</b>, 누른 뒤 화면이 바뀔 때까지 가만히 있어줘.</div>
+      <button class="btn red" id="retakeNow">📷 다시 찍기</button>
+      <button class="btn navy" id="retakeNative">기본 카메라로 다시 찍기</button>
+      <button class="btn ghost" id="keepIt">그냥 둘래</button>` : `
       <div class="big" style="color:var(--red)">문제가 잘렸어</div>
       <div class="muted">문제 글이나 보기가 사진 밖으로 잘려서 선생님이 출력을 못 해.<br><b>문제 전체가 화면에 다 들어오게</b> 조금 떨어져서 다시 찍어줘.</div>
       <button class="btn red" id="retakeNow">📷 다시 찍기</button>
       <button class="btn ghost" id="keepIt">그냥 둘래</button>`;
-    $("retakeNow").onclick = async () => {
-      try { await call("kiosk_retake", { session: SESSION, id: qid }); } catch (_) {}
-      openCamera();
-    };
+    const drop = async () => { try { await call("kiosk_retake", { session: SESSION, id: qid }); } catch (_) {} };
+    $("retakeNow").onclick = async () => { await drop(); openCamera(); };
+    if ($("retakeNative")) $("retakeNative").onclick = async () => { await drop(); show("sShoot"); openNativeCamera(); };
     $("keepIt").onclick = showHome;
     return;
   }

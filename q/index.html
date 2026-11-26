@@ -538,27 +538,29 @@ function grabFrame(v, vw, vh) {
 }
 // 누른 뒤: 0.25초는 안 보고(누르는 손떨림), 0.65초까지는 또렷함만 재고, 그 뒤 '지금까지 본 것 중 가장 또렷한 수준'이 이어지는 장면이 오면 그 장면을 씀.
 // 계속 흔들리면 1.3초부터 기준을 낮추고, 1.7초에는 그냥 찍음. 도중에 취소되면 null.
+// 또렷함 재는 데만 0.35초 넘게 걸리는 느린 폰은(표시해 둠) 재지 않고 누른 뒤 0.45초 지난 장면을 씀.
+const shSlow = () => { try { return localStorage.getItem("qshslow") === "1"; } catch (_) { return false; } };
 function steadyShot(v, vw, vh, my) {
   return new Promise((resolve) => {
-    const T0 = performance.now(), SETTLE = 250, LEARN = 650, RELAX = 1300, LAST = 1700, HARD = 3200;
+    const T0 = performance.now(), SETTLE = 250, LEARN = 650, RELAX = 1300, LAST = 1700, HARD = 3200, slow = shSlow();
     const es = []; let best = 0, done = false, wd = 0, tScore = 0, regrab = 0;
     shotAbort = () => { if (done) return; done = true; clearTimeout(wd); shotAbort = null; resolve(null); };
-    // 지금 장면을 사진으로 옮김. 옮겨 온 사진을 다시 재서, 재는 사이 다음 장면으로 넘어가 훨씬 흐려졌으면 false (한 번 더 기다림)
-    const grab = (why, r, final) => {
+    // 지금 장면을 사진으로 옮김. verify: 옮겨 온 사진을 다시 재서, 재는 사이 다음 장면으로 넘어가 훨씬 흐려졌으면 false (한 번 더 기다림)
+    const grab = (why, r, verify) => {
       if (done) return true;
       if (my !== camSeq || !camStream) { shotAbort(); return true; }
-      let got = null, td = 0;
+      let got = null, td = 0, tv = 0;
       try {
         const t1 = performance.now();
         grabFrame(v, vw, vh);
         td = performance.now() - t1;
-        try { got = sharpOf(img, img.width, img.height); } catch (_) {}
+        if (verify) { try { got = sharpOf(img, img.width, img.height); } catch (_) {} tv = performance.now() - t1 - td; }
       } catch (e) { done = true; clearTimeout(wd); shotAbort = null; resolve({ err: String(e && e.message || e).slice(0, 200) }); return true; }
-      if (!final && got && r && got.e < r.e * 0.8 && got.e < best * 0.8 && regrab < 2) { regrab++; return false; }
+      if (verify && got && r && got.e < r.e * 0.8 && got.e < best * 0.8 && regrab < 2) { regrab++; return false; }
       done = true; clearTimeout(wd); shotAbort = null;
-      const g = got || r || { e: 0, mx: 255 };
-      resolve({ blank: g.mx < 10, why, n: es.length, e: Math.round(g.e), eb: Math.round(best), es: es.slice(0, 14).join(","), rg: regrab,
-        ts: es.length ? Math.round(tScore / es.length) : 0, td: Math.round(td), t: Math.round(performance.now() - T0) });
+      const g = got || r;
+      resolve({ blank: !!g && g.mx < 10, why, n: es.length, e: g ? Math.round(g.e) : null, eb: Math.round(best), es: es.slice(0, 14).join(","), rg: regrab,
+        ts: es.length ? Math.round(tScore / es.length) : 0, td: Math.round(td), tv: Math.round(tv), t: Math.round(performance.now() - T0) });
       return true;
     };
     const next = () => { if (done) return; if (v.requestVideoFrameCallback) v.requestVideoFrameCallback(onFrame); else setTimeout(onFrame, 70); };
@@ -567,18 +569,24 @@ function steadyShot(v, vw, vh, my) {
       if (my !== camSeq) return shotAbort();
       const t = performance.now() - T0;
       if (t < SETTLE) return next();
+      if (slow) { if (t < 450) return next(); grab("delay", null, false); return; }
+      if (es.length && tScore / es.length > 350) {
+        try { localStorage.setItem("qshslow", "1"); } catch (_) {}
+        klog("shot_slow", { ts: Math.round(tScore / es.length), vw, vh });
+        grab("slow", null, false); return;
+      }
       let r; const ts0 = performance.now();
-      try { r = sharpOf(v, vw, vh); } catch (_) { grab("noscore", null, true); return; }   // 또렷함을 못 재는 폰이면 그냥 지금 장면
+      try { r = sharpOf(v, vw, vh); } catch (_) { grab("noscore", null, false); return; }   // 또렷함을 못 재는 폰이면 그냥 지금 장면
       // rising: 이 장면이 지금까지 본 것보다 15% 넘게 더 또렷함 = 아직 흔들림이 가라앉는 중 → 다음 장면에서 그 수준이 유지되는지 보고 찍음
       const rising = r.e > best * 1.15;
       tScore += performance.now() - ts0; es.push(Math.round(r.e)); if (r.e > best) best = r.e;
       if (t >= LEARN) {
         const need = t < RELAX ? 0.92 : t < LAST ? 0.8 : 0;
-        if (r.e >= best * need && (!rising || t >= RELAX) && grab(t < RELAX ? "sharp" : t < LAST ? "relax" : "last", r, t >= LAST)) return;
+        if (r.e >= best * need && (!rising || t >= RELAX) && grab(t < RELAX ? "sharp" : t < LAST ? "relax" : "last", r, t < LAST)) return;
       }
       next();
     };
-    wd = setTimeout(() => grab("timeout", null, true), HARD);   // 장면이 더 안 들어오는 폰에서도 멈춰 있지 않게
+    wd = setTimeout(() => grab("timeout", null, false), HARD);   // 장면이 더 안 들어오는 폰에서도 멈춰 있지 않게
     next();
   });
 }
@@ -598,7 +606,7 @@ $("shutter").onclick = async () => {
     toast("사진이 안 찍혔어. 한 번 더 눌러줘"); $("shutter").disabled = false; msg.textContent = msg0; return;
   }
   stopCam(); show("sCrop");
-  klog("photo", { src: "incam", w: img.width, h: img.height, ms: Date.now() - t0, fps, lv: camLv(), why: st.why, n: st.n, e: st.e, eb: st.eb, es: st.es, rg: st.rg, ts: st.ts, td: st.td, t: st.t, ...memInfo() });
+  klog("photo", { src: "incam", w: img.width, h: img.height, ms: Date.now() - t0, fps, lv: camLv(), why: st.why, n: st.n, e: st.e, eb: st.eb, es: st.es, rg: st.rg, ts: st.ts, td: st.td, tv: st.tv, t: st.t, ...memInfo() });
   camTune(fps);
 };
 // 카메라 화면이 뚝뚝 끊기는 폰(1초에 8장 미만이 두 번 연속)은 다음부터 화질을 한 단계 낮춰서 엶

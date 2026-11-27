@@ -86,7 +86,7 @@
   .linkbtn { border:0; background:none; color:var(--muted); font-size:15px; text-decoration:underline; padding:10px; }
   .chk { font-size:14px; color:var(--muted); display:flex; align-items:center; gap:8px; min-height:22px; }
   .spinner.sm { width:16px; height:16px; border-width:3px; }
-  #toast { position:fixed; left:50%; bottom:24px; transform:translateX(-50%); background:var(--navy); color:#fff; padding:12px 18px; border-radius:12px; font-size:15px; display:none; max-width:90%; }
+  #toast { position:fixed; left:50%; bottom:24px; transform:translateX(-50%); background:var(--navy); color:#fff; padding:12px 18px; border-radius:12px; font-size:15px; display:none; max-width:90%; pointer-events:none; }
 </style>
 </head>
 <body>
@@ -249,7 +249,7 @@ window.addEventListener("unhandledrejection", (e) => klog("promise_error", { msg
   window.addEventListener("pagehide", () => { beat("closed"); flushLog(); });
   window.addEventListener("pageshow", (e) => { if (e.persisted) { closed = false; beat(document.visibilityState); } });
   setTimeout(() => klog("open", { standalone: matchMedia("(display-mode: standalone)").matches, ua: navigator.userAgent.slice(0, 160),
-    cw: typeof CloseWatcher !== "undefined", hl: history.length, ...memInfo() }), 800);
+    cw: typeof CloseWatcher !== "undefined", hl: history.length, cam: "native", nf: (() => { try { return Number(localStorage.getItem("qnatfail")) || 0; } catch (_) { return 0; } })(), ...memInfo() }), 800);
 })();
 
 // 기기 토큰: 처음 한 번 ?k=… 로 열면 기기에 저장
@@ -291,6 +291,7 @@ let idleT;
 ["pointerdown", "keydown"].forEach((ev) => document.addEventListener(ev, () => resetIdle(), { capture: true, passive: true }));
 function resetIdle() { clearTimeout(idleT); idleT = setTimeout(() => {
   if (busy || $("sName").classList.contains("on") || $("sHome").classList.contains("on")) return;
+  if (natAway) { resetIdle(); return; }   // 기본 카메라에 가 있는 중 → 돌아올 때까지 미룸
   if (cur && SESSION) showHome(); else goNames();
 }, 90000); }
 ["pointerdown", "keydown"].forEach(e => document.addEventListener(e, resetIdle));
@@ -407,7 +408,7 @@ function freePhoto() {
 }
 function showHome() { try { stopCam(); } catch (_) {} freePhoto(); $("homeName").textContent = cur.name; $("whoName").textContent = cur.name; show("sHome"); }
 $("cancelBtn").onclick = () => showHome();
-$("askBtn").onclick = () => { openCamera(); };
+$("askBtn").onclick = () => startShoot();
 $("logoutBtn").onclick = async () => {
   const s = SESSION; saveSession(""); goNames();
   if (s) call("kiosk_logout", { session: s }).catch(() => {});
@@ -453,10 +454,27 @@ $("pad").onclick = async (e) => {
 };
 
 // ───── 2. 찍기 ─────
-// 카메라 여는 동안 폰 메모리가 부족하면 이 페이지가 꺼졌다 다시 열림 → 표시해 두고 돌아왔을 때 안내
-// 폰 기본 카메라 앱 (앱 안 카메라가 안 될 때만)
-const openNativeCamera = () => { stopCam(); try { sessionStorage.setItem("camOpen", String(Date.now())); } catch (_) {} $("file").value = ""; $("file").click(); };
-// 앱 안 카메라: 페이지를 떠나지 않고 찍음 → 카메라 앱 갔다 오다 페이지가 꺼지는 일 없음
+// 찍기 = 폰 기본 카메라. (2026-11-27 원장 요청: 앱 안 카메라는 화면이 끊겨서 답답함. 11/20~11/27 은 앱 안 카메라가 기본이었음)
+// 카메라 앱에 가 있는 동안 폰 메모리가 부족하면 이 페이지가 꺼졌다 다시 열림 → 표시(camOpen)해 두고, 다시 열렸을 때 안내.
+// 페이지가 살아서 돌아오면(찍었든 취소했든) 표시를 지움. 그 일이 한 폰에서 연달아 2번 나면 그때만 앱 안 카메라로 찍게 함.
+const natFails = () => { try { return Number(localStorage.getItem("qnatfail")) || 0; } catch (_) { return 0; } };
+const setNatFails = (n) => { try { localStorage.setItem("qnatfail", String(n)); } catch (_) {} };
+let natT = 0, natAway = false, natLoad = false;   // natT: 기본 카메라를 연 시각 / natAway: 카메라 앱에 가 있거나 막 돌아와 사진을 기다리는 중 / natLoad: 사진 읽는 중
+const openNativeCamera = () => {
+  stopCam(); freePhoto();   // 카메라 앱이 메모리를 많이 쓰니 가기 전에 들고 있던 사진부터 반납
+  natT = Date.now(); try { sessionStorage.setItem("camOpen", String(natT)); } catch (_) {}
+  $("file").value = ""; $("file").click();
+};
+document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState === "hidden") { if (natT && Date.now() - natT < 15000) natAway = true; return; }   // 카메라 앱으로 넘어감
+  try { sessionStorage.removeItem("camOpen"); } catch (_) {}                                                     // 페이지가 살아서 돌아옴
+  if (natAway) setTimeout(() => { if (!natLoad) natAway = false; }, 3000);                                        // 사진 없이(취소) 돌아온 경우
+});
+function startShoot() {
+  if (natFails() >= 2 && !camBroken) { openCamera(); return; }   // 기본 카메라만 가면 페이지가 꺼지는 폰
+  $("shootNote").textContent = ""; show("sShoot"); openNativeCamera();
+}
+// 앱 안 카메라 (예비): 페이지를 떠나지 않고 찍음 → 카메라 앱 갔다 오다 페이지가 꺼지는 일 없음
 let camStream = null, camSeq = 0, camFrames = 0, camT1 = 0, camBroken = "";
 const CAM_SIZES = [[2560, 1920], [1920, 1440]];
 const camLv = () => { try { return localStorage.getItem("qcamlv") === "1" ? 1 : 0; } catch (_) { return 0; } };
@@ -466,7 +484,7 @@ function stopCam() { camSeq++; try { shotAbort && shotAbort(); } catch (_) {} tr
 // 앱 안 카메라가 안 되는 폰: '문제 찍기' 화면으로 보내고 기본 카메라를 엶 (기본 카메라를 취소해도 검은 화면에 안 갇힘)
 function camFallback(why) {
   camBroken = why || "x";
-  $("shootNote").textContent = why === "NotAllowedError" ? "이 폰은 카메라 권한이 꺼져 있어서 기본 카메라로 찍어야 해. 선생님한테 알려줘!" : "";
+  $("shootNote").textContent = "";
   show("sShoot"); openNativeCamera();
 }
 async function openCamera() {
@@ -608,6 +626,7 @@ $("shutter").onclick = async () => {
   stopCam(); show("sCrop");
   klog("photo", { src: "incam", w: img.width, h: img.height, ms: Date.now() - t0, fps, lv: camLv(), why: st.why, n: st.n, e: st.e, eb: st.eb, es: st.es, rg: st.rg, ts: st.ts, td: st.td, tv: st.tv, t: st.t, ...memInfo() });
   camTune(fps);
+  if (natFails() >= 2) setNatFails(1);   // 예비 카메라로 한 장 찍었으면, 다음엔 기본 카메라를 다시 한 번 시도
 };
 // 카메라 화면이 뚝뚝 끊기는 폰(1초에 8장 미만이 두 번 연속)은 다음부터 화질을 한 단계 낮춰서 엶
 function camTune(fps) {
@@ -624,14 +643,22 @@ document.addEventListener("visibilitychange", () => {
   if (document.visibilityState === "hidden") { if (onCam || camStream) stopCam(); }
   else if (onCam && !camStream) openCamera();
 });
-$("shootBtn").onclick = () => { if (camBroken) openNativeCamera(); else openCamera(); };
-$("retakeBtn").onclick = openCamera;
+$("shootBtn").onclick = () => openNativeCamera();
+$("retakeBtn").onclick = () => startShoot();
 $("file").onchange = async () => {
   try { sessionStorage.removeItem("camOpen"); } catch (_) {}
   const f = $("file").files[0]; if (!f) return;
-  const t0 = Date.now();
-  try { await loadPhoto(f); show("sCrop"); klog("photo", { fileMB: +(f.size / 1048576).toFixed(1), w: img && img.width, h: img && img.height, ms: Date.now() - t0, ...memInfo() }); }
-  catch (e) { klog("photo_fail", { msg: String(e && e.message || e).slice(0, 200), fileMB: +(f.size / 1048576).toFixed(1), ...memInfo() }); toast("사진을 못 읽었어. 다시 찍어줘."); }
+  const t0 = Date.now(), away = natT ? t0 - natT : null, btn = $("shootBtn"), label = "📷 카메라 열기";
+  natLoad = natAway = true;
+  if (!$("sShoot").classList.contains("on")) show("sShoot");    // 카메라에 오래 있다 와서 홈으로 넘어가 있었으면 다시 이 화면으로
+  btn.disabled = true; btn.textContent = "사진 불러오는 중…";   // 큰 사진을 줄여 읽는 2~3초 동안 멈춘 것처럼 보이지 않게
+  try {
+    await loadPhoto(f); setNatFails(0);
+    if (!$("sShoot").classList.contains("on")) { freePhoto(); return; }   // 읽는 사이 취소·뒤로가기를 눌렀으면 그대로 둠
+    show("sCrop");
+    klog("photo", { src: "native", fileMB: +(f.size / 1048576).toFixed(1), w: img && img.width, h: img && img.height, ms: Date.now() - t0, away, ...memInfo() });
+  } catch (e) { klog("photo_fail", { msg: String(e && e.message || e).slice(0, 200), fileMB: +(f.size / 1048576).toFixed(1), ...memInfo() }); toast("사진을 못 읽었어. 다시 찍어줘."); }
+  finally { btn.disabled = false; btn.textContent = label; natLoad = natAway = false; }
 };
 
 // ───── 3. 자르기 ─────
@@ -788,17 +815,15 @@ async function checkPhoto(qid) {
     klog("bad_photo", { blur, note: String(r.note || "").slice(0, 80) });
     $("doneBox").innerHTML = blur ? `
       <div class="big" style="color:var(--red)">사진이 흔들렸어</div>
-      <div class="muted">글자가 흐려서 선생님이 출력을 못 해.<br><b>폰을 두 손으로 잡고</b>, 누른 뒤 화면이 바뀔 때까지 가만히 있어줘.</div>
+      <div class="muted">글자가 흐려서 선생님이 출력을 못 해.<br><b>폰을 두 손으로 잡고</b>, 글자가 또렷하게 보일 때 찍어줘.</div>
       <button class="btn red" id="retakeNow">📷 다시 찍기</button>
-      <button class="btn navy" id="retakeNative">기본 카메라로 다시 찍기</button>
       <button class="btn ghost" id="keepIt">그냥 둘래</button>` : `
       <div class="big" style="color:var(--red)">문제가 잘렸어</div>
       <div class="muted">문제 글이나 보기가 사진 밖으로 잘려서 선생님이 출력을 못 해.<br><b>문제 전체가 화면에 다 들어오게</b> 조금 떨어져서 다시 찍어줘.</div>
       <button class="btn red" id="retakeNow">📷 다시 찍기</button>
       <button class="btn ghost" id="keepIt">그냥 둘래</button>`;
     const drop = async () => { try { await call("kiosk_retake", { session: SESSION, id: qid }); } catch (_) {} };
-    $("retakeNow").onclick = async () => { await drop(); openCamera(); };
-    if ($("retakeNative")) $("retakeNative").onclick = async () => { await drop(); show("sShoot"); openNativeCamera(); };
+    $("retakeNow").onclick = async () => { await drop(); startShoot(); };
     $("keepIt").onclick = showHome;
     return;
   }
@@ -886,7 +911,7 @@ document.addEventListener("visibilitychange", () => { if (document.visibilitySta
 document.addEventListener("visibilitychange", async () => {
   if (document.visibilityState !== "visible") return;
   const idleScreen = $("sName").classList.contains("on") || $("sHome").classList.contains("on");
-  if (hiddenAt && Date.now() - hiddenAt > 3 * 60e3 && idleScreen && !busy && !$("nameIn").value) { location.reload(); return; }
+  if (hiddenAt && Date.now() - hiddenAt > 3 * 60e3 && idleScreen && !busy && !natAway && !$("nameIn").value) { location.reload(); return; }
   keepAwake();
   if ($("sCrop").classList.contains("on")) requestAnimationFrame(layoutCrop);  // 지워진 사진 다시 그리기
   if (busy) return;
@@ -902,6 +927,7 @@ document.addEventListener("visibilitychange", async () => {
 (async () => {
   let camLost = false;
   try { const t = Number(sessionStorage.getItem("camOpen") || 0); camLost = t && Date.now() - t < 10 * 60e3; sessionStorage.removeItem("camOpen"); } catch (_) {}
+  if (camLost) { setNatFails(natFails() + 1); klog("nat_lost", { n: natFails() }); }
   if (!SESSION || !TOKEN) return;
   try {
     const { student } = await call("kiosk_me", { session: SESSION });

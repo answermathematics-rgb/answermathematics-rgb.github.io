@@ -875,7 +875,7 @@ $("confirmSendBtn").onclick = async () => {
       <button class="btn ghost" id="moreBtn">📷 새로 찍기</button>
       <button class="btn ghost" id="endBtn">확인</button>`;
     $("sameBtn").onclick = () => { sel = { x: 0, y: 0, w: cv.width, h: cv.height }; draw(); show("sCrop"); toast("이번엔 다른 문제에 네모를 맞춰줘"); };
-    $("moreBtn").onclick = () => { openCamera(); };
+    $("moreBtn").onclick = () => startShoot();
     $("endBtn").onclick = showHome;
     clearTimeout(window._auto);
     checkPhoto(qid);
